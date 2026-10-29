@@ -1,0 +1,34 @@
+1:"$Sreact.fragment"
+2:"/_next/static/chunks/17vy6_o-htx3-.js"
+3:"SubscriptionProvider"
+4:I[27546,["$2"],"$3"]
+5:I[93610,["$2"],"ToastProvider"]
+6:I[39756,["$2"],"default"]
+7:I[37457,["$2"],"default"]
+8:"/_next/static/chunks/2075gemtrf1ca.js"
+9:I[22016,["$2","$8"],""]
+10:I[84360,["$2","$8"],"MarketingNavbar"]
+11:I[84360,["$2","$8"],"MarketingFooter"]
+12:I[97367,["$2"],"OutletBoundary"]
+13:"$Sreact.suspense"
+16:"ViewportBoundary"
+17:I[97367,["$2"],"$16"]
+18:"MetadataBoundary"
+19:I[97367,["$2"],"$18"]
+1a:I[27201,["$2"],"IconMark"]
+:HL["/_next/static/chunks/2tmh8fmsgia2d.css","style"]
+b:X
+e:X
+e:C
+f:[["children",{"s":"__PAGE__","h":160,"d":{"r":["$","$1","c",{"children":[[["$","$L10",null,{}],["$","main",null,{"className":"page-main","children":[["$","section",null,{"className":"page-hero","children":[["$","p",null,{"className":"section-label","children":"About PULSE"}],["$","h1",null,{"children":["Technology should",["$","br",null,{}],"help work feel",["$","br",null,{}],["$","em",null,{"children":"more human."}]]}],["$","p",null,{"children":"PULSE is a frontend product concept built around a simple belief: useful wellbeing insights require trust, context, and firm privacy boundaries."}]]}],["$","section",null,{"className":"section about-grid","children":[["$","article",null,{"children":[["$","span",null,{"children":"01"}],["$","h2",null,{"children":"Awareness without surveillance"}],["$","p",null,{"children":"Personal activity timing can help people understand their own rhythm. It should never become a way to watch their screen, read their keystrokes, or score their worth."}]]}],["$","article",null,{"children":[["$","span",null,{"children":"02"}],["$","h2",null,{"children":"Signals before emergencies"}],["$","p",null,{"children":"Anonymous weekly check-ins make it easier to notice sustained changes in stress and workload—and start a supportive conversation earlier."}]]}],["$","article",null,{"children":[["$","span",null,{"children":"03"}],["$","h2",null,{"children":"Privacy people can explain"}],["$","p",null,{"children":"No dark patterns. Managers see aggregates only, groups below five responses disappear, and every part of the product explains what is tracked."}]]}]]}],["$","section",null,{"className":"cta-strip","children":[["$","div",null,{"children":[["$","p",null,{"children":"See the product concept in action."}],["$","h2",null,{"children":"Build a healthier work rhythm."}]]}],["$","$L9",null,{"href":"/login?mode=signup","className":"button button-light","children":["Start free ",["$","svg",null,{"width":22,"height":22,"viewBox":"0 0 24 24","fill":"none","stroke":"currentColor","strokeWidth":"1.8","strokeLinecap":"round","strokeLinejoin":"round","aria-hidden":"true","children":["$","path",null,{"d":"M5 12h14M14 6l6 6-6 6"}]}]]}]]}]]}],["$","$L11",null,{}]],[["$","script","script-0",{"src":"/_next/static/chunks/2075gemtrf1ca.js","async":true}]],["$","$L12",null,{"children":["$","$13",null,{"name":"Next.MetadataOutlet","children":"$@14"}]}]]}],"p":"$@15","v":null,"s":"$b"}}]]
+c:[["children",{"s":"about","h":96,"d":{"r":["$","$1","c",{"children":[null,["$","$L6",null,{"parallelRouterKey":"children","template":["$","$L7",null,{}]}]]}],"p":"$@d","v":"$e","s":"$b"},"c":"$Qf"}]]
+0:{"t":{"t":{"s":"","h":80,"d":{"r":["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/chunks/2tmh8fmsgia2d.css","precedence":"next"}],["$","script","script-0",{"src":"/_next/static/chunks/17vy6_o-htx3-.js","async":true}]],["$","html",null,{"lang":"en","children":["$","body",null,{"children":["$","$L4",null,{"children":["$","$L5",null,{"children":["$","$L6",null,{"parallelRouterKey":"children","template":["$","$L7",null,{}],"notFound":[["$","main",null,{"className":"not-found","children":[["$","$L9",null,{"href":"/","className":"logo ","aria-label":"PULSE home","children":[["$","span",null,{"className":"logo-mark","aria-hidden":"true","children":[["$","i",null,{}],["$","i",null,{}],["$","i",null,{}],["$","i",null,{}]]}],["$","span",null,{"children":"PULSE"}]]}],["$","p",null,{"className":"section-label","children":"404 · Signal not found"}],["$","h1",null,{"children":["This page went",["$","br",null,{}],"off the radar."]}],["$","p",null,{"children":"The link may be outdated, or the page may have moved."}],["$","$L9",null,{"href":"/","className":"button","children":"Return home"}]]}],[]]}]}]}]}]}]]}],"p":"$@a","v":null,"s":"$b"},"c":"$Qc"},"h":{"r":["$","$1","h",{"children":[null,["$","$L17",null,{"children":[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1, viewport-fit=cover"}]]}],["$","$L19",null,{"children":[["$","div",null,{"hidden":true,"children":["$","$13",null,{"name":"Next.Metadata","children":[["$","title","0",{"children":"About · PULSE"}],["$","meta","1",{"name":"description","content":"Private time awareness and anonymous team wellbeing signals in one calm workspace."}],["$","link","2",{"rel":"icon","href":"/favicon.ico?favicon.117ezoe8m31dk.ico","sizes":"48x48","type":"image/x-icon"}],["$","$L1a","3",{}]]}]}],null]}],null]}],"p":"$@1b","v":null,"s":"$b"}},"a":"$@1c","u":"$@1d","b":"nxIpbjYK1wuVwwWjPTemE"}
+14:null
+b:300
+1d:true
+b:C
+1c:0
+d:"$undefined"
+a:"$undefined"
+1b:"$undefined"
+15:"$undefined"

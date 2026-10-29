@@ -1,0 +1,40 @@
+import Link from "next/link";
+import { MarketingNavbar, MarketingFooter, FAQ } from "@/components/Marketing";
+import { Reveal } from "@/components/Reveal";
+import { Icon, type IconName } from "@/components/Icon";
+import { PricingPlans } from "@/components/Plans";
+import { Sparkline, SvgDonut } from "@/components/Charts";
+
+const features: { title: string; text: string; icon: IconName }[] = [
+  { title: "Time Tracking", text: "Automatic, private work sessions that start with your first activity and recover cleanly across reloads.", icon: "clock" },
+  { title: "Idle Detection", text: "A configurable pause prompt lets you keep, discard, or take a break—without judging your day.", icon: "pulse" },
+  { title: "Anonymous Pulses", text: "A two-minute weekly check-in for mood, stress, and workload. Individual answers stay private.", icon: "shield" },
+  { title: "Burnout Alerts", text: "See team-level changes early, with minimum group sizes and no individual surveillance.", icon: "bell" },
+  { title: "Reports", text: "Turn activity and wellbeing trends into clear, exportable summaries for better conversations.", icon: "chart" },
+];
+
+export default function Home() {
+  return <div className="landing"><MarketingNavbar/><main>
+    <section className="hero"><div className="hero-grid-lines" aria-hidden="true"/><div className="hero-copy"><div className="hero-kicker"><span className="live-dot"/>Private by design · Human by default</div><h1><span>Work better.</span><span>Notice sooner.</span></h1><p>PULSE pairs private activity timing with anonymous weekly check-ins, so people understand their energy and teams act before strain becomes burnout.</p><div className="hero-actions"><Link href="/login?mode=signup" className="button button-light">Start 7 days free <Icon name="arrow"/></Link><Link href="#how-it-works" className="button button-ghost-light">See how it works</Link></div><small>No credit card · No screen monitoring · Cancel anytime</small></div>
+      <div className="hero-product"><div className="animated-frame"><div className="product-preview"><div className="preview-top"><div><span className="preview-label">Team wellbeing</span><h2>Good morning, Alex.</h2></div><span className="status-chip"><i/>Live demo</span></div><div className="preview-grid"><div className="preview-score"><span>Team morale</span><strong>4.2<small>/ 5</small></strong><p><b>↑ 8%</b> from last week</p><Sparkline data={[3.7,3.8,3.9,3.8,4,4.1,4.2]}/></div><div className="preview-donut"><SvgDonut productive={84} size={170}/></div></div><div className="preview-alert"><Icon name="spark"/><div><strong>Your weekly pulse is ready</strong><span>2 minutes · Always anonymous</span></div><Icon name="arrow"/></div></div></div></div>
+    </section>
+
+    <section className="manifesto section"><Reveal><p className="section-label">The problem isn’t a lack of data.</p><h2>Your team shouldn’t have to <em>burn out</em> to be heard.</h2><div className="manifesto-grid"><p>Most tools choose between productivity numbers and employee voice. PULSE brings them together without turning people into data points.</p><div className="callout"><Icon name="shield" size={30}/><strong>Privacy is the product.</strong><span>Activity timing only. Never keystrokes, screen content, or URLs. Team insights require at least five responses.</span></div></div></Reveal></section>
+
+    <section className="features section" id="features"><Reveal><div className="section-heading"><div><p className="section-label">One calm workspace</p><h2>Less monitoring.<br/>More meaning.</h2></div><p>Personal awareness for employees. Aggregated signals for managers. Clear boundaries for everyone.</p></div><div className="feature-grid">{features.map((feature, i) => <article key={feature.title} className={`feature-item feature-${i+1}`}><Icon name={feature.icon} size={32}/><span>0{i+1}</span><h3>{feature.title}</h3><p>{feature.text}</p></article>)}</div></Reveal></section>
+
+    <section className="how section" id="how-it-works"><Reveal><p className="section-label">From signal to support</p><h2>A healthier rhythm<br/>in three steps.</h2><div className="steps">{[
+      ["Track your day, privately", "PULSE starts with your first activity, separates idle time, and lets you tag work by productivity."],
+      ["Share a two-minute pulse", "Once a week, check in on mood, stress, and workload. Add a comment only if you want to."],
+      ["Act on the team pattern", "Managers see aggregated trends and early alerts—never an individual employee’s answers."],
+    ].map(([title,text],i) => <article key={title}><strong>0{i+1}</strong><div className="step-line"/><h3>{title}</h3><p>{text}</p></article>)}</div></Reveal></section>
+
+    <section className="pricing-section section" id="pricing"><Reveal><div className="section-heading"><div><p className="section-label">Simple pricing</p><h2>Start with seven<br/>days on us.</h2></div><p>Every plan begins with a full-featured free trial. No card required. Demo checkout only.</p></div><PricingPlans/></Reveal></section>
+
+    <section className="testimonials section"><Reveal><p className="section-label">A better conversation starts here</p><h2>“We stopped guessing<br/>how work felt.”</h2><div className="quote-grid"><blockquote><p>“The idle prompt feels like a gentle pause, not a surveillance tool. I finally understand where my energy goes.”</p><footer><strong>Maya Chen</strong><span>Product designer · Demo story</span></footer></blockquote><blockquote><p>“The five-response minimum made our team comfortable enough to participate. The trends are now part of our retros.”</p><footer><strong>Jon Bell</strong><span>Engineering lead · Demo story</span></footer></blockquote></div></Reveal></section>
+
+    <section className="faq-section section"><Reveal><div className="section-heading"><div><p className="section-label">Questions, answered</p><h2>Clarity before<br/>you commit.</h2></div><p>Need something else? <Link href="/contact" className="underlined">Talk to our demo team.</Link></p></div><FAQ/></Reveal></section>
+
+    <section className="cta-strip"><div><p>Seven days. One healthier habit.</p><h2>Ready to hear your team?</h2></div><Link href="/login?mode=signup" className="button button-light">Start your free trial <Icon name="arrow"/></Link></section>
+  </main><MarketingFooter/></div>;
+}
