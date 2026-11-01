@@ -1,6 +1,6 @@
 # PULSE
 
-PULSE is an employee feedback and burnout-monitoring application. This repository contains the existing Next.js demo frontend and a separately deployable Express/TypeScript REST API in [`backend/`](./backend/). The API is the source of truth for authentication, organization-scoped data, time sessions, anonymous pulses, analytics, billing, and reports.
+PULSE is an employee feedback and burnout-monitoring application. This repository contains a Next.js frontend and a separately deployable Express/TypeScript REST API in [`backend/`](./backend/). The API is the source of truth for authentication, organization-scoped data, time sessions, anonymous pulses, analytics, billing, and reports.
 
 ## Requirements
 
@@ -26,11 +26,11 @@ npm run api:dev
 
 The API listens on the configured `PORT` (default `4000`). Use `GET /health` for liveness and `GET /health/ready` to verify its MongoDB connection. The OpenAPI reference is served at `/api/docs`.
 
-The frontend remains independently runnable with `npm run dev`. It is still a demo client and currently uses its existing local mock data; this backend does not change or implicitly connect that frontend.
+Keep the API running, then start the frontend in a second terminal with `npm run dev`. The login page connects to `http://localhost:4000/api/v1` by default, so login and signup will not work until MongoDB and the API are available. Set `NEXT_PUBLIC_API_URL` when the API is hosted elsewhere, and include the frontend origin in the API's `CORS_ORIGINS`.
 
 ## Environment
 
-See [`backend/.env.example`](./backend/.env.example) for the complete variable list and descriptions. At minimum configure `MONGODB_URI`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `CORS_ORIGIN`, and Stripe test-mode credentials before using the corresponding features. Secrets must be strong, unique values in deployed environments.
+See [`backend/.env.example`](./backend/.env.example) for the complete variable list and descriptions. At minimum configure `MONGODB_URI`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, and `CORS_ORIGINS`. Stripe test-mode credentials and plan price IDs are required to enable checkout and billing. Secrets must be strong, unique values in deployed environments.
 
 ## Commands
 

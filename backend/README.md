@@ -1,0 +1,60 @@
+# PULSE backend
+
+Express + TypeScript + Mongoose API for PULSE. All API endpoints are versioned under `/api/v1`; the API landing page is `/api/docs` and the machine-readable contract is `/api/openapi.yaml`.
+
+## Run locally
+
+1. Copy `.env.example` to `.env`, set distinct random `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET` values, and configure MongoDB.
+2. Use Node.js 20.19+ and run `npm install`
+3. `npm run dev`
+
+MongoDB must be reachable before the server starts. `GET /api/v1/health/live` is the liveness probe; `/api/v1/health/ready` also checks MongoDB readiness.
+
+## Scripts
+
+- `npm run dev` — watch-mode server
+- `npm run build` — compile TypeScript into `dist/`
+- `npm run lint` — static lint
+- `npm test` — Vitest unit and Supertest suite
+- `npm run migrate:legacy` — add current workspace and subscription fields to legacy accounts and teams
+- `npm run seed` — create an owner using `SEED_EMAIL`, `SEED_PASSWORD` (12+ characters), and `SEED_NAME` environment variables
+- `npm start` — start compiled server
+
+Run `npm run migrate:legacy` once when upgrading a database created by the original PULSE demo. The migration validates all affected workspace and subscription references before updating accounts and teams. It adds the current fields while retaining the legacy fields and collections, so existing records are not deleted.
+
+`docker compose up --build` runs the API and MongoDB. Configure the required Compose variables in the shell or an untracked backend `.env` file.
+
+## Security and privacy
+
+Passwords use bcrypt cost 12. Access tokens are short-lived JWTs; refresh tokens are random, hashed at rest, rotated on every refresh, and family-revoked when reuse is detected. Refresh tokens are only returned in an HTTP-only cookie. Tenant IDs are derived from the authenticated user, never accepted as caller-controlled scope.
+
+MongoDB indexes (including tenant uniqueness, refresh-token expiry, and invitation expiry indexes) are created on production startup before the API listens. For large pre-existing databases, schedule index builds as part of a maintenance deployment.
+
+Pulse responses contain only team/workspace identifiers, week, and three bounded ratings. Optional comments are discarded. User-linked weekly receipts are stored separately from response records. Team aggregates, alerts, and reports omit groups below five responses; no individual pulse response/comment is exposed. Activity records are visible to their owner only.
+
+## Burnout score and alerts
+
+The weekly team score normalizes each rating to a 0–100 risk value:
+
+- stress risk = `(average stress - 1) / 4 × 100` (30% weight)
+- workload risk = `(average workload - 1) / 4 × 100` (25% weight)
+- inverse mood risk = `(5 - average mood) / 4 × 100` (25% weight)
+- participation risk = `(1 - submitted / active team members) × 100` (20% weight)
+
+The base score is the weighted sum of those four values. A positive increase in that base score from the prior eligible week is capped at 100 and contributes 10% to the final score; the base contributes 90%. When no eligible previous week exists, the change contribution is zero. Scores below 40 are low, 40–64 are medium, and 65–100 are high. Analytics are emitted only when the response count meets the organization's `minGroupSize`.
+
+The evaluator opens a deduplicated team/type alert for burnout risk at score 40 or higher, stress increases of at least 15% for three consecutive eligible weeks, mood at or below 2.5, or participation falling from at least 70% to 50% or less. It runs after pulse submission and on a scheduled UTC cron. Alerts contain only aggregate metrics and never identify respondents.
+
+Stripe is optional for local startup; billing actions return a service-unavailable error until configured. Stripe webhook signatures are verified against the raw request body and event IDs are persisted for idempotent processing. No card numbers or CVCs are accepted by the API.
+
+The weekly cron job scores eligible aggregated pulse data and creates at most one alert per team/week. This backend does not send reminder emails because no mail delivery provider is configured.
+
+Workspace owners/admins can create members using `POST /api/v1/workspace/invitations`; the API returns a one-time, seven-day acceptance token for `POST /api/v1/auth/accept-invitation`. The token is hashed at rest and is intended to be delivered through an organization-controlled channel until an email provider is configured.
+
+Email verification, password recovery, and invitation email delivery require a configured mail provider and are not enabled in this deployment.
+
+The built-in rate limiter uses Express's per-process store. Use a single API instance or add a shared store/API gateway limit before running multiple API replicas.
+
+## Tests
+
+Tests use `mongodb-memory-server` and Supertest; no external MongoDB is required. The in-memory server may need to download the matching MongoDB binary on first run.

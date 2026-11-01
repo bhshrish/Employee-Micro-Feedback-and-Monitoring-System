@@ -44,3 +44,6 @@ next-env.d.ts
 # backend build and coverage
 /backend/dist/
 /backend/coverage/
+
+# frontend build and coverage
+dist/

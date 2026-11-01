@@ -17,7 +17,7 @@ const faqs = [
   ["Does PULSE monitor my screen or keystrokes?", "Never. PULSE records activity timing only—when you are active or idle. It cannot see screen content, keystrokes, passwords, or the URLs you visit."],
   ["Can my manager see my individual pulse answers?", "No. Pulse responses are shown only as aggregated team averages. Teams with fewer than five responses are hidden from manager reporting."],
   ["What happens after the 7-day trial?", "Tracking and reports pause until you choose a plan. Your demo history remains preserved in this browser and becomes available again after activation."],
-  ["Is this connected to a real payment provider?", "No. This frontend is a product demo. Authentication and checkout are simulated; no real payment is processed."],
+  ["Is checkout connected to a payment provider?", "Checkout uses Stripe-hosted payment pages when Stripe is configured by the workspace operator. PULSE never accepts or stores card numbers or CVCs."],
 ];
 export function FAQ() {
   const [open, setOpen] = useState(0);

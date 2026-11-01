@@ -29,7 +29,7 @@ export default function Home() {
       ["Act on the team pattern", "Managers see aggregated trends and early alerts—never an individual employee’s answers."],
     ].map(([title,text],i) => <article key={title}><strong>0{i+1}</strong><div className="step-line"/><h3>{title}</h3><p>{text}</p></article>)}</div></Reveal></section>
 
-    <section className="pricing-section section" id="pricing"><Reveal><div className="section-heading"><div><p className="section-label">Simple pricing</p><h2>Start with seven<br/>days on us.</h2></div><p>Every plan begins with a full-featured free trial. No card required. Demo checkout only.</p></div><PricingPlans/></Reveal></section>
+    <section className="pricing-section section" id="pricing"><Reveal><div className="section-heading"><div><p className="section-label">Simple pricing</p><h2>Start with seven<br/>days on us.</h2></div><p>Every plan begins with a full-featured free trial. No card required. Secure checkout is available when billing is configured.</p></div><PricingPlans/></Reveal></section>
 
     <section className="testimonials section"><Reveal><p className="section-label">A better conversation starts here</p><h2>“We stopped guessing<br/>how work felt.”</h2><div className="quote-grid"><blockquote><p>“The idle prompt feels like a gentle pause, not a surveillance tool. I finally understand where my energy goes.”</p><footer><strong>Maya Chen</strong><span>Product designer · Demo story</span></footer></blockquote><blockquote><p>“The five-response minimum made our team comfortable enough to participate. The trends are now part of our retros.”</p><footer><strong>Jon Bell</strong><span>Engineering lead · Demo story</span></footer></blockquote></div></Reveal></section>
 
