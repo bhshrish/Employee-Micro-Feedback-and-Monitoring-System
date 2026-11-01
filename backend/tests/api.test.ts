@@ -468,6 +468,7 @@ describe("PULSE API", () => {
   it("returns analytics trends and heatmap only for sufficiently sized groups", async () => {
     const account = await signup("analytics@example.test").expect(201);
     const { organizationId, teamId } = account.body.user;
+    const quietTeam = await Team.create({ organizationId, name: "Quiet team" });
     await PulseResponse.insertMany(Array.from({ length: 5 }, () => ({
       organizationId,
       teamId,
@@ -475,6 +476,14 @@ describe("PULSE API", () => {
       mood: 3,
       stress: 4,
       workload: 4,
+    })));
+    await PulseResponse.insertMany(Array.from({ length: 4 }, () => ({
+      organizationId,
+      teamId: quietTeam._id,
+      weekStart: weekStart(),
+      mood: 1,
+      stress: 5,
+      workload: 5,
     })));
     const auth = { Authorization: `Bearer ${account.body.accessToken}` };
     const trends = await request(app).get("/api/v1/analytics/trends?weeks=4").set(auth).expect(200);
@@ -484,6 +493,8 @@ describe("PULSE API", () => {
     const heatmap = await request(app).get("/api/v1/analytics/heatmap?weeks=4").set(auth).expect(200);
     assert.equal(heatmap.body.cells.length, 1);
     assert.equal(heatmap.body.cells[0].riskScore, 73);
+    assert.deepEqual(heatmap.body.teams.map((team: { name: string }) => team.name).sort(), ["General", "Quiet team"]);
+    assert.equal(heatmap.body.cells.some((cell: { teamId: string }) => cell.teamId === String(quietTeam._id)), false);
   });
 
   it("returns SUBSCRIPTION_REQUIRED for report preview and generation without an active plan", async () => {

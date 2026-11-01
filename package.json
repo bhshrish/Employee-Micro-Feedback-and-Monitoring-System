@@ -6,7 +6,7 @@
     "dev": "npm run start",
     "api:dev": "npm --prefix backend run dev",
     "build": "npm run build:api && npm run build:web",
-    "build:api": "npm --prefix backend run build",
+    "build:api": "npm --prefix backend run build && npm --prefix backend run build",
     "build:web": "next build",
     "lint": "npm --prefix backend run lint",
     "test": "npm --prefix backend test",

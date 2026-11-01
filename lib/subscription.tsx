@@ -20,7 +20,7 @@ interface SubscriptionValue {
   signOut: () => Promise<void>;
   refreshUser: () => Promise<void>;
   selectPlan: (plan: PlanName, cycle: BillingCycle) => void;
-  resetDemo: () => Promise<void>;
+  resetLocalPreferences: () => Promise<void>;
 }
 
 const SubscriptionContext = createContext<SubscriptionValue | null>(null);
@@ -86,7 +86,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       localStorage.setItem("pulse:plan", JSON.stringify(next));
       setSelection(next);
     },
-    resetDemo: async () => {
+    resetLocalPreferences: async () => {
       Object.keys(localStorage).filter((key) => key.startsWith("pulse:")).forEach((key) => localStorage.removeItem(key));
       try {
         await apiSignOut(true);

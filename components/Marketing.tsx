@@ -10,13 +10,13 @@ export function MarketingNavbar() {
 }
 
 export function MarketingFooter() {
-  return <footer className="marketing-footer"><div className="footer-top"><div><Logo inverse/><p>Healthier work, heard earlier.</p></div><div className="footer-links"><div><strong>Product</strong><Link href="/pricing">Pricing</Link><Link href="/login?mode=signup">Start a trial</Link><Link href="/contact">Contact</Link></div><div><strong>Company</strong><Link href="/about">About</Link><Link href="/privacy">Privacy</Link><Link href="/login">Sign in</Link></div></div></div><div className="footer-bottom"><span>© 2026 PULSE. Frontend demo.</span><span>No keystrokes. No screen content. No URLs.</span></div></footer>;
+  return <footer className="marketing-footer"><div className="footer-top"><div><Logo inverse/><p>Healthier work, heard earlier.</p></div><div className="footer-links"><div><strong>Product</strong><Link href="/pricing">Pricing</Link><Link href="/login?mode=signup">Start a trial</Link><Link href="/contact">Contact</Link></div><div><strong>Company</strong><Link href="/about">About</Link><Link href="/privacy">Privacy</Link><Link href="/login">Sign in</Link></div></div></div><div className="footer-bottom"><span>© 2026 PULSE. Employee feedback and wellbeing.</span><span>No keystrokes. No screen content. No URLs.</span></div></footer>;
 }
 
 const faqs = [
   ["Does PULSE monitor my screen or keystrokes?", "Never. PULSE records activity timing only—when you are active or idle. It cannot see screen content, keystrokes, passwords, or the URLs you visit."],
   ["Can my manager see my individual pulse answers?", "No. Pulse responses are shown only as aggregated team averages. Teams with fewer than five responses are hidden from manager reporting."],
-  ["What happens after the 7-day trial?", "Tracking and reports pause until you choose a plan. Your demo history remains preserved in this browser and becomes available again after activation."],
+  ["What happens after the 7-day trial?", "Tracking and reports pause until you choose a plan. Your activity history remains preserved in this browser and becomes available again after activation."],
   ["Is checkout connected to a payment provider?", "Checkout uses Stripe-hosted payment pages when Stripe is configured by the workspace operator. PULSE never accepts or stores card numbers or CVCs."],
 ];
 export function FAQ() {

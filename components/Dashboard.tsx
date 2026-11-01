@@ -16,14 +16,30 @@ function DashboardContent() {
 
   useEffect(() => {
     let active = true;
+    let loading = false;
     setData(null);
     setError("");
-    getDashboardData(range).then((next) => {
-      if (active) setData(next);
-    }).catch((cause: unknown) => {
-      if (active) setError(cause instanceof Error ? cause.message : "Could not load your activity data.");
-    });
-    return () => { active = false; };
+    const sync = async () => {
+      if (loading) return;
+      loading = true;
+      try {
+        const next = await getDashboardData(range);
+        if (active) {
+          setData(next);
+          setError("");
+        }
+      } catch (cause: unknown) {
+        if (active) setError(cause instanceof Error ? cause.message : "Could not load your activity data.");
+      } finally {
+        loading = false;
+      }
+    };
+    void sync();
+    const timer = window.setInterval(() => void sync(), 15_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
   }, [range]);
 
   const today = new Intl.DateTimeFormat(undefined, { weekday: "long", month: "long", day: "numeric" }).format(new Date());

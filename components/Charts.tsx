@@ -2,15 +2,47 @@ import { useId } from "react";
 
 export function SvgBarChart({ data }: { data: { label: string; active: number; idle: number }[] }) {
   const max = Math.max(60, ...data.flatMap((item) => [item.active, item.idle]));
+  const plotStart = 44;
+  const plotWidth = 660;
+  const slotWidth = data.length ? plotWidth / data.length : plotWidth;
+  const groupWidth = Math.min(32, slotWidth * .72);
+  const barWidth = Math.max(1, (groupWidth - 2) / 2);
+  const labelInterval = Math.max(1, Math.ceil(data.length / 8));
   return <svg className="chart bar-chart" viewBox="0 0 720 260" role="img" aria-label="Daily active and idle activity timeline">
     {[0, 1, 2, 3].map((n) => <line key={n} x1="44" x2="704" y1={30 + n * 55} y2={30 + n * 55} className="grid-line"/>)}
-    {data.map((item, i) => { const x = 58 + i * 72; const active = item.active / max * 160; const idle = item.idle / max * 160; return <g key={item.label}><rect x={x} y={195-active} width="24" height={active} rx="4" className="bar-active"/><rect x={x+28} y={195-idle} width="24" height={idle} rx="4" className="bar-idle"/><text x={x+24} y="225" textAnchor="middle">{item.label}</text></g>; })}
+    {data.map((item, i) => {
+      const x = plotStart + i * slotWidth + (slotWidth - groupWidth) / 2;
+      const active = item.active / max * 160;
+      const idle = item.idle / max * 160;
+      return <g key={item.label}>
+        <rect x={x} y={195-active} width={barWidth} height={active} rx="3" className="bar-active"/>
+        <rect x={x+barWidth+2} y={195-idle} width={barWidth} height={idle} rx="3" className="bar-idle"/>
+        {i % labelInterval === 0 && <text x={x+groupWidth/2} y="225" textAnchor="middle">{item.label}</text>}
+      </g>;
+    })}
   </svg>;
 }
 
 export function WeeklyStacked({ data }: { data: { day: string; productive: number; neutral: number; idle: number }[] }) {
+  const plotStart = 35;
+  const plotWidth = 550;
+  const slotWidth = data.length ? plotWidth / data.length : plotWidth;
+  const barWidth = Math.min(54, slotWidth * .68);
   return <svg className="chart stacked-chart" viewBox="0 0 620 270" role="img" aria-label="Weekly productive neutral and idle time stacked bars">
-    {data.map((item, i) => { const total = item.productive + item.neutral + item.idle; const scale = 175 / Math.max(total, 8); const p = item.productive * scale, n = item.neutral * scale, d = item.idle * scale; const x = 65 + i * 108; return <g key={item.day}><rect x={x} y={205-p} width="54" height={p} rx="5" className="bar-active"/><rect x={x} y={205-p-n} width="54" height={n} className="bar-neutral"/><rect x={x} y={205-p-n-d} width="54" height={d} rx="5" className="bar-idle"/><text x={x+27} y="235" textAnchor="middle">{item.day}</text><text x={x+27} y={190-p-n-d} textAnchor="middle" className="chart-value">{total.toFixed(1)}h</text></g>; })}
+    {data.map((item, i) => {
+      const total = item.productive + item.neutral + item.idle;
+      const scale = 175 / Math.max(total, 8);
+      const p = item.productive * scale, n = item.neutral * scale, d = item.idle * scale;
+      const x = plotStart + (i + .5) * slotWidth - barWidth / 2;
+      const center = x + barWidth / 2;
+      return <g key={item.day}>
+        <rect x={x} y={205-p} width={barWidth} height={p} rx="5" className="bar-active"/>
+        <rect x={x} y={205-p-n} width={barWidth} height={n} className="bar-neutral"/>
+        <rect x={x} y={205-p-n-d} width={barWidth} height={d} rx="5" className="bar-idle"/>
+        <text x={center} y="235" textAnchor="middle">{item.day}</text>
+        <text x={center} y={190-p-n-d} textAnchor="middle" className="chart-value">{total.toFixed(1)}h</text>
+      </g>;
+    })}
   </svg>;
 }
 
@@ -33,21 +65,58 @@ export function Sparkline({ data }: { data: number[] }) {
   return <svg className="sparkline" viewBox="0 0 120 48" role="img" aria-label="Seven week morale trend"><polyline points={points} fill="none"/><circle cx="120" cy={points.split(" ").at(-1)?.split(",")[1]} r="3"/></svg>;
 }
 
-export function Heatmap({ data }: { data: { teamId: string; teamName: string; weekStart: string; riskScore: number }[] }) {
-  const weekStarts = [...new Set(data.map((cell) => cell.weekStart))].sort().slice(-6);
-  const weeks = weekStarts.map((week, index) => ({ key: week, label: `W${index + 1}` }));
-  const teams = [...new Map(data.map((cell) => [cell.teamId, cell.teamName])).entries()];
-  const level = (score: number) => score >= 75 ? 3 : score >= 50 ? 2 : score >= 25 ? 1 : 0;
-  return <div className="heatmap" role="img" aria-label="Burnout risk heatmap over eligible team responses">
-    <div className="heatmap-row heatmap-header"><span/>{weeks.map((week) => <span key={week.key}>{week.label}</span>)}</div>
-    {teams.length ? teams.map(([teamId, teamName]) => <div className="heatmap-row" key={teamId}>
-      <strong>{teamName}</strong>{weeks.map((week) => {
-        const score = data.find((cell) => cell.teamId === teamId && cell.weekStart === week.key)?.riskScore;
-        const value = score === undefined ? null : level(score);
-        return <span key={week.key} className={value === null ? "" : `heat-${value}`} title={`${teamName}, ${week.key}: ${score === undefined ? "no eligible data" : `risk ${score}%`}`}>
-          {value === null ? "—" : value === 3 ? "High" : value === 2 ? "Watch" : value === 1 ? "Mild" : "Low"}
-        </span>;
-      })}
-    </div>) : <div className="heatmap-row"><strong>No eligible team data</strong></div>}
+export function Heatmap({
+  data,
+  teams,
+  weeks: weekCount,
+}: {
+  data: { teamId: string; teamName: string; weekStart: string; riskScore: number }[];
+  teams: { id: string; name: string }[];
+  weeks: number;
+}) {
+  const currentWeek = new Date();
+  currentWeek.setUTCHours(0, 0, 0, 0);
+  currentWeek.setUTCDate(currentWeek.getUTCDate() - ((currentWeek.getUTCDay() + 6) % 7));
+  const weeks = Array.from({ length: weekCount }, (_, index) => {
+    const start = new Date(currentWeek);
+    start.setUTCDate(start.getUTCDate() - (weekCount - 1 - index) * 7);
+    const end = new Date(start);
+    end.setUTCDate(end.getUTCDate() + 6);
+    return {
+      key: start.toISOString(),
+      label: new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", timeZone: "UTC" }).format(start),
+      endLabel: new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", timeZone: "UTC" }).format(end),
+      current: index === weekCount - 1,
+    };
+  });
+  const cells = new Map(data.map((cell) => [`${cell.teamId}:${new Date(cell.weekStart).toISOString()}`, cell.riskScore]));
+  const level = (score: number) => score >= 65 ? "high" : score >= 40 ? "moderate" : "low";
+
+  if (!teams.length) {
+    return <p className="heatmap-empty">No active teams are available for this workspace.</p>;
+  }
+
+  return <div className="heatmap-scroll" role="region" aria-label={`${weekCount}-week team burnout-risk heatmap`} tabIndex={0}>
+    <table className="heatmap-table">
+      <caption className="visually-hidden">{weekCount} weeks of aggregated burnout-risk scores for each team. Weeks below the response minimum are withheld.</caption>
+      <thead><tr>
+        <th scope="col">Team</th>
+        {weeks.map((week) => <th scope="col" key={week.key} aria-label={`${week.label} to ${week.endLabel}${week.current ? ", current week" : ""}`}>
+          <span>{week.label}</span><small>{week.current ? "This week" : `– ${week.endLabel}`}</small>
+        </th>)}
+      </tr></thead>
+      <tbody>{teams.map((team) => <tr key={team.id}>
+        <th scope="row">{team.name}</th>
+        {weeks.map((week) => {
+          const score = cells.get(`${team.id}:${week.key}`);
+          const description = score === undefined ? "No eligible data" : `${level(score)} risk, ${score}%`;
+          return <td key={week.key}>
+            <span className={`heatmap-cell ${score === undefined ? "heat-unavailable" : `heat-${level(score)}`}`} title={`${team.name}, week of ${week.label}: ${description}`} aria-label={description}>
+              {score === undefined ? "—" : `${score}%`}
+            </span>
+          </td>;
+        })}
+      </tr>)}</tbody>
+    </table>
   </div>;
 }

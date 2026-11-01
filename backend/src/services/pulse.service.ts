@@ -296,8 +296,13 @@ export async function organizationMinGroupSize(organizationId: Types.ObjectId) {
 export async function analyticsTeams(
   organizationId: Types.ObjectId,
   minResponses: number,
+  teamId?: Types.ObjectId,
 ) {
-  const teams = await Team.find({ organizationId, archivedAt: null }).select("_id name").lean();
+  const teams = await Team.find({
+    organizationId,
+    archivedAt: null,
+    ...(teamId ? { _id: teamId } : {}),
+  }).select("_id name").lean();
   const currentWeek = weekStart();
   return Promise.all(teams.map(async (team) => {
     const latest = await PulseResponse.aggregate([

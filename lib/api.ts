@@ -33,9 +33,15 @@ export interface DashboardData {
 export interface TeamData {
   minimumGroupSize: number;
   teams: { id: string; name: string; mood: number; stress: number; workload: number; participation: number; responses: number; trend: number[] }[];
+  heatmapTeams: { id: string; name: string }[];
   suppressedTeams: number;
   alerts: { id: string; title: string; detail: string; severity: "High" | "Medium" | "Low"; time: string; status: "open" | "acknowledged" | "dismissed" }[];
   heatmap: { teamId: string; teamName: string; weekStart: string; riskScore: number }[];
+}
+
+export interface HeatmapData {
+  teams: { id: string; name: string }[];
+  cells: TeamData["heatmap"];
 }
 
 export interface ReportSummary {
@@ -58,6 +64,7 @@ export interface ApiError extends Error {
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1").replace(/\/$/, "");
 let accessToken: string | null = null;
+let refreshRequest: Promise<string> | null = null;
 
 export function setAccessToken(token: string | null) {
   accessToken = token;
@@ -85,24 +92,33 @@ async function fetchApi(input: RequestInfo | URL, init?: RequestInit) {
 }
 
 async function refreshAccessToken(): Promise<string> {
-  const response = await fetchApi(`${API_BASE}/auth/refresh`, {
-    method: "POST",
-    credentials: "include",
-  });
-  const payload = await response.json().catch(() => ({})) as {
-    accessToken?: string;
-    error?: { code?: string; message?: string };
-  };
-  if (!response.ok || !payload.accessToken) {
-    accessToken = null;
-    if (response.status === 401) {
-      localStorage.removeItem("pulse:auth");
-      window.dispatchEvent(new Event("pulse:session-expired"));
+  if (refreshRequest) return refreshRequest;
+  const pending = (async () => {
+    const response = await fetchApi(`${API_BASE}/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+    });
+    const payload = await response.json().catch(() => ({})) as {
+      accessToken?: string;
+      error?: { code?: string; message?: string };
+    };
+    if (!response.ok || !payload.accessToken) {
+      accessToken = null;
+      if (response.status === 401) {
+        localStorage.removeItem("pulse:auth");
+        window.dispatchEvent(new Event("pulse:session-expired"));
+      }
+      throw apiError(response.status, payload.error?.code || "AUTH_REQUIRED", payload.error?.message || "Your session has expired. Please sign in again.");
     }
-    throw apiError(response.status, payload.error?.code || "AUTH_REQUIRED", payload.error?.message || "Your session has expired. Please sign in again.");
+    accessToken = payload.accessToken;
+    return accessToken;
+  })();
+  refreshRequest = pending;
+  try {
+    return await pending;
+  } finally {
+    if (refreshRequest === pending) refreshRequest = null;
   }
-  accessToken = payload.accessToken;
-  return accessToken;
 }
 
 async function request<T>(path: string, init: RequestInit = {}, canRefresh = true): Promise<T> {
@@ -232,15 +248,15 @@ export async function getDashboardData(range: "Today" | "7d" | "30d"): Promise<D
       idle: (day?.idle ?? 0) / 3600,
     };
   });
-  const productiveByDay = range === "Today"
-    ? response.sessions.map((session) => session.category === "Productive" ? 100 : 0)
-    : response.daily.map((day) => {
-    const tracked = day.productive + day.neutral;
-    return tracked ? Math.round(day.productive / tracked * 100) : 0;
-    });
-  const trend = productiveByDay.length >= 2
-    ? productiveByDay
-    : productiveByDay.length === 1 ? [productiveByDay[0], productiveByDay[0]] : [0, 0];
+  const productivityByDate = new Map(weeklyResponse.daily.map((day) => [day.date, day]));
+  const trend = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date();
+    date.setUTCHours(0, 0, 0, 0);
+    date.setUTCDate(date.getUTCDate() - (6 - index));
+    const day = productivityByDate.get(date.toISOString().slice(0, 10));
+    const tracked = (day?.productive ?? 0) + (day?.neutral ?? 0);
+    return tracked ? Math.round(((day?.productive ?? 0) / tracked) * 100) : 0;
+  });
   const activeDays = new Set((streakData ?? response).sessions.map((session) => session.startedAt.slice(0, 10)));
   let streak = 0;
   const cursor = new Date();
@@ -252,36 +268,55 @@ export async function getDashboardData(range: "Today" | "7d" | "30d"): Promise<D
   }
   const lastWeek = weeklyResponse.daily.slice(-7);
   const weeklyTotal = lastWeek.reduce((sum, day) => sum + day.active + day.idle, 0);
-  const productiveSeconds = response.daily.reduce((sum, day) => sum + day.productive, 0);
-  const neutralSeconds = response.daily.reduce((sum, day) => sum + day.neutral, 0);
+  const productiveSeconds = response.sessions
+    .filter((session) => session.category === "Productive")
+    .reduce((sum, session) => sum + session.activeSeconds, 0);
+  const otherActiveSeconds = response.sessions
+    .filter((session) => session.category !== "Productive")
+    .reduce((sum, session) => sum + session.activeSeconds, 0);
+  const activeSeconds = productiveSeconds + otherActiveSeconds;
   return {
     kpis: {
       total: hours(response.summary.totalSeconds),
       active: hours(response.summary.activeSeconds),
       idle: minutes(response.summary.idleSeconds),
-      productive: response.summary.productivityPercent,
+      productive: activeSeconds ? Math.round((productiveSeconds / activeSeconds) * 100) : 0,
       weekly: hours(weeklyTotal),
       streak,
     },
     sessions: response.summary.sessionCount,
     productiveHours: productiveSeconds / 3600,
-    neutralHours: neutralSeconds / 3600,
+    neutralHours: otherActiveSeconds / 3600,
     daily,
     weekly,
     trend,
   };
 }
 
+export async function getHeatmapData(weeks: number, teamId?: string): Promise<HeatmapData> {
+  const query = new URLSearchParams({ weeks: String(weeks) });
+  if (teamId) query.set("teamId", teamId);
+  const result = await request<{
+    teams: { teamId: string; name: string }[];
+    cells: TeamData["heatmap"];
+  }>(`/analytics/heatmap?${query}`);
+  return {
+    teams: result.teams.map((team) => ({ id: team.teamId, name: team.name })),
+    cells: result.cells,
+  };
+}
+
 export async function getTeamData(): Promise<TeamData> {
   const [scores, analytics, alerts, heatmap] = await Promise.all([
     request<{ teams: { teamId: string; name: string; responses: number; mood: number; stress: number; workload: number; participation: number; trend: { mood: number }[] }[]; minimumGroupSize: number }>("/pulse/teams"),
-    request<{ teams: { suppressed: boolean }[] }>("/analytics/teams"),
+    request<{ teams: { teamId: string; name: string; suppressed: boolean }[] }>("/analytics/teams"),
     request<{ alerts: { _id: string; title: string; detail: string; severity: "high" | "medium" | "low"; createdAt: string; status: "open" | "acknowledged" | "dismissed" }[] }>("/alerts?status=open"),
-    request<{ cells: TeamData["heatmap"] }>("/analytics/heatmap?weeks=6"),
+    getHeatmapData(6),
   ]);
   return {
     minimumGroupSize: scores.minimumGroupSize,
     suppressedTeams: analytics.teams.filter((team) => team.suppressed).length,
+    heatmapTeams: heatmap.teams,
     teams: scores.teams.map((team) => ({
       id: team.teamId,
       name: team.name,

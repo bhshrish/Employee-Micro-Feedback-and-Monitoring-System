@@ -38,21 +38,25 @@ export const heatmap = asyncHandler(async (req, res) => {
   const query = req.validatedQuery as { weeks: number; teamId?: string };
   const teamId = await teamScope(req, query.teamId);
   const minGroupSize = await pulse.organizationMinGroupSize(req.auth.organizationId);
+  const teams = await Team.find({
+    organizationId: req.auth.organizationId,
+    archivedAt: null,
+    ...(teamId ? { _id: teamId } : {}),
+  }).select("_id name").lean();
+  const teamIds = new Set(teams.map((team) => (team._id as Types.ObjectId).toString()));
   res.json({
     minimumGroupSize: minGroupSize,
-    cells: await pulse.analyticsHeatmap(
-      req.auth.organizationId,
-      teamId,
-      query.weeks,
-      minGroupSize,
-    ),
+    teams: teams.map((team) => ({ teamId: (team._id as Types.ObjectId).toString(), name: team.name })),
+    cells: (await pulse.analyticsHeatmap(req.auth.organizationId, teamId, query.weeks, minGroupSize))
+      .filter((cell) => teamIds.has(cell.teamId)),
   });
 });
 
 export const teams = asyncHandler(async (req, res) => {
   if (!req.auth) throw unauthorized();
+  const teamId = await teamScope(req);
   const minGroupSize = await pulse.organizationMinGroupSize(req.auth.organizationId);
-  const teams = await pulse.analyticsTeams(req.auth.organizationId, minGroupSize);
+  const teams = await pulse.analyticsTeams(req.auth.organizationId, minGroupSize, teamId);
   res.json({ minimumGroupSize: minGroupSize, teams, data: { minimumGroupSize: minGroupSize, teams } });
 });
 

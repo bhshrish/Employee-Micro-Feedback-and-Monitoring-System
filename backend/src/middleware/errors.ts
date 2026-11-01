@@ -10,6 +10,23 @@ export const notFoundHandler: RequestHandler = (req, _res, next) => {
 
 export const errorHandler: ErrorRequestHandler = (error, req, res, _next) => {
   let normalized = error;
+  if (
+    !(error instanceof AppError) &&
+    error instanceof Error &&
+    "statusCode" in error &&
+    typeof error.statusCode === "number" &&
+    error.statusCode >= 400 &&
+    error.statusCode < 500 &&
+    "code" in error &&
+    typeof error.code === "string"
+  ) {
+    normalized = new AppError(
+      error.statusCode,
+      error.message,
+      error.code,
+      "details" in error ? error.details : undefined,
+    );
+  }
   if (error instanceof SyntaxError && "status" in error && error.status === 400) {
     normalized = new AppError(400, "Malformed JSON request", "INVALID_JSON");
   }

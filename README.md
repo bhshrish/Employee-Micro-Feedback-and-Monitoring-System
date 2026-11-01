@@ -43,7 +43,7 @@ See [`backend/.env.example`](./backend/.env.example) for the complete variable l
 | `npm run build` | Build backend and frontend |
 | `npm run lint` | Lint the backend |
 | `npm test` | Run backend unit and integration tests |
-| `npm run seed` | Populate the configured database with demo data |
+| `npm run seed` | Populate the configured database with sample data |
 
 For local MongoDB, the provided Compose service can be started with the setup command above and stopped with:
 

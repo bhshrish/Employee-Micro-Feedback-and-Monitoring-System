@@ -1,0 +1,100 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.teamIdParamsSchema = exports.userIdParamsSchema = exports.memberIdParamsSchema = exports.alertIdParamsSchema = exports.sessionIdParamsSchema = exports.checkoutSchema = exports.alertUpdateSchema = exports.pulseTeamQuerySchema = exports.alertQuerySchema = exports.dashboardQuerySchema = exports.userRoleSchema = exports.reportFormatQuerySchema = exports.reportPreviewQuerySchema = exports.reportQuerySchema = exports.profileSchema = exports.reportIdParamsSchema = exports.reportGenerateSchema = exports.analyticsQuerySchema = exports.sessionSummaryQuerySchema = exports.historyQuerySchema = exports.activityTagsSchema = exports.idleActivitySchema = exports.activityHeartbeatSchema = exports.stopActivitySchema = exports.startActivitySchema = exports.updateMemberSchema = exports.createTeamSchema = exports.pulseSchema = exports.invitationCreateSchema = exports.invitationAcceptSchema = exports.signinSchema = exports.signupSchema = void 0;
+var zod_1 = require("zod");
+var email = zod_1.z.string().trim().email().max(254).transform(function (value) { return value.toLowerCase(); });
+var password = zod_1.z.string().min(8).max(128);
+exports.signupSchema = zod_1.z.object({
+    name: zod_1.z.string().trim().min(2).max(100),
+    email: email,
+    password: password,
+    organizationName: zod_1.z.string().trim().min(2).max(120).optional(),
+}).strict();
+exports.signinSchema = zod_1.z.object({ email: email, password: password }).strict();
+exports.invitationAcceptSchema = zod_1.z.object({
+    token: zod_1.z.string().min(32).max(128),
+    email: email,
+    name: zod_1.z.string().trim().min(2).max(100),
+    password: password,
+}).strict();
+exports.invitationCreateSchema = zod_1.z.object({
+    email: email,
+    teamId: zod_1.z.string().regex(/^[a-f\d]{24}$/i),
+}).strict();
+exports.pulseSchema = zod_1.z.object({
+    mood: zod_1.z.number().int().min(1).max(5),
+    stress: zod_1.z.number().int().min(1).max(5),
+    workload: zod_1.z.number().int().min(1).max(5),
+    comment: zod_1.z.string().max(300).optional(),
+}).strict();
+exports.createTeamSchema = zod_1.z.object({ name: zod_1.z.string().trim().min(2).max(80) }).strict();
+exports.updateMemberSchema = zod_1.z.object({
+    role: zod_1.z.enum(["admin", "manager", "employee"]).optional(),
+    teamId: zod_1.z.string().regex(/^[a-f\d]{24}$/i).nullable().optional(),
+}).strict().refine(function (value) { return Object.keys(value).length > 0; }, "Provide at least one field");
+exports.startActivitySchema = zod_1.z.object({
+    task: zod_1.z.string().trim().min(1).max(120),
+    category: zod_1.z.enum(["Productive", "Neutral", "Distracting"]),
+    startedAt: zod_1.z.string().datetime().optional(),
+}).strict();
+exports.stopActivitySchema = zod_1.z.object({}).strict().default({});
+exports.activityHeartbeatSchema = zod_1.z.object({ sessionId: zod_1.z.string().regex(/^[a-f\d]{24}$/i) }).strict();
+exports.idleActivitySchema = zod_1.z.object({ idle: zod_1.z.boolean() }).strict();
+exports.activityTagsSchema = zod_1.z.object({
+    tags: zod_1.z.array(zod_1.z.string().trim().min(1).max(32)).max(10),
+    category: zod_1.z.enum(["Productive", "Neutral", "Distracting"]).optional(),
+}).strict().refine(function (value) { return value.tags.length > 0 || value.category !== undefined; }, "Provide tags or category");
+exports.historyQuerySchema = zod_1.z.object({
+    page: zod_1.z.coerce.number().int().min(1).default(1),
+    limit: zod_1.z.coerce.number().int().min(1).max(100).default(25),
+    from: zod_1.z.string().datetime().optional(),
+    to: zod_1.z.string().datetime().optional(),
+}).strict().refine(function (value) { return !value.from || !value.to || new Date(value.from) <= new Date(value.to); }, "from must be earlier than to");
+exports.sessionSummaryQuerySchema = zod_1.z.object({
+    range: zod_1.z.enum(["today", "7d", "30d", "quarter"]).default("30d"),
+}).strict();
+exports.analyticsQuerySchema = zod_1.z.object({
+    weeks: zod_1.z.coerce.number().int().min(1).max(26).default(6),
+    teamId: zod_1.z.string().regex(/^[a-f\d]{24}$/i).optional(),
+}).strict();
+exports.reportGenerateSchema = zod_1.z.object({
+    period: zod_1.z.enum(["today", "7d", "30d", "quarter"]).default("30d"),
+    metrics: zod_1.z.array(zod_1.z.enum(["Active time", "Productivity", "Idle time", "Team pulse", "Burnout risk"])).min(1).max(5)
+        .default(["Active time", "Productivity", "Team pulse"]),
+    format: zod_1.z.enum(["csv", "pdf"]).default("pdf"),
+}).strict();
+exports.reportIdParamsSchema = zod_1.z.object({ reportId: zod_1.z.string().regex(/^[a-f\d]{24}$/i) }).strict();
+exports.profileSchema = zod_1.z.object({
+    name: zod_1.z.string().trim().min(2).max(100).optional(),
+    settings: zod_1.z.object({
+        idleThresholdMinutes: zod_1.z.number().int().min(1).max(30).optional(),
+        notifications: zod_1.z.object({
+            weeklyPulse: zod_1.z.boolean().optional(),
+            idlePrompt: zod_1.z.boolean().optional(),
+            productUpdates: zod_1.z.boolean().optional(),
+        }).strict().optional(),
+    }).strict().optional(),
+}).strict().refine(function (value) { return Object.keys(value).length > 0; }, "Provide at least one field");
+exports.reportQuerySchema = zod_1.z.object({
+    period: zod_1.z.enum(["today", "7d", "30d", "quarter"]).default("30d"),
+    metrics: zod_1.z.string().max(200).default("Active time,Productivity,Team pulse")
+        .transform(function (value) { return value.split(",").filter(Boolean); })
+        .pipe(zod_1.z.array(zod_1.z.enum(["Active time", "Productivity", "Idle time", "Team pulse", "Burnout risk"])).min(1).max(5)),
+    format: zod_1.z.enum(["csv", "pdf"]).optional(),
+}).strict();
+exports.reportPreviewQuerySchema = exports.reportQuerySchema;
+exports.reportFormatQuerySchema = zod_1.z.object({ format: zod_1.z.enum(["csv", "pdf"]) }).strict();
+exports.userRoleSchema = zod_1.z.object({ role: zod_1.z.enum(["admin", "manager", "employee"]) }).strict();
+exports.dashboardQuerySchema = zod_1.z.object({ range: zod_1.z.enum(["today", "7d", "30d"]).default("today") }).strict();
+exports.alertQuerySchema = zod_1.z.object({ status: zod_1.z.enum(["open", "acknowledged", "dismissed"]).optional() }).strict();
+exports.pulseTeamQuerySchema = zod_1.z.object({ teamId: zod_1.z.string().regex(/^[a-f\d]{24}$/i).optional() }).strict();
+exports.alertUpdateSchema = zod_1.z.object({ status: zod_1.z.enum(["acknowledged", "dismissed"]) }).strict();
+exports.checkoutSchema = zod_1.z.object({
+    plan: zod_1.z.enum(["Starter", "Team", "Business"]),
+    cycle: zod_1.z.enum(["monthly", "yearly"]),
+}).strict();
+exports.sessionIdParamsSchema = zod_1.z.object({ sessionId: zod_1.z.string().regex(/^[a-f\d]{24}$/i) }).strict();
+exports.alertIdParamsSchema = zod_1.z.object({ alertId: zod_1.z.string().regex(/^[a-f\d]{24}$/i) }).strict();
+exports.memberIdParamsSchema = zod_1.z.object({ memberId: zod_1.z.string().regex(/^[a-f\d]{24}$/i) }).strict();
+exports.userIdParamsSchema = zod_1.z.object({ userId: zod_1.z.string().regex(/^[a-f\d]{24}$/i) }).strict();
+exports.teamIdParamsSchema = zod_1.z.object({ teamId: zod_1.z.string().regex(/^[a-f\d]{24}$/i) }).strict();

@@ -20,7 +20,7 @@ MongoDB must be reachable before the server starts. `GET /api/v1/health/live` is
 - `npm run seed` — create an owner using `SEED_EMAIL`, `SEED_PASSWORD` (12+ characters), and `SEED_NAME` environment variables
 - `npm start` — start compiled server
 
-Run `npm run migrate:legacy` once when upgrading a database created by the original PULSE demo. The migration validates all affected workspace and subscription references before updating accounts and teams. It adds the current fields while retaining the legacy fields and collections, so existing records are not deleted.
+Run `npm run migrate:legacy` once when upgrading a database created by a legacy PULSE release. The migration validates all affected workspace and subscription references before updating accounts and teams. It adds the current fields while retaining the legacy fields and collections, so existing records are not deleted.
 
 `docker compose up --build` runs the API and MongoDB. Configure the required Compose variables in the shell or an untracked backend `.env` file.
 
