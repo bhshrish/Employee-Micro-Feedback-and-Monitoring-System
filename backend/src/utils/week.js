@@ -2,16 +2,16 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.weekStart = weekStart;
 exports.dateRange = dateRange;
-function weekStart(date) {
-    if (date === void 0) { date = new Date(); }
-    var day = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-    var weekday = (day.getUTCDay() + 6) % 7;
+exports.pulseWeekRange = pulseWeekRange;
+function weekStart(date = new Date()) {
+    const day = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+    const weekday = (day.getUTCDay() + 6) % 7;
     day.setUTCDate(day.getUTCDate() - weekday);
     return day;
 }
 function dateRange(period) {
-    var end = new Date();
-    var start = new Date(end);
+    const end = new Date();
+    const start = new Date(end);
     if (period === "today")
         start.setUTCHours(0, 0, 0, 0);
     else if (period === "7d")
@@ -22,5 +22,9 @@ function dateRange(period) {
         start.setUTCDate(start.getUTCDate() - 90);
     else
         start.setUTCDate(start.getUTCDate() - 30);
-    return { start: start, end: end };
+    return { start, end };
+}
+function pulseWeekRange(period) {
+    const { start, end } = dateRange(period);
+    return { start: weekStart(start), end: weekStart(end) };
 }

@@ -1,27 +1,29 @@
 "use strict";
-var __assign = (this && this.__assign) || function () {
-    __assign = Object.assign || function(t) {
-        for (var s, i = 1, n = arguments.length; i < n; i++) {
-            s = arguments[i];
-            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
-                t[p] = s[p];
-        }
-        return t;
-    };
-    return __assign.apply(this, arguments);
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.errorHandler = exports.notFoundHandler = void 0;
-var mongoose_1 = require("mongoose");
-var zod_1 = require("zod");
-var logger_1 = require("../utils/logger");
-var errors_1 = require("../utils/errors");
-var notFoundHandler = function (req, _res, next) {
-    next(new errors_1.AppError(404, "Route ".concat(req.method, " ").concat(req.path, " not found"), "NOT_FOUND"));
+const mongoose_1 = __importDefault(require("mongoose"));
+const zod_1 = require("zod");
+const logger_1 = require("../utils/logger");
+const errors_1 = require("../utils/errors");
+const notFoundHandler = (req, _res, next) => {
+    next(new errors_1.AppError(404, `Route ${req.method} ${req.path} not found`, "NOT_FOUND"));
 };
 exports.notFoundHandler = notFoundHandler;
-var errorHandler = function (error, req, res, _next) {
-    var normalized = error;
+const errorHandler = (error, req, res, _next) => {
+    let normalized = error;
+    if (!(error instanceof errors_1.AppError) &&
+        error instanceof Error &&
+        "statusCode" in error &&
+        typeof error.statusCode === "number" &&
+        error.statusCode >= 400 &&
+        error.statusCode < 500 &&
+        "code" in error &&
+        typeof error.code === "string") {
+        normalized = new errors_1.AppError(error.statusCode, error.message, error.code, "details" in error ? error.details : undefined);
+    }
     if (error instanceof SyntaxError && "status" in error && error.status === 400) {
         normalized = new errors_1.AppError(400, "Malformed JSON request", "INVALID_JSON");
     }
@@ -43,9 +45,14 @@ var errorHandler = function (error, req, res, _next) {
         logger_1.logger.error({ err: normalized, requestId: req.requestId }, "Unhandled request error");
         normalized = new errors_1.AppError(500, "Internal server error", "INTERNAL_ERROR");
     }
-    var appError = normalized;
+    const appError = normalized;
     res.status(appError.statusCode).json({
-        error: __assign({ code: appError.code, message: appError.message, requestId: req.requestId }, (appError.details === undefined ? {} : { details: appError.details })),
+        error: {
+            code: appError.code,
+            message: appError.message,
+            requestId: req.requestId,
+            ...(appError.details === undefined ? {} : { details: appError.details }),
+        },
     });
 };
 exports.errorHandler = errorHandler;

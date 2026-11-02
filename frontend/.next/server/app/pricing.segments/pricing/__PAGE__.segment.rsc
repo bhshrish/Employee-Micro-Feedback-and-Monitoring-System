@@ -1,0 +1,37 @@
+1:"$Sreact.fragment"
+2:"/_next/static/chunks/2l_sz3uxh82fi.js"
+3:"SubscriptionProvider"
+4:I[31637,["$2"],"$3"]
+5:I[73146,["$2"],"ToastProvider"]
+6:I[39756,["$2"],"default"]
+7:I[37457,["$2"],"default"]
+8:"/_next/static/chunks/2n5qeheznvl4u.js"
+9:I[22016,["$2","$8"],""]
+10:"/_next/static/chunks/0wfrr83w34k60.js"
+11:I[43140,["$2","$10"],"MarketingNavbar"]
+12:I[57873,["$2","$10"],"PricingPlans"]
+13:I[27688,["$2","$10"],"DataTable"]
+14:I[43140,["$2","$10"],"MarketingFooter"]
+15:I[97367,["$2"],"OutletBoundary"]
+16:"$Sreact.suspense"
+19:"ViewportBoundary"
+1a:I[97367,["$2"],"$19"]
+1b:"MetadataBoundary"
+1c:I[97367,["$2"],"$1b"]
+1d:I[27201,["$2"],"IconMark"]
+:HL["/_next/static/chunks/3qwypu_uva0rn.css","style"]
+b:X
+e:X
+e:C
+f:[["children",{"s":"__PAGE__","h":160,"d":{"r":["$","$1","c",{"children":[[["$","$L11",null,{}],["$","main",null,{"className":"page-main","children":[["$","section",null,{"className":"page-hero compact","children":[["$","p",null,{"className":"section-label","children":"Pricing without surprises"}],["$","h1",null,{"children":["Choose room",["$","br",null,{}],"to grow."]}],["$","p",null,{"children":"Start free for seven days. Upgrade, downgrade, or cancel anytime."}]]}],["$","section",null,{"className":"section pricing-page","children":[["$","$L12",null,{}],["$","div",null,{"className":"comparison","children":[["$","h2",null,{"children":"Compare plans"}],["$","$L13",null,{"headers":["Feature","Starter","Team","Business"],"rows":[["Automatic time tracking",["$","svg",null,{"width":20,"height":20,"viewBox":"0 0 24 24","fill":"none","stroke":"currentColor","strokeWidth":"1.8","strokeLinecap":"round","strokeLinejoin":"round","aria-hidden":"true","children":["$","path",null,{"d":"m5 12 4 4L19 6"}]}],"$f:0:1:d:r:props:children:0:1:props:children:1:props:children:1:props:children:1:props:rows:0:1","$f:0:1:d:r:props:children:0:1:props:children:1:props:children:1:props:children:1:props:rows:0:1"],["Configurable idle detection","$f:0:1:d:r:props:children:0:1:props:children:1:props:children:1:props:children:1:props:rows:0:1","$f:0:1:d:r:props:children:0:1:props:children:1:props:children:1:props:children:1:props:rows:0:1","$f:0:1:d:r:props:children:0:1:props:children:1:props:children:1:props:children:1:props:rows:0:1"],["Anonymous weekly pulse","$f:0:1:d:r:props:children:0:1:props:children:1:props:children:1:props:children:1:props:rows:0:1","$f:0:1:d:r:props:children:0:1:props:children:1:props:children:1:props:children:1:props:rows:0:1","$f:0:1:d:r:props:children:0:1:props:children:1:props:children:1:props:children:1:props:rows:0:1"],["Team wellbeing scorecards","—","$f:0:1:d:r:props:children:0:1:props:children:1:props:children:1:props:children:1:props:rows:0:1","$f:0:1:d:r:props:children:0:1:props:children:1:props:children:1:props:children:1:props:rows:0:1"],["Burnout-risk alerts","—","$f:0:1:d:r:props:children:0:1:props:children:1:props:children:1:props:children:1:props:rows:0:1","$f:0:1:d:r:props:children:0:1:props:children:1:props:children:1:props:children:1:props:rows:0:1"],["PDF & CSV exports","—","$f:0:1:d:r:props:children:0:1:props:children:1:props:children:1:props:children:1:props:rows:0:1","$f:0:1:d:r:props:children:0:1:props:children:1:props:children:1:props:children:1:props:rows:0:1"],["Teams","1","Up to 5","Unlimited"],["Support","Standard","Priority","Priority"]]}]]}]]}]]}],["$","$L14",null,{}]],[["$","script","script-0",{"src":"/_next/static/chunks/0wfrr83w34k60.js","async":true}]],["$","$L15",null,{"children":["$","$16",null,{"name":"Next.MetadataOutlet","children":"$@17"}]}]]}],"p":"$@18","v":null,"s":"$b"}}]]
+c:[["children",{"s":"pricing","h":96,"d":{"r":["$","$1","c",{"children":[null,["$","$L6",null,{"parallelRouterKey":"children","template":["$","$L7",null,{}]}]]}],"p":"$@d","v":"$e","s":"$b"},"c":"$Qf"}]]
+0:{"t":{"t":{"s":"","h":80,"d":{"r":["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/_next/static/chunks/3qwypu_uva0rn.css","precedence":"next"}],["$","script","script-0",{"src":"/_next/static/chunks/2l_sz3uxh82fi.js","async":true}]],["$","html",null,{"lang":"en","children":["$","body",null,{"children":["$","$L4",null,{"children":["$","$L5",null,{"children":["$","$L6",null,{"parallelRouterKey":"children","template":["$","$L7",null,{}],"notFound":[["$","main",null,{"className":"not-found","children":[["$","$L9",null,{"href":"/","className":"logo ","aria-label":"PULSE home","children":[["$","span",null,{"className":"logo-mark","aria-hidden":"true","children":[["$","i",null,{}],["$","i",null,{}],["$","i",null,{}],["$","i",null,{}]]}],["$","span",null,{"children":"PULSE"}]]}],["$","p",null,{"className":"section-label","children":"404 · Signal not found"}],["$","h1",null,{"children":["This page went",["$","br",null,{}],"off the radar."]}],["$","p",null,{"children":"The link may be outdated, or the page may have moved."}],["$","$L9",null,{"href":"/","className":"button","children":"Return home"}]]}],[]]}]}]}]}]}]]}],"p":"$@a","v":null,"s":"$b"},"c":"$Qc"},"h":{"r":["$","$1","h",{"children":[null,["$","$L1a",null,{"children":[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1, viewport-fit=cover"}]]}],["$","$L1c",null,{"children":[["$","div",null,{"hidden":true,"children":["$","$16",null,{"name":"Next.Metadata","children":[["$","title","0",{"children":"Pricing · PULSE"}],["$","meta","1",{"name":"description","content":"Private time awareness and anonymous team wellbeing signals in one calm workspace."}],["$","link","2",{"rel":"icon","href":"/favicon.ico?favicon.117ezoe8m31dk.ico","sizes":"48x48","type":"image/x-icon"}],["$","$L1d","3",{}]]}]}],null]}],null]}],"p":"$@1e","v":null,"s":"$b"}},"a":"$@1f","u":"$@20","b":"QCcx_jd73nNgzrm_VQ8mh"}
+17:null
+b:300
+20:true
+b:C
+1f:0
+d:"$undefined"
+a:"$undefined"
+1e:"$undefined"
+18:"$undefined"

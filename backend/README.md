@@ -1,6 +1,6 @@
 # PULSE backend
 
-Express + TypeScript + Mongoose API for PULSE. All API endpoints are versioned under `/api/v1`; the API landing page is `/api/docs` and the machine-readable contract is `/api/openapi.yaml`.
+Express + JavaScript + Mongoose API for PULSE. All API endpoints are versioned under `/api/v1`; the API landing page is `/api/docs` and the machine-readable contract is `/api/openapi.yaml`.
 
 ## Run locally
 
@@ -13,12 +13,12 @@ MongoDB must be reachable before the server starts. `GET /api/v1/health/live` is
 ## Scripts
 
 - `npm run dev` — watch-mode server
-- `npm run build` — compile TypeScript into `dist/`
+- `npm run build` — lint and validate the JavaScript source
 - `npm run lint` — static lint
 - `npm test` — Vitest unit and Supertest suite
 - `npm run migrate:legacy` — add current workspace and subscription fields to legacy accounts and teams
 - `npm run seed` — create an owner using `SEED_EMAIL`, `SEED_PASSWORD` (12+ characters), and `SEED_NAME` environment variables
-- `npm start` — start compiled server
+- `npm start` — start the API server
 
 Run `npm run migrate:legacy` once when upgrading a database created by a legacy PULSE release. The migration validates all affected workspace and subscription references before updating accounts and teams. It adds the current fields while retaining the legacy fields and collections, so existing records are not deleted.
 

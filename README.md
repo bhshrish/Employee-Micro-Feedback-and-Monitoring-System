@@ -1,6 +1,6 @@
 # PULSE
 
-PULSE is an employee feedback and burnout-monitoring application. This repository contains a Next.js frontend and a separately deployable Express/TypeScript REST API in [`backend/`](./backend/). The API is the source of truth for authentication, organization-scoped data, time sessions, anonymous pulses, analytics, billing, and reports.
+PULSE is an employee feedback and burnout-monitoring application. This repository contains a Next.js frontend in [`frontend/`](./frontend/) and a separately deployable Express REST API in [`backend/`](./backend/). Both applications are JavaScript; the API is the source of truth for authentication, organization-scoped data, time sessions, anonymous pulses, analytics, billing, and reports.
 
 ## Requirements
 
@@ -13,7 +13,6 @@ PULSE is an employee feedback and burnout-monitoring application. This repositor
 
 ```bash
 npm ci
-npm ci --prefix backend
 cp backend/.env.example backend/.env
 ```
 
@@ -26,7 +25,9 @@ npm run api:dev
 
 The API listens on the configured `PORT` (default `4000`). Use `GET /health` for liveness and `GET /health/ready` to verify its MongoDB connection. The OpenAPI reference is served at `/api/docs`.
 
-Keep the API running, then start the frontend in a second terminal with `npm run dev`. The login page connects to `http://localhost:4000/api/v1` by default, so login and signup will not work until MongoDB and the API are available. Set `NEXT_PUBLIC_API_URL` when the API is hosted elsewhere, and include the frontend origin in the API's `CORS_ORIGINS`.
+Keep the API running, then start the frontend in a second terminal with `npm run dev` (or `npm --workspace frontend run dev`). The login page connects to `http://localhost:4000/api/v1` by default, so login and signup will not work until MongoDB and the API are available. Set `NEXT_PUBLIC_API_URL` when the API is hosted elsewhere, and include the frontend origin in the API's `CORS_ORIGINS`.
+
+For Vercel, import the repository and set the project Root Directory to `frontend`. Configure `NEXT_PUBLIC_API_URL` in the Vercel project settings to point to the separately deployed API. The Express API and MongoDB must be hosted separately.
 
 ## Environment
 
@@ -38,8 +39,8 @@ See [`backend/.env.example`](./backend/.env.example) for the complete variable l
 | --- | --- |
 | `npm run api:dev` | Run the backend with the development watcher |
 | `npm run start:api` | Start the compiled backend |
-| `npm run build:api` | Type-check and compile the backend |
-| `npm run build:web` | Build the existing Next.js frontend |
+| `npm run build:api` | Lint/check the JavaScript backend |
+| `npm run build:web` | Build the Next.js frontend |
 | `npm run build` | Build backend and frontend |
 | `npm run lint` | Lint the backend |
 | `npm test` | Run backend unit and integration tests |

@@ -1,10 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PulseResponse = void 0;
-var node_crypto_1 = require("node:crypto");
-var mongoose_1 = require("mongoose");
-var pulseResponseSchema = new mongoose_1.Schema({
-    _id: { type: String, default: function () { return (0, node_crypto_1.randomUUID)(); } },
+const node_crypto_1 = require("node:crypto");
+const mongoose_1 = require("mongoose");
+const pulseResponseSchema = new mongoose_1.Schema({
+    _id: { type: String, default: () => (0, node_crypto_1.randomUUID)() },
     organizationId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
     teamId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Team", required: true, index: true },
     weekStart: { type: Date, required: true, index: true },

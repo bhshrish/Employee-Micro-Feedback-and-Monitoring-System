@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Invoice = void 0;
-var mongoose_1 = require("mongoose");
-var invoiceSchema = new mongoose_1.Schema({
+const mongoose_1 = require("mongoose");
+const invoiceSchema = new mongoose_1.Schema({
     organizationId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
     stripeInvoiceId: { type: String, required: true },
     number: { type: String, default: null },

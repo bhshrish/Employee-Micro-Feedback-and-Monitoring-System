@@ -2,27 +2,20 @@
   "name": "pulse-next",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
   "scripts": {
-    "dev": "npm run start",
+    "dev": "npm --workspace frontend run dev",
     "api:dev": "npm --prefix backend run dev",
     "build": "npm run build:api && npm run build:web",
-    "build:api": "npm --prefix backend run build && npm --prefix backend run build",
-    "build:web": "next build",
+    "build:api": "npm --prefix backend run build",
+    "build:web": "npm --workspace frontend run build",
     "lint": "npm --prefix backend run lint",
     "test": "npm --prefix backend test",
     "seed": "npm --prefix backend run seed",
-    "start": "next start",
+    "start": "npm --workspace frontend run start",
     "start:api": "npm --prefix backend start"
-  },
-  "dependencies": {
-    "next": "16.4.3",
-    "react": "19.3.0",
-    "react-dom": "19.3.0"
-  },
-  "devDependencies": {
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "typescript": "^5"
   }
 }

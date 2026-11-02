@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ProcessedWebhook = void 0;
-var mongoose_1 = require("mongoose");
-var processedWebhookSchema = new mongoose_1.Schema({
+const mongoose_1 = require("mongoose");
+const processedWebhookSchema = new mongoose_1.Schema({
     eventId: { type: String, required: true, unique: true },
     eventType: { type: String, required: true },
     status: { type: String, enum: ["processing", "processed"], default: "processing" },

@@ -1,16 +1,30 @@
 import js from "@eslint/js";
-import tseslint from "typescript-eslint";
 
-export default tseslint.config(
+const nodeGlobals = {
+  Buffer: "readonly",
+  __dirname: "readonly",
+  clearInterval: "readonly",
+  clearTimeout: "readonly",
+  console: "readonly",
+  exports: "readonly",
+  fetch: "readonly",
+  global: "readonly",
+  module: "readonly",
+  process: "readonly",
+  require: "readonly",
+  setImmediate: "readonly",
+  setInterval: "readonly",
+  setTimeout: "readonly",
+};
+
+export default [
   { ignores: ["dist/**", "node_modules/**"] },
   js.configs.recommended,
-  ...tseslint.configs.recommended,
   {
-    files: ["**/*.ts"],
-    languageOptions: { globals: { process: "readonly", Buffer: "readonly", console: "readonly" } },
+    files: ["src/**/*.js", "tests/**/*.js"],
+    languageOptions: { globals: nodeGlobals },
     rules: {
-      "@typescript-eslint/no-explicit-any": "error",
-      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+      "no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
     },
   },
-);
+];

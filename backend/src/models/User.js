@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.User = void 0;
-var mongoose_1 = require("mongoose");
-var userSchema = new mongoose_1.Schema({
+const mongoose_1 = require("mongoose");
+const userSchema = new mongoose_1.Schema({
     organizationId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
     teamId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Team", default: null },
     name: { type: String, required: true, trim: true, minlength: 2, maxlength: 100 },

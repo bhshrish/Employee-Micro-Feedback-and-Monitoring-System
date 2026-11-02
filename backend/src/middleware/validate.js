@@ -4,13 +4,12 @@ exports.sanitizeBody = sanitizeBody;
 exports.validateBody = validateBody;
 exports.validateQuery = validateQuery;
 exports.validateParams = validateParams;
-var errors_1 = require("../utils/errors");
-var unsafeKeys = new Set(["__proto__", "prototype", "constructor"]);
+const errors_1 = require("../utils/errors");
+const unsafeKeys = new Set(["__proto__", "prototype", "constructor"]);
 function assertSafe(value) {
     if (!value || typeof value !== "object" || Buffer.isBuffer(value) || value instanceof Date)
         return;
-    for (var _i = 0, _a = Object.entries(value); _i < _a.length; _i++) {
-        var _b = _a[_i], key = _b[0], nested = _b[1];
+    for (const [key, nested] of Object.entries(value)) {
         if (unsafeKeys.has(key))
             throw new errors_1.AppError(400, "Unsafe object key", "INVALID_INPUT");
         assertSafe(nested);
@@ -26,8 +25,8 @@ function sanitizeBody(req, _res, next) {
     }
 }
 function validateBody(schema) {
-    return function (req, _res, next) {
-        var result = schema.safeParse(req.body);
+    return (req, _res, next) => {
+        const result = schema.safeParse(req.body);
         if (!result.success) {
             next(new errors_1.AppError(400, "Request validation failed", "VALIDATION_ERROR", result.error.flatten()));
             return;
@@ -37,8 +36,8 @@ function validateBody(schema) {
     };
 }
 function validateQuery(schema) {
-    return function (req, _res, next) {
-        var result = schema.safeParse(req.query);
+    return (req, _res, next) => {
+        const result = schema.safeParse(req.query);
         if (!result.success) {
             next(new errors_1.AppError(400, "Query validation failed", "VALIDATION_ERROR", result.error.flatten()));
             return;
@@ -48,8 +47,8 @@ function validateQuery(schema) {
     };
 }
 function validateParams(schema) {
-    return function (req, _res, next) {
-        var result = schema.safeParse(req.params);
+    return (req, _res, next) => {
+        const result = schema.safeParse(req.params);
         if (!result.success) {
             next(new errors_1.AppError(400, "Path validation failed", "VALIDATION_ERROR", result.error.flatten()));
             return;

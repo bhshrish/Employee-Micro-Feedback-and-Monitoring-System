@@ -1,0 +1,18 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/about/page": "/about",
+  "/billing/page": "/billing",
+  "/checkout/page": "/checkout",
+  "/contact/page": "/contact",
+  "/dashboard/page": "/dashboard",
+  "/favicon.ico/route": "/favicon.ico",
+  "/login/page": "/login",
+  "/page": "/",
+  "/pricing/page": "/pricing",
+  "/privacy/page": "/privacy",
+  "/reports/page": "/reports",
+  "/settings/page": "/settings",
+  "/team/page": "/team",
+  "/trial-expired/page": "/trial-expired"
+}

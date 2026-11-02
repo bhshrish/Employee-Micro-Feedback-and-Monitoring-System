@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GeneratedReport = void 0;
-var mongoose_1 = require("mongoose");
-var generatedReportSchema = new mongoose_1.Schema({
+const mongoose_1 = require("mongoose");
+const generatedReportSchema = new mongoose_1.Schema({
     organizationId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
     teamId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Team", default: null, index: true },
     createdBy: { type: mongoose_1.Schema.Types.ObjectId, ref: "User", required: true },

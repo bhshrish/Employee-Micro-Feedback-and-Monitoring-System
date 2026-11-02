@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PulseReceipt = void 0;
-var mongoose_1 = require("mongoose");
-var pulseReceiptSchema = new mongoose_1.Schema({
+const mongoose_1 = require("mongoose");
+const pulseReceiptSchema = new mongoose_1.Schema({
     organizationId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Organization", required: true },
     teamId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Team", required: true },
     userId: { type: mongoose_1.Schema.Types.ObjectId, ref: "User", required: true },

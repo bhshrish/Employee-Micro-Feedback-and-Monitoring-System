@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Team = void 0;
-var mongoose_1 = require("mongoose");
-var teamSchema = new mongoose_1.Schema({
+const mongoose_1 = require("mongoose");
+const teamSchema = new mongoose_1.Schema({
     organizationId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
     name: { type: String, required: true, trim: true, maxlength: 80 },
     archivedAt: { type: Date, default: null },
