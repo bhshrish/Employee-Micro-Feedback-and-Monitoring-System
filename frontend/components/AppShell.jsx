@@ -11,6 +11,7 @@ import { RouteGuard } from "./RouteGuard";
 import { useToast } from "./Toast";
 const nav = [
     { href: "/dashboard", label: "My day", icon: "clock" },
+    { href: "/monitoring", label: "Monitoring", icon: "pulse" },
     { href: "/team", label: "Team pulse", icon: "users" },
     { href: "/reports", label: "Reports", icon: "chart" },
     { href: "/billing", label: "Billing", icon: "credit" },
@@ -38,7 +39,7 @@ function AppFrame({ children }) {
         return () => window.removeEventListener("pulse:api-error", handleApiError);
     }, [toast]);
     const visibleNav = nav.filter((item) => {
-        if (item.href === "/team" || item.href === "/reports")
+        if (item.href === "/monitoring" || item.href === "/team" || item.href === "/reports")
             return user?.role === "admin" || user?.role === "manager";
         if (item.href === "/billing")
             return user?.role === "admin";
@@ -55,7 +56,7 @@ function AppFrame({ children }) {
     } }}><Icon name="logout" size={18}/>Sign out</button></div>}</div></div>{status === "trialing" && <div className="trial-banner"><span><strong>{trialDaysLeft} {trialDaysLeft === 1 ? "day" : "days"} left</strong> in your free trial.</span><Link href="/checkout">Upgrade <Icon name="arrow" size={17}/></Link></div>}</header>
       <main className="app-main">{children}</main>
     </div>
-    <nav className="mobile-app-nav" aria-label="Mobile workspace">{visibleNav.map((item) => <Link key={item.href} href={item.href} className={pathname === item.href ? "active" : ""}><Icon name={item.icon} size={21}/><span>{item.label === "Team pulse" ? "Team" : item.label}</span></Link>)}</nav>
+    <nav className="mobile-app-nav" aria-label="Mobile workspace">{visibleNav.map((item) => <Link key={item.href} href={item.href} className={pathname === item.href ? "active" : ""}><Icon name={item.icon} size={21}/><span>{item.label === "Team pulse" ? "Team" : item.label === "Monitoring" ? "Monitor" : item.label}</span></Link>)}</nav>
     <IdleModal />
   </div>;
 }

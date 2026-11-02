@@ -8,6 +8,7 @@
   "/dashboard/page": "/dashboard",
   "/favicon.ico/route": "/favicon.ico",
   "/login/page": "/login",
+  "/monitoring/page": "/monitoring",
   "/page": "/",
   "/pricing/page": "/pricing",
   "/privacy/page": "/privacy",

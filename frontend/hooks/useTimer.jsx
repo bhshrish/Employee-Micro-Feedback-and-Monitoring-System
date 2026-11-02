@@ -128,7 +128,7 @@ export function TimerProvider({ children }) {
         if (!authenticated || !canUseApp)
             return;
         const autoStart = (event) => {
-            if (event.target?.closest(".timer-actions"))
+            if (event.target?.closest(".timer-actions, [data-no-auto-track]"))
                 return;
             if (!autoStarted.current && dataRef.current.status === "stopped") {
                 autoStarted.current = true;
