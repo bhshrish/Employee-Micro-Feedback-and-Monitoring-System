@@ -55,6 +55,12 @@ Email verification, password recovery, and invitation email delivery require a c
 
 The built-in rate limiter uses Express's per-process store. Use a single API instance or add a shared store/API gateway limit before running multiple API replicas.
 
+## Deploy to Vercel
+
+Create a separate Vercel project for this API and set its Root Directory to `backend`. The `vercel.json` configures the Express entry point at `src/server.js`; Vercel serves the API routes from that app. Add the required production environment variables from `.env.example` in the Vercel project settings, including a hosted MongoDB URI, distinct JWT secrets, the frontend URL, and the frontend origin in `CORS_ORIGINS`. Do not deploy with local MongoDB or development secrets.
+
+Vercel functions are not persistent servers, so the in-process scheduled alert and trial-expiration jobs are not a reliable scheduler there. Configure an external scheduler to invoke equivalent maintenance tasks, or deploy the API on a persistent Node.js host if those jobs must run on schedule.
+
 ## Tests
 
 Tests use `mongodb-memory-server` and Supertest; no external MongoDB is required. The in-memory server may need to download the matching MongoDB binary on first run.
