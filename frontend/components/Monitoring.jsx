@@ -75,8 +75,8 @@ function MonitoringContent() {
       <section className="monitoring-privacy" aria-label="Monitoring privacy commitment">
         <Icon name="shield" size={25}/>
         <div>
-          <strong>Aggregate signals only</strong>
-          <p>Monitoring summarizes team activity and anonymous wellbeing data. This view does not show individual employee timelines, screen content, keystrokes, or URLs. Small groups are suppressed by the workspace privacy minimum.</p>
+          <strong>Current view: aggregate signals</strong>
+          <p>This demo shows workspace or team summaries, not individual timelines or raw recordings. Optional screen recording and keyboard activity counts are planned, not active here. Future screen recording will require employee opt-in with pause and stop controls; keyboard activity will count keypresses without collecting typed characters.</p>
         </div>
       </section>
 
@@ -126,7 +126,7 @@ function MonitoringContent() {
               <li><Icon name="check"/>Overall productive share of active time</li>
               <li><Icon name="check"/>Anonymous pulse signals by eligible group</li>
               <li><Icon name="close"/>No individual employee activity timeline</li>
-              <li><Icon name="close"/>No screenshots, keystrokes, or browsing data</li>
+              <li><Icon name="close"/>No screen recordings or keyboard counts in this demo</li>
             </ul>
             <Link href="/team" className="button button-outline">View team wellbeing <Icon name="arrow" size={18}/></Link>
           </section>
