@@ -40,10 +40,24 @@ const db_1 = require("./db");
 const alerts_1 = require("./jobs/alerts");
 const subscriptions_1 = require("./jobs/subscriptions");
 const logger_1 = require("./utils/logger");
+const app = (0, app_1.createApp)();
+let databaseConnection;
+function ensureDatabaseConnected() {
+    if (!databaseConnection) {
+        databaseConnection = (0, db_1.connectDatabase)().catch((error) => {
+            databaseConnection = undefined;
+            throw error;
+        });
+    }
+    return databaseConnection;
+}
+async function handler(req, res) {
+    await ensureDatabaseConnected();
+    return app(req, res);
+}
 async function main() {
     const config = (0, env_1.getConfig)();
-    await (0, db_1.connectDatabase)();
-    const app = (0, app_1.createApp)();
+    await ensureDatabaseConnected();
     const jobs = (0, alerts_1.startAlertJobs)();
     const trialJob = (0, subscriptions_1.startTrialExpirationJob)();
     const server = app.listen(config.PORT, () => logger_1.logger.info({ port: config.PORT }, "PULSE API listening"));
@@ -57,7 +71,10 @@ async function main() {
     process.once("SIGTERM", shutdown);
     process.once("SIGINT", shutdown);
 }
-void main().catch((error) => {
-    logger_1.logger.fatal({ err: error }, "PULSE API failed to start");
-    process.exitCode = 1;
-});
+module.exports = handler;
+if (require.main === module) {
+    void main().catch((error) => {
+        logger_1.logger.fatal({ err: error }, "PULSE API failed to start");
+        process.exitCode = 1;
+    });
+}

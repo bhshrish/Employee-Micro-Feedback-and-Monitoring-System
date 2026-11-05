@@ -27,7 +27,23 @@ The API listens on the configured `PORT` (default `4000`). Use `GET /health` for
 
 Keep the API running, then start the frontend in a second terminal with `npm run dev` (or `npm --workspace frontend run dev`). The login page connects to `http://localhost:4000/api/v1` by default, so login and signup will not work until MongoDB and the API are available. Set `NEXT_PUBLIC_API_URL` when the API is hosted elsewhere, and include the frontend origin in the API's `CORS_ORIGINS`.
 
-For Vercel, import the repository and set the project Root Directory to `frontend`. Configure `NEXT_PUBLIC_API_URL` in the Vercel project settings to point to the separately deployed API. The Express API and MongoDB must be hosted separately.
+## Deploy both apps to Vercel
+
+Deploy the frontend and API as **two separate Vercel projects** from this repository. MongoDB must be hosted separately (for example, MongoDB Atlas).
+
+1. Create a Vercel project for the frontend, select this repository, and set **Root Directory** to `frontend`. Note its production URL. Create a second project for the API from the same repository and set **Root Directory** to `backend`.
+2. Add the production backend variables listed in [`backend/.env.example`](./backend/.env.example) to the API project's settings. Required values include:
+   - `NODE_ENV=production`
+   - `MONGODB_URI` for a hosted database
+   - Two distinct, randomly generated secrets of at least 32 characters for `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET`
+   - `FRONTEND_URL` set to the frontend's production URL
+   - `CORS_ORIGINS` set to the exact frontend production origin (scheme and host, no path)
+   - `COOKIE_SECURE=true`
+3. Deploy the API. Its base URL is the Vercel deployment URL; confirm `GET /health` responds with `{"status":"ok"}`.
+4. Set `NEXT_PUBLIC_API_URL` in the frontend project to the API URL plus `/api/v1` (for example, `https://your-api.vercel.app/api/v1`), then deploy the frontend.
+5. Test signup/sign-in and refresh-token behavior on the deployed frontend. For Stripe, configure the production Stripe variables and point the Stripe webhook at `https://your-api.vercel.app/api/v1/billing/webhook`.
+
+Add these variables to the Vercel project settings, not to source control. Use custom frontend and API domains under the same registrable domain for production authentication (for example, `app.example.com` and `api.example.com`): the refresh cookie is `SameSite=Lax`, and separate default `*.vercel.app` domains may treat frontend-to-API requests as cross-site. Leave `COOKIE_DOMAIN` unset unless you have a specific domain-cookie requirement. Vercel functions are not persistent servers, so the API's in-process alert and trial-expiration jobs do not run reliably there; use an external scheduler or a persistent host if those jobs are required.
 
 ## Environment
 

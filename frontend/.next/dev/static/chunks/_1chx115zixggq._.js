@@ -343,7 +343,7 @@ function MarketingFooter() {
                         columnNumber: 509
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                        children: "No keystrokes. No screen content. No URLs."
+                        children: "Planned screen recording is opt-in · Keyboard counts, not typed text"
                     }, void 0, false, {
                         fileName: "[project]/frontend/components/Marketing.jsx",
                         lineNumber: 11,
@@ -365,8 +365,8 @@ function MarketingFooter() {
 _c1 = MarketingFooter;
 const faqs = [
     [
-        "Does PULSE monitor my screen or keystrokes?",
-        "Never. PULSE records activity timing only—when you are active or idle. It cannot see screen content, keystrokes, passwords, or the URLs you visit."
+        "Does PULSE record my screen or keystrokes?",
+        "Not in the current demo. Screen recording is planned as an optional feature that requires an employee to opt in and can be paused or stopped. Keyboard activity will be counted only; typed characters and key values will not be collected. Screen recordings may show visible sensitive information, so employees should be able to avoid recording those screens."
     ],
     [
         "Can my manager see my individual pulse answers?",

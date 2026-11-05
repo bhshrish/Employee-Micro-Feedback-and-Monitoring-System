@@ -716,6 +716,10 @@ ul {
   grid-column: 4 / 6;
 }
 
+.feature-6 {
+  grid-column: 2 / 6;
+}
+
 .how {
   background: var(--p-ink);
   color: var(--p-surface);
@@ -3979,6 +3983,12 @@ legend {
   color: var(--muted);
   font-size: 13px;
   font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .feature-6 {
+    grid-column: auto;
+  }
 }
 
 .heatmap-table thead th:not(:first-child) {

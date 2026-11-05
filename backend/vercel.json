@@ -2,7 +2,14 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "src/server.js": {
-      "maxDuration": 30
+      "maxDuration": 30,
+      "includeFiles": "openapi.yaml"
     }
-  }
+  },
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "src/server.js"
+    }
+  ]
 }

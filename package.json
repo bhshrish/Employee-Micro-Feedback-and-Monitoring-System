@@ -17,5 +17,8 @@
     "seed": "npm --prefix backend run seed",
     "start": "npm --workspace frontend run start",
     "start:api": "npm --prefix backend start"
+  },
+  "dependencies": {
+    "mongodb": "^7.8.0"
   }
 }

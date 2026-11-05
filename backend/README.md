@@ -57,7 +57,7 @@ The built-in rate limiter uses Express's per-process store. Use a single API ins
 
 ## Deploy to Vercel
 
-Create a separate Vercel project for this API and set its Root Directory to `backend`. The `vercel.json` configures the Express entry point at `src/server.js`; Vercel serves the API routes from that app. Add the required production environment variables from `.env.example` in the Vercel project settings, including a hosted MongoDB URI, distinct JWT secrets, the frontend URL, and the frontend origin in `CORS_ORIGINS`. Do not deploy with local MongoDB or development secrets.
+Create a separate Vercel project for this API and set its Root Directory to `backend`. `src/server.js` exports a request handler for Vercel, and `vercel.json` routes all paths to that handler. Database connections are initialized lazily and reused when the function instance is warm; the scheduled jobs only start when running the persistent local server. Add the required production environment variables from `.env.example` in the Vercel project settings, including a hosted MongoDB URI, distinct JWT secrets, `COOKIE_SECURE=true`, the frontend URL, and the frontend origin in `CORS_ORIGINS`. Use custom frontend and API domains under the same registrable domain for production authentication; the refresh cookie is `SameSite=Lax`, so separate default `*.vercel.app` domains may treat API calls as cross-site. Do not deploy with local MongoDB or development secrets.
 
 Vercel functions are not persistent servers, so the in-process scheduled alert and trial-expiration jobs are not a reliable scheduler there. Configure an external scheduler to invoke equivalent maintenance tasks, or deploy the API on a persistent Node.js host if those jobs must run on schedule.
 
