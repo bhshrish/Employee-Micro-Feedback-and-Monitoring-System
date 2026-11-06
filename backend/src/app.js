@@ -26,10 +26,11 @@ function createApp() {
     if (config.NODE_ENV === "production")
         app.set("trust proxy", 1);
     app.use((0, helmet_1.default)());
+    const allowedOrigins = config.CORS_ORIGINS.split(",").map((item) => item.trim().replace(/\/+$/, ""));
     app.use((0, cors_1.default)({
         credentials: true,
         origin(origin, callback) {
-            if (!origin || config.CORS_ORIGINS.split(",").map((item) => item.trim()).includes(origin)) {
+            if (!origin || allowedOrigins.includes(origin)) {
                 callback(null, true);
                 return;
             }

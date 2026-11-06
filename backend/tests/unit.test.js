@@ -1,8 +1,35 @@
 import assert from "node:assert/strict";
+import request from "supertest";
 import { describe, it } from "vitest";
+import { createApp } from "../src/app";
 import { pulseWeekRange, weekStart } from "../src/utils/week";
 import { pulseSchema, signupSchema } from "../src/schemas";
 import { calculateBurnoutScore } from "../src/services/burnout";
+
+describe("CORS", () => {
+    it("allows preflight requests when a configured origin has a trailing slash", async () => {
+        const previousCorsOrigins = process.env.CORS_ORIGINS;
+        const origin = "https://employee-micro-feedback-and-monitor-omega.vercel.app";
+        process.env.CORS_ORIGINS = `${origin}/`;
+        try {
+            const response = await request(createApp())
+                .options("/api/v1/auth/signin")
+                .set("Origin", origin)
+                .set("Access-Control-Request-Method", "POST")
+                .set("Access-Control-Request-Headers", "content-type")
+                .expect(204);
+            assert.equal(response.headers["access-control-allow-origin"], origin);
+            assert.equal(response.headers["access-control-allow-credentials"], "true");
+        }
+        finally {
+            if (previousCorsOrigins === undefined)
+                delete process.env.CORS_ORIGINS;
+            else
+                process.env.CORS_ORIGINS = previousCorsOrigins;
+        }
+    });
+});
+
 describe("validation and date utilities", () => {
     it("rejects unknown fields and ratings outside the pulse range", () => {
         assert.equal(pulseSchema.safeParse({ mood: 4, stress: 2, workload: 3, note: "extra" }).success, false);

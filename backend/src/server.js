@@ -52,6 +52,8 @@ function ensureDatabaseConnected() {
     return databaseConnection;
 }
 async function handler(req, res) {
+    if (req.method === "OPTIONS")
+        return app(req, res);
     await ensureDatabaseConnected();
     return app(req, res);
 }
