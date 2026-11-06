@@ -45,7 +45,8 @@ describe("CORS", () => {
                     throw new Error("database unavailable");
                 },
             }))
-                .get("/api/v1/health/live")
+                .post("/api/v1/auth/signin")
+                .send({ email: "person@example.test", password: "example-password" })
                 .set("Origin", origin)
                 .expect(500);
             assert.equal(response.headers["access-control-allow-origin"], origin);
@@ -57,6 +58,20 @@ describe("CORS", () => {
             else
                 process.env.CORS_ORIGINS = previousCorsOrigins;
         }
+    });
+
+    it("keeps liveness independent of MongoDB and reports readiness as unavailable", async () => {
+        const app = createApp({
+            ensureDatabaseConnected: async () => {
+                throw new Error("database unavailable");
+            },
+        });
+        await request(app).get("/health").expect(200).expect({ status: "ok" });
+        await request(app).get("/health/live").expect(200).expect({ status: "ok" });
+        await request(app).get("/health/ready").expect(503).expect({
+            status: "not_ready",
+            dependencies: { mongodb: "unavailable" },
+        });
     });
 });
 

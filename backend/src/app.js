@@ -62,7 +62,19 @@ function createApp({ ensureDatabaseConnected } = {}) {
         next();
     });
     if (ensureDatabaseConnected) {
-        app.use((_req, _res, next) => {
+        const healthPaths = new Set([
+            "/health",
+            "/health/live",
+            "/health/ready",
+            "/api/v1/health",
+            "/api/v1/health/live",
+            "/api/v1/health/ready",
+        ]);
+        app.use((req, _res, next) => {
+            if (req.method === "GET" && healthPaths.has(req.path)) {
+                next();
+                return;
+            }
             Promise.resolve()
                 .then(ensureDatabaseConnected)
                 .then(() => next(), next);
