@@ -36,24 +36,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 require("dotenv/config");
 const app_1 = require("./app");
 const env_1 = require("./config/env");
-const db_1 = require("./db");
 const alerts_1 = require("./jobs/alerts");
 const subscriptions_1 = require("./jobs/subscriptions");
 const logger_1 = require("./utils/logger");
-let databaseConnection;
-function ensureDatabaseConnected() {
-    if (!databaseConnection) {
-        databaseConnection = (0, db_1.connectDatabase)().catch((error) => {
-            databaseConnection = undefined;
-            throw error;
-        });
-    }
-    return databaseConnection;
-}
-const app = (0, app_1.createApp)({ ensureDatabaseConnected });
+const app = app_1.default;
 function handler(req, res) {
     return app(req, res);
 }
+const ensureDatabaseConnected = app_1.ensureDatabaseConnected;
 async function main() {
     const config = (0, env_1.getConfig)();
     await ensureDatabaseConnected();

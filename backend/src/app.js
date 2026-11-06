@@ -14,6 +14,7 @@ const helmet_1 = __importDefault(require("helmet"));
 const pino_http_1 = __importDefault(require("pino-http"));
 const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 const env_1 = require("./config/env");
+const db_1 = require("./db");
 const logger_1 = require("./utils/logger");
 const errors_1 = require("./middleware/errors");
 const validate_1 = require("./middleware/validate");
@@ -133,3 +134,15 @@ function createApp({ ensureDatabaseConnected } = {}) {
     app.use(errors_1.errorHandler);
     return app;
 }
+let databaseConnection;
+function ensureDatabaseConnected() {
+    if (!databaseConnection) {
+        databaseConnection = (0, db_1.connectDatabase)().catch((error) => {
+            databaseConnection = undefined;
+            throw error;
+        });
+    }
+    return databaseConnection;
+}
+exports.ensureDatabaseConnected = ensureDatabaseConnected;
+exports.default = createApp({ ensureDatabaseConnected });
