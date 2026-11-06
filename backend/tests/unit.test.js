@@ -12,12 +12,42 @@ describe("CORS", () => {
         const origin = "https://employee-micro-feedback-and-monitor-omega.vercel.app";
         process.env.CORS_ORIGINS = `${origin}/`;
         try {
-            const response = await request(createApp())
+            let databaseConnectionAttempted = false;
+            const response = await request(createApp({
+                ensureDatabaseConnected: async () => {
+                    databaseConnectionAttempted = true;
+                },
+            }))
                 .options("/api/v1/auth/signin")
                 .set("Origin", origin)
                 .set("Access-Control-Request-Method", "POST")
                 .set("Access-Control-Request-Headers", "content-type")
                 .expect(204);
+            assert.equal(response.headers["access-control-allow-origin"], origin);
+            assert.equal(response.headers["access-control-allow-credentials"], "true");
+            assert.equal(databaseConnectionAttempted, false);
+        }
+        finally {
+            if (previousCorsOrigins === undefined)
+                delete process.env.CORS_ORIGINS;
+            else
+                process.env.CORS_ORIGINS = previousCorsOrigins;
+        }
+    });
+
+    it("includes CORS headers when the database connection fails", async () => {
+        const previousCorsOrigins = process.env.CORS_ORIGINS;
+        const origin = "https://employee-micro-feedback-and-monitor-omega.vercel.app";
+        process.env.CORS_ORIGINS = origin;
+        try {
+            const response = await request(createApp({
+                ensureDatabaseConnected: async () => {
+                    throw new Error("database unavailable");
+                },
+            }))
+                .get("/api/v1/health/live")
+                .set("Origin", origin)
+                .expect(500);
             assert.equal(response.headers["access-control-allow-origin"], origin);
             assert.equal(response.headers["access-control-allow-credentials"], "true");
         }

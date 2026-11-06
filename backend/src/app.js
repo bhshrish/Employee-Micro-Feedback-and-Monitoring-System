@@ -19,7 +19,7 @@ const errors_1 = require("./middleware/errors");
 const validate_1 = require("./middleware/validate");
 const routes_1 = __importDefault(require("./routes"));
 const billing_controller_1 = require("./controllers/billing.controller");
-function createApp() {
+function createApp({ ensureDatabaseConnected } = {}) {
     const config = (0, env_1.getConfig)();
     const app = (0, express_1.default)();
     app.disable("x-powered-by");
@@ -60,6 +60,13 @@ function createApp() {
         req.requestId = String(req.id);
         next();
     });
+    if (ensureDatabaseConnected) {
+        app.use((_req, _res, next) => {
+            Promise.resolve()
+                .then(ensureDatabaseConnected)
+                .then(() => next(), next);
+        });
+    }
     app.use("/api/v1/billing/webhook", express_1.default.raw({ type: "application/json", limit: "1mb" }), billing_controller_1.webhook);
     app.use("/api/v1/webhooks/stripe", express_1.default.raw({ type: "application/json", limit: "1mb" }), billing_controller_1.webhook);
     app.use(express_1.default.json({ limit: "64kb", strict: true }));

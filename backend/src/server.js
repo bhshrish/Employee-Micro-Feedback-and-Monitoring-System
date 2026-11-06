@@ -40,7 +40,6 @@ const db_1 = require("./db");
 const alerts_1 = require("./jobs/alerts");
 const subscriptions_1 = require("./jobs/subscriptions");
 const logger_1 = require("./utils/logger");
-const app = (0, app_1.createApp)();
 let databaseConnection;
 function ensureDatabaseConnected() {
     if (!databaseConnection) {
@@ -51,10 +50,8 @@ function ensureDatabaseConnected() {
     }
     return databaseConnection;
 }
-async function handler(req, res) {
-    if (req.method === "OPTIONS")
-        return app(req, res);
-    await ensureDatabaseConnected();
+const app = (0, app_1.createApp)({ ensureDatabaseConnected });
+function handler(req, res) {
     return app(req, res);
 }
 async function main() {
