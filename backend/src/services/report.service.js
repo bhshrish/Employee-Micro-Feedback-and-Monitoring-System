@@ -78,20 +78,20 @@ async function exportReport(organizationId, subscription, period, metrics, forma
         for (const key of mapping[metric] ?? [])
             rows.push([key, selected[key]]);
     if (format === "csv")
-        return { contentType: "text/csv; charset=utf-8", filename: `pulse-report-${period}.csv`, content: (0, sync_1.stringify)(rows, { header: true, columns: ["Metric", "Value"] }) };
-    const pdf = new pdfkit_1.default({ size: "A4", margin: 52, info: { Title: "PULSE report", Author: "PULSE" } });
+        return { contentType: "text/csv; charset=utf-8", filename: `workwell-report-${period}.csv`, content: (0, sync_1.stringify)(rows, { header: true, columns: ["Metric", "Value"] }) };
+    const pdf = new pdfkit_1.default({ size: "A4", margin: 52, info: { Title: "Workwell report", Author: "Workwell" } });
     const chunks = [];
     const finished = new Promise((resolve, reject) => {
         pdf.on("data", (chunk) => chunks.push(chunk));
         pdf.on("end", () => resolve(Buffer.concat(chunks)));
         pdf.on("error", reject);
     });
-    pdf.fontSize(22).text("PULSE wellbeing report");
+    pdf.fontSize(22).text("Workwell wellbeing report");
     pdf.moveDown().fontSize(11).fillColor("#555").text(`Period: ${period} · Generated ${new Date().toISOString()}`);
     pdf.moveDown().fillColor("#111");
     for (const [label, value] of rows.slice(1))
         pdf.fontSize(12).text(`${label}: ${value}`);
     pdf.moveDown().fontSize(9).fillColor("#666").text(`Aggregated and anonymized. Groups below ${minResponses} responses are excluded. This report is not an individual performance assessment.`);
     pdf.end();
-    return { contentType: "application/pdf", filename: `pulse-report-${period}.pdf`, content: await finished };
+    return { contentType: "application/pdf", filename: `workwell-report-${period}.pdf`, content: await finished };
 }

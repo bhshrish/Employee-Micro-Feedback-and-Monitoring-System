@@ -4,7 +4,7 @@ import { ThemeProvider } from "@/lib/theme";
 import { ToastProvider } from "@/components/Toast";
 export const viewport = { width: "device-width", initialScale: 1, viewportFit: "cover" };
 export const metadata = {
-    title: { default: "PULSE — Healthier work, heard earlier", template: "%s · PULSE" },
+    title: { default: "Workwell — Healthier work, heard earlier", template: "%s · Workwell" },
     description: "Private time awareness and anonymous team wellbeing signals in one calm workspace.",
 };
 export default function RootLayout({ children }) {

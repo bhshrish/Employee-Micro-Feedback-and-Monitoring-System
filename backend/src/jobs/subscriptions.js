@@ -17,10 +17,10 @@ function startTrialExpirationJob() {
         try {
             const count = await expireTrials();
             if (count)
-                logger_1.logger.info({ count }, "Expired PULSE trials");
+                logger_1.logger.info({ count }, "Expired Workwell trials");
         }
         catch (error) {
-            logger_1.logger.error({ err: error }, "Failed to expire PULSE trials");
+            logger_1.logger.error({ err: error }, "Failed to expire Workwell trials");
         }
     }, { timezone: "UTC" });
 }

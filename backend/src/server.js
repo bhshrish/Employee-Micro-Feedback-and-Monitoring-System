@@ -49,7 +49,7 @@ async function main() {
     await ensureDatabaseConnected();
     const jobs = (0, alerts_1.startAlertJobs)();
     const trialJob = (0, subscriptions_1.startTrialExpirationJob)();
-    const server = app.listen(config.PORT, () => logger_1.logger.info({ port: config.PORT }, "PULSE API listening"));
+    const server = app.listen(config.PORT, () => logger_1.logger.info({ port: config.PORT }, "Workwell API listening"));
     const shutdown = () => {
         jobs.stop();
         trialJob.stop();
@@ -63,7 +63,7 @@ async function main() {
 module.exports = handler;
 if (require.main === module) {
     void main().catch((error) => {
-        logger_1.logger.fatal({ err: error }, "PULSE API failed to start");
+        logger_1.logger.fatal({ err: error }, "Workwell API failed to start");
         process.exitCode = 1;
     });
 }

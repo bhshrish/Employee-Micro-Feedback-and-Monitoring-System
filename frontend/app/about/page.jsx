@@ -9,15 +9,15 @@ export default function AboutPage() {
         <MarketingNavbar />
         <main className="page-main">
             <section className="page-hero">
-                <p className="section-label">About PULSE</p>
+                <p className="section-label">About Workwell</p>
                 <h1>Technology should<br />help work feel<br /><em>more human.</em></h1>
-                <p>PULSE is a workplace wellbeing product built around a simple belief: useful insights require trust, context, and clear privacy boundaries.</p>
+                <p>Workwell is a workplace wellbeing product built around a simple belief: useful insights require trust, context, and clear privacy boundaries.</p>
             </section>
             <section className="section about-grid">
                 <article>
                     <span>01</span>
                     <h2>Insight with employee choice</h2>
-                    <p>PULSE supports activity timing and employee wellbeing check-ins. Optional screen recording is planned to require explicit employee opt-in, with controls to pause or stop. It is not active in this demo.</p>
+                    <p>Workwell supports activity timing and employee wellbeing check-ins. Optional screen recording is planned to require explicit employee opt-in, with controls to pause or stop. It is not active in this demo.</p>
                 </article>
                 <article>
                     <span>02</span>

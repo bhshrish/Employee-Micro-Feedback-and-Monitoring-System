@@ -22,7 +22,7 @@ export function SubscriptionProvider({ children }) {
                 setSelection({ plan: restored.subscription.plan, cycle: defaultSelection.cycle });
             }
         }).catch((error) => {
-            console.error("Could not restore the PULSE session", error);
+            console.error("Could not restore the Workwell session", error);
         }).finally(() => setHydrated(true));
         return () => window.removeEventListener("pulse:session-expired", expireSession);
     }, []);

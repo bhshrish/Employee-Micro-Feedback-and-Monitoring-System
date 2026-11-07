@@ -18,7 +18,7 @@ async function fetchApi(input, init) {
     catch (error) {
         if (!(error instanceof TypeError))
             throw error;
-        throw apiError(0, "API_UNAVAILABLE", `Can't reach the PULSE API at ${API_BASE}. Start MongoDB and run \`npm run api:dev\` after configuring backend/.env. For a remote API, set NEXT_PUBLIC_API_URL and allow this site's origin in CORS_ORIGINS.`);
+        throw apiError(0, "API_UNAVAILABLE", `Can't reach the Workwell API at ${API_BASE}. Start MongoDB and run \`npm run api:dev\` after configuring backend/.env. For a remote API, set NEXT_PUBLIC_API_URL and allow this site's origin in CORS_ORIGINS.`);
     }
 }
 async function refreshAccessToken() {

@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: PULSE API
+  title: Workwell API
   version: 1.0.0
   description: |
     Multi-tenant API for privacy-first activity tracking, anonymous weekly pulse,
