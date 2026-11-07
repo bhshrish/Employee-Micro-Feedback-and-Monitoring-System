@@ -27,6 +27,8 @@ The API listens on the configured `PORT` (default `4000`). Use `GET /health` for
 
 Workspace monitoring summaries are included during the seven-day free trial. After the trial, an active monthly or yearly plan is required to continue using monitoring. Report exports require an active paid plan.
 
+Employees can use **Attendance** to check in and out; elapsed time is calculated from those timestamps and attendance remains available independently of a monitoring subscription. The separate Operations Admin dashboard (`/admin`) provides daily attendance totals, current check-ins, filtering, and CSV export. Configure `OPS_ADMIN_PASSWORD` in the backend environment for admin access (the only accepted admin email is `admin@gmail.com`), and configure SMTP variables for employee email-code sign-in. Do not put the admin password or SMTP credentials in source control.
+
 Keep the API running, then start the frontend in a second terminal with `npm run dev` (or `npm --workspace frontend run dev`). The login page connects to `http://localhost:4000/api/v1` by default, so login and signup will not work until MongoDB and the API are available. Set `NEXT_PUBLIC_API_URL` when the API is hosted elsewhere, and include the frontend origin in the API's `CORS_ORIGINS`.
 
 ## Deploy both apps to Vercel
@@ -41,6 +43,8 @@ Deploy the frontend and API as **two separate Vercel projects** from this reposi
    - `FRONTEND_URL` set to the frontend's production URL
    - `CORS_ORIGINS` set to the exact frontend production origin (scheme and host, no path)
    - `COOKIE_SECURE=true`
+   - `OPS_ADMIN_PASSWORD` set to a unique password of at least 12 characters
+   - `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_FROM` for employee sign-in codes
 3. Deploy the API. Its base URL is the Vercel deployment URL; confirm `GET /health` responds with `{"status":"ok"}`.
 4. Set `NEXT_PUBLIC_API_URL` in the frontend project to the API URL plus `/api/v1` (for example, `https://your-api.vercel.app/api/v1`), then deploy the frontend.
 5. Test signup/sign-in and refresh-token behavior on the deployed frontend. For Stripe, configure the production Stripe variables and point the Stripe webhook at `https://your-api.vercel.app/api/v1/billing/webhook`.
@@ -49,7 +53,7 @@ Add these variables to the Vercel project settings, not to source control. Produ
 
 ## Environment
 
-See [`backend/.env.example`](./backend/.env.example) for the complete variable list and descriptions. At minimum configure `MONGODB_URI`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, and `CORS_ORIGINS`. Stripe test-mode credentials and plan price IDs are required to enable checkout and billing. Secrets must be strong, unique values in deployed environments.
+See [`backend/.env.example`](./backend/.env.example) for the complete variable list and descriptions. At minimum configure `MONGODB_URI`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `CORS_ORIGINS`, `OPS_ADMIN_PASSWORD`, and the SMTP settings. Stripe test-mode credentials and plan price IDs are required to enable checkout and billing. Secrets must be strong, unique values in deployed environments.
 
 ## Commands
 
@@ -80,7 +84,7 @@ Burnout analytics combine normalized stress, workload, inverse mood, participati
 
 ## API overview
 
-Versioned JSON routes are under `/api/v1`: authentication, user and team administration, time sessions, weekly pulses, manager-only aggregate analytics, alerts, Stripe billing, and subscription-gated reports. Responses use `{ "data": ... }` on success and `{ "error": { "code": ..., "message": ... } }` on failure. See the OpenAPI document at [`backend/openapi.yaml`](./backend/openapi.yaml).
+Versioned JSON routes are under `/api/v1`: authentication, employee attendance, operations-admin attendance reporting, user and team administration, time sessions, weekly pulses, manager-only aggregate analytics, alerts, Stripe billing, and subscription-gated reports. Responses use `{ "data": ... }` on success and `{ "error": { "code": ..., "message": ... } }` on failure. See the OpenAPI document at [`backend/openapi.yaml`](./backend/openapi.yaml).
 
 Stripe is configured in test mode. The webhook endpoint verifies Stripe signatures against the raw request body and deduplicates processed events.
 

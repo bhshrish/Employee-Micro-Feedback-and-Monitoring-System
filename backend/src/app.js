@@ -120,6 +120,7 @@ function createApp({ ensureDatabaseConnected } = {}) {
     app.use("/api/v1/auth", (0, express_rate_limit_1.default)({
         windowMs: 15 * 60_000,
         limit: 30,
+        skip: () => (0, env_1.getConfig)().NODE_ENV === "test",
         standardHeaders: "draft-7",
         legacyHeaders: false,
         handler: (req, res) => res.status(429).json({

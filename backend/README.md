@@ -51,7 +51,7 @@ The weekly cron job scores eligible aggregated pulse data and creates at most on
 
 Workspace owners/admins can create members using `POST /api/v1/workspace/invitations`; the API returns a one-time, seven-day acceptance token for `POST /api/v1/auth/accept-invitation`. The token is hashed at rest and is intended to be delivered through an organization-controlled channel until an email provider is configured.
 
-Email verification, password recovery, and invitation email delivery require a configured mail provider and are not enabled in this deployment.
+Employee sign-in codes are delivered through SMTP. Configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_FROM` to enable email-code sign-in. The operations admin is restricted to `admin@gmail.com`; set its password using `OPS_ADMIN_PASSWORD` in the backend environment (at least 12 characters), never in source control. The admin dashboard can query daily attendance totals and export attendance CSV. Employee check-in/out is stored separately from activity tracking and calculates actual elapsed time from the recorded timestamps.
 
 The built-in rate limiter uses Express's per-process store. Use a single API instance or add a shared store/API gateway limit before running multiple API replicas.
 

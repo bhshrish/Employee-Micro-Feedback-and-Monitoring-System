@@ -10,6 +10,8 @@ exports.rotateRefreshToken = rotateRefreshToken;
 exports.revokeRefreshToken = revokeRefreshToken;
 exports.revokeAllRefreshTokens = revokeAllRefreshTokens;
 exports.getCurrentUser = getCurrentUser;
+exports.requestEmployeeOtp = requestEmployeeOtp;
+exports.verifyEmployeeOtp = verifyEmployeeOtp;
 const node_crypto_1 = require("node:crypto");
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
@@ -18,8 +20,10 @@ const env_1 = require("../config/env");
 const Organization_1 = require("../models/Organization");
 const Invitation_1 = require("../models/Invitation");
 const RefreshToken_1 = require("../models/RefreshToken");
+const EmployeeOtp_1 = require("../models/EmployeeOtp");
 const Team_1 = require("../models/Team");
 const User_1 = require("../models/User");
+const email_service_1 = require("./email.service");
 const errors_1 = require("../utils/errors");
 const BCRYPT_ROUNDS = 12;
 function hashRefreshToken(token) {
@@ -32,6 +36,18 @@ function accessToken(user) {
         issuer: "pulse-api",
         audience: "pulse-client",
     });
+}
+function createSession(user) {
+    return createRefreshToken(user._id).then((refresh) => ({
+        user: publicUser(user),
+        accessToken: accessToken(user),
+        refreshToken: refresh.raw,
+    }));
+}
+function employeeOtpHash(email, code) {
+    return (0, node_crypto_1.createHmac)("sha256", (0, env_1.getConfig)().JWT_REFRESH_SECRET)
+        .update(`${email}:${code}`)
+        .digest("hex");
 }
 async function createRefreshToken(userId, familyId = (0, node_crypto_1.randomUUID)()) {
     const raw = (0, node_crypto_1.randomBytes)(48).toString("base64url");
@@ -102,8 +118,61 @@ async function signin(input) {
         user.subscription.status = "trial_expired";
         await user.save();
     }
-    const refresh = await createRefreshToken(user._id);
-    return { user: publicUser(user), accessToken: accessToken(user), refreshToken: refresh.raw };
+    return createSession(user);
+}
+async function requestEmployeeOtp(email, deliverOtp = email_service_1.sendEmployeeOtp) {
+    const now = new Date();
+    const existing = await EmployeeOtp_1.EmployeeOtp.findOne({ email }).select("resendAfter");
+    if (existing && existing.resendAfter > now)
+        return;
+    const user = await User_1.User.findOne({ email }).select("_id");
+    if (!user)
+        return;
+    const code = String((0, node_crypto_1.randomInt)(0, 1_000_000)).padStart(6, "0");
+    const otp = {
+        email,
+        codeHash: employeeOtpHash(email, code),
+        attempts: 0,
+        expiresAt: new Date(now.getTime() + 10 * 60_000),
+        resendAfter: new Date(now.getTime() + 60_000),
+    };
+    await EmployeeOtp_1.EmployeeOtp.findOneAndUpdate({ email }, { $set: otp }, { upsert: true, new: true, setDefaultsOnInsert: true });
+    try {
+        await deliverOtp(email, code);
+    }
+    catch (error) {
+        await EmployeeOtp_1.EmployeeOtp.deleteOne({ email });
+        throw error;
+    }
+}
+async function verifyEmployeeOtp(input) {
+    const now = new Date();
+    const otp = await EmployeeOtp_1.EmployeeOtp.findOne({ email: input.email }).select("+codeHash");
+    if (!otp || otp.expiresAt <= now || otp.attempts >= 5)
+        throw (0, errors_1.unauthorized)("The sign-in code is invalid or expired");
+    const updated = await EmployeeOtp_1.EmployeeOtp.findOneAndUpdate(
+        { _id: otp._id, attempts: otp.attempts, expiresAt: { $gt: now } },
+        { $inc: { attempts: 1 } },
+        { new: true },
+    ).select("+codeHash");
+    if (!updated)
+        throw (0, errors_1.unauthorized)("The sign-in code is invalid or expired");
+    const suppliedHash = Buffer.from(employeeOtpHash(input.email, input.code), "hex");
+    const storedHash = Buffer.from(updated.codeHash, "hex");
+    if (!require("node:crypto").timingSafeEqual(suppliedHash, storedHash)) {
+        if (updated.attempts >= 5)
+            await EmployeeOtp_1.EmployeeOtp.deleteOne({ _id: updated._id });
+        throw (0, errors_1.unauthorized)("The sign-in code is invalid or expired");
+    }
+    await EmployeeOtp_1.EmployeeOtp.deleteOne({ _id: updated._id });
+    const user = await User_1.User.findOne({ email: input.email });
+    if (!user)
+        throw (0, errors_1.unauthorized)("The sign-in code is invalid or expired");
+    if (user.subscription.status === "trialing" && user.subscription.trialEndsAt <= now) {
+        user.subscription.status = "trial_expired";
+        await user.save();
+    }
+    return createSession(user);
 }
 async function acceptInvitation(input) {
     const tokenHash = hashRefreshToken(input.token);

@@ -2,16 +2,18 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { authenticate } from "@/lib/api";
+import { authenticate, requestEmployeeOtp, signInOperationsAdmin, verifyEmployeeOtp } from "@/lib/api";
 import { useSubscription } from "@/lib/subscription";
 import { Logo } from "./Logo";
 import { Icon } from "./Icon";
 import { FieldError } from "./UI";
 export function AuthForm() {
-    const [mode, setMode] = useState("signin");
+    const [mode, setMode] = useState("employee");
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [code, setCode] = useState("");
+    const [otpRequested, setOtpRequested] = useState(false);
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
     const [accountCreated, setAccountCreated] = useState(false);
@@ -33,14 +35,35 @@ export function AuthForm() {
             next.name = "Enter your name.";
         if (!/^\S+@\S+\.\S+$/.test(email))
             next.email = "Enter a valid work email.";
-        if (password.length < 8)
+        if (mode === "signup" && password.length < 8)
             next.password = "Use at least 8 characters.";
+        if (mode === "admin" && !password)
+            next.password = "Enter the operations admin password.";
+        if (mode === "employee" && otpRequested && !/^\d{6}$/.test(code))
+            next.code = "Enter the 6-digit code from your email.";
         setErrors(next);
         if (Object.keys(next).length)
             return;
         setLoading(true);
         try {
-            const user = await authenticate(email, password, mode, name);
+            if (mode === "admin") {
+                await signInOperationsAdmin(email, password);
+                router.push("/admin");
+                return;
+            }
+            if (mode === "employee" && !otpRequested) {
+                await requestEmployeeOtp(email);
+                setOtpRequested(true);
+                setErrors({});
+                return;
+            }
+            if (mode === "employee") {
+                const user = await verifyEmployeeOtp(email, code);
+                signIn(user);
+                router.push("/dashboard");
+                return;
+            }
+            const user = await authenticate(email, password, "signup", name);
             if (mode === "signup") {
                 setPassword("");
                 setErrors({});
@@ -57,6 +80,18 @@ export function AuthForm() {
             setLoading(false);
         }
     };
+    const selectMode = (nextMode) => {
+        setMode(nextMode);
+        setAccountCreated(false);
+        setOtpRequested(false);
+        setCode("");
+        setPassword("");
+        setErrors({});
+        if (nextMode === "admin")
+            setEmail("admin@gmail.com");
+        else if (mode === "admin")
+            setEmail("");
+    };
     return <main className="auth-page">
         <section className="auth-story">
             <Logo inverse />
@@ -71,25 +106,28 @@ export function AuthForm() {
             <div className="auth-mobile-logo"><Logo /></div>
             <div className="auth-form">
                 <div className="tabs" role="tablist" aria-label="Account access">
-                    <button role="tab" aria-selected={mode === "signin"} className={mode === "signin" ? "active" : ""} onClick={() => { setMode("signin"); setAccountCreated(false); setErrors({}); }}>Sign in</button>
-                    <button role="tab" aria-selected={mode === "signup"} className={mode === "signup" ? "active" : ""} onClick={() => { setMode("signup"); setAccountCreated(false); setErrors({}); }}>Create account</button>
+                    <button role="tab" aria-selected={mode === "employee"} className={mode === "employee" ? "active" : ""} onClick={() => selectMode("employee")}>Employee</button>
+                    <button role="tab" aria-selected={mode === "admin"} className={mode === "admin" ? "active" : ""} onClick={() => selectMode("admin")}>Operations admin</button>
+                    <button role="tab" aria-selected={mode === "signup"} className={mode === "signup" ? "active" : ""} onClick={() => selectMode("signup")}>Create account</button>
                 </div>
-                <h2>{accountCreated ? "Account created." : mode === "signin" ? "Welcome back." : "Start your free trial."}</h2>
-                <p>{accountCreated ? "Your account is ready. You are not signed in." : mode === "signin" ? "Sign in to your Workwell workspace." : "Seven days of full access. No credit card required."}</p>
-                {!accountCreated && <p className="subtle-label">Email and password are case-sensitive. Enter them exactly as you did when creating your account.</p>}
+                <h2>{accountCreated ? "Account created." : mode === "admin" ? "Operations access." : mode === "employee" ? otpRequested ? "Check your email." : "Employee sign in." : "Start your free trial."}</h2>
+                <p>{accountCreated ? "Your account is ready. You are not signed in." : mode === "admin" ? "Sign in to the Workwell operations dashboard." : mode === "employee" ? otpRequested ? `Enter the 6-digit sign-in code sent to ${email}.` : "Use your work email to receive a secure sign-in code." : "Seven days of full access. No credit card required."}</p>
+                {!accountCreated && mode === "signup" && <p className="subtle-label">Email and password are case-sensitive. Enter them exactly as you did when creating your account.</p>}
                 {accountCreated ? <div role="status">
                     <p className="form-note">Your account has been created. Sign in when you are ready to open your workspace.</p>
-                    <button className="button button-full" type="button" onClick={() => { setMode("signin"); setAccountCreated(false); }}>
+                    <button className="button button-full" type="button" onClick={() => selectMode("employee")}>
                         Sign in to Workwell<Icon name="arrow" />
                     </button>
                 </div> : <form onSubmit={submit} noValidate>
                     {mode === "signup" && <label>Full name<input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" placeholder="Alex Morgan" aria-describedby="name-error" /><FieldError>{errors.name}</FieldError></label>}
-                    <label>Work email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" autoCapitalize="none" spellCheck={false} placeholder="you@company.com" aria-describedby="email-error" /><FieldError>{errors.email}</FieldError></label>
-                    <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === "signin" ? "current-password" : "new-password"} autoCapitalize="none" placeholder="At least 8 characters" aria-describedby="password-error" /><FieldError>{errors.password}</FieldError></label>
+                    {!(mode === "employee" && otpRequested) && <label>{mode === "admin" ? "Admin email" : "Work email"}<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} readOnly={mode === "admin"} autoComplete="email" autoCapitalize="none" spellCheck={false} placeholder="you@company.com" aria-describedby="email-error" /><FieldError>{errors.email}</FieldError></label>}
+                    {mode === "employee" && otpRequested && <label>6-digit email code<input inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="000000" aria-describedby="code-error" /><FieldError>{errors.code}</FieldError></label>}
+                    {(mode === "admin" || mode === "signup") && <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === "admin" ? "current-password" : "new-password"} autoCapitalize="none" placeholder={mode === "admin" ? "Operations admin password" : "At least 8 characters"} aria-describedby="password-error" /><FieldError>{errors.password}</FieldError></label>}
                     <FieldError>{errors.form}</FieldError>
-                    <button className="button button-full" disabled={loading}>{loading ? <><span className="spinner" />{mode === "signin" ? "Signing you in…" : "Creating your account…"}</> : <>{mode === "signin" ? "Sign in to Workwell" : "Create account"}<Icon name="arrow" /></>}</button>
+                    <button className="button button-full" disabled={loading}>{loading ? <><span className="spinner" />{mode === "admin" ? "Signing in…" : mode === "signup" ? "Creating your account…" : otpRequested ? "Verifying code…" : "Sending code…"}</> : <>{mode === "admin" ? "Sign in as admin" : mode === "signup" ? "Create account" : otpRequested ? "Verify and sign in" : "Send sign-in code"}<Icon name="arrow" /></>}</button>
+                    {mode === "employee" && otpRequested && <button className="button button-quiet" type="button" onClick={() => { setOtpRequested(false); setCode(""); setErrors({}); }}>Use a different email</button>}
                 </form>}
-                <div className="auth-privacy"><Icon name="shield" /><p>By continuing, you agree to the <Link href="/privacy">privacy policy</Link>. Your account and session are managed securely by Workwell.</p></div>
+                <div className="auth-privacy"><Icon name="shield" /><p>Employee sign-in uses an emailed one-time code. Admin sign-in is restricted to the configured operations account. Your account and session are managed securely by Workwell.</p></div>
             </div>
         </section>
     </main>;

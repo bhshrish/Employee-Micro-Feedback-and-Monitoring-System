@@ -39,6 +39,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const mongoose_1 = __importDefault(require("mongoose"));
 const authController = __importStar(require("../controllers/auth.controller"));
+const operationsController = __importStar(require("../controllers/operations.controller"));
+const attendanceController = __importStar(require("../controllers/attendance.controller"));
 const activityController = __importStar(require("../controllers/activity.controller"));
 const analyticsController = __importStar(require("../controllers/analytics.controller"));
 const billingController = __importStar(require("../controllers/billing.controller"));
@@ -52,13 +54,25 @@ const Alert_1 = require("../models/Alert");
 const Organization_1 = require("../models/Organization");
 const errors_1 = require("../utils/errors");
 const async_handler_1 = require("../utils/async-handler");
+const rate_limit_1 = __importDefault(require("express-rate-limit"));
+const env_1 = require("../config/env");
 const api = (0, express_1.Router)();
 const teamFeature = (0, auth_1.requirePlan)("Team", "Business");
 const activeWorkspace = auth_1.requireEntitlement;
 const authRoutes = (0, express_1.Router)();
+const otpRequestLimiter = (0, rate_limit_1.default)({
+    windowMs: 15 * 60_000,
+    limit: 5,
+    skip: () => (0, env_1.getConfig)().NODE_ENV === "test",
+    standardHeaders: "draft-7",
+    legacyHeaders: false,
+    handler: (_req, res) => res.status(429).json({ error: { code: "RATE_LIMITED", message: "Too many sign-in code requests" } }),
+});
 authRoutes.post("/signup", (0, validate_1.validateBody)(schemas_1.signupSchema), authController.signup);
 authRoutes.post("/signin", (0, validate_1.validateBody)(schemas_1.signinSchema), authController.signin);
 authRoutes.post("/login", (0, validate_1.validateBody)(schemas_1.signinSchema), authController.signin);
+authRoutes.post("/employee-otp/request", otpRequestLimiter, (0, validate_1.validateBody)(schemas_1.employeeOtpRequestSchema), authController.requestEmployeeOtp);
+authRoutes.post("/employee-otp/verify", (0, validate_1.validateBody)(schemas_1.employeeOtpVerifySchema), authController.verifyEmployeeOtp);
 authRoutes.post("/accept-invitation", (0, validate_1.validateBody)(schemas_1.invitationAcceptSchema), authController.acceptInvitation);
 authRoutes.post("/refresh", authController.refresh);
 authRoutes.post("/logout", authController.logout);
@@ -66,6 +80,19 @@ authRoutes.post("/logout-all", auth_1.authenticate, authController.logoutEverywh
 authRoutes.get("/me", auth_1.authenticate, authController.me);
 authRoutes.patch("/me", auth_1.authenticate, (0, validate_1.validateBody)(schemas_1.profileSchema), authController.updateProfile);
 api.use("/auth", authRoutes);
+const operationsRoutes = (0, express_1.Router)();
+operationsRoutes.post("/auth/signin", (0, validate_1.validateBody)(schemas_1.operationsSigninSchema), operationsController.adminSignIn);
+operationsRoutes.post("/auth/logout", auth_1.requireOperationsAdmin, operationsController.adminSignOut);
+operationsRoutes.get("/auth/me", auth_1.requireOperationsAdmin, operationsController.adminMe);
+operationsRoutes.use(auth_1.requireOperationsAdmin);
+operationsRoutes.get("/attendance", (0, validate_1.validateQuery)(schemas_1.attendanceAdminQuerySchema), operationsController.attendance);
+operationsRoutes.get("/attendance/export", (0, validate_1.validateQuery)(schemas_1.attendanceAdminQuerySchema), operationsController.attendanceExport);
+api.use("/operations", operationsRoutes);
+const attendanceRoutes = (0, express_1.Router)();
+attendanceRoutes.get("/attendance/me", auth_1.authenticate, attendanceController.current);
+attendanceRoutes.post("/attendance/check-in", auth_1.authenticate, attendanceController.checkIn);
+attendanceRoutes.post("/attendance/check-out", auth_1.authenticate, attendanceController.checkOut);
+api.use(attendanceRoutes);
 api.get("/health/live", (_req, res) => res.json({ status: "ok" }));
 api.get("/health/ready", (_req, res) => {
     if (mongoose_1.default.connection.readyState !== 1) {

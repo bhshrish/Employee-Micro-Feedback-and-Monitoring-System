@@ -12,6 +12,32 @@ const mongoose_1 = require("mongoose");
 const env_1 = require("../config/env");
 const User_1 = require("../models/User");
 const errors_1 = require("../utils/errors");
+async function requireOperationsAdmin(req, _res, next) {
+    try {
+        const token = req.cookies?.workwell_operations;
+        if (!token)
+            throw (0, errors_1.unauthorized)();
+        const payload = jsonwebtoken_1.default.verify(token, (0, env_1.getConfig)().JWT_ACCESS_SECRET, {
+            issuer: "workwell-operations",
+            audience: "workwell-admin",
+        });
+        if (payload.typ !== "operations_admin" || payload.sub !== "admin@gmail.com")
+            throw (0, errors_1.unauthorized)();
+        next();
+    }
+    catch (error) {
+        if (error instanceof Error && error.name === "TokenExpiredError") {
+            next((0, errors_1.unauthorized)("Admin session expired"));
+            return;
+        }
+        if (error instanceof Error && ["JsonWebTokenError", "NotBeforeError"].includes(error.name)) {
+            next((0, errors_1.unauthorized)("Admin session is invalid"));
+            return;
+        }
+        next(error);
+    }
+}
+exports.requireOperationsAdmin = requireOperationsAdmin;
 async function authenticate(req, _res, next) {
     try {
         const header = req.get("authorization");

@@ -18,7 +18,8 @@ import { expireTrials } from "../src/jobs/subscriptions";
 import { weekStart } from "../src/utils/week";
 import { Organization } from "../src/models/Organization";
 import { migrateLegacyData } from "../src/legacy-migration";
-import { signin as createTestSession } from "../src/services/auth.service";
+import { requestEmployeeOtp, signin as createTestSession } from "../src/services/auth.service";
+import { Attendance } from "../src/models/Attendance";
 const app = createApp();
 let mongo;
 function signup(email, name = "Test User") {
@@ -93,7 +94,7 @@ describe("PULSE API", () => {
             email,
             password: "CORRECT-HORSE-BATTERY",
         }).expect(401);
-        const keys = ["NODE_ENV", "MONGODB_URI", "FRONTEND_URL", "CORS_ORIGINS", "COOKIE_SECURE"];
+        const keys = ["NODE_ENV", "MONGODB_URI", "FRONTEND_URL", "CORS_ORIGINS", "COOKIE_SECURE", "OPS_ADMIN_PASSWORD", "SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD", "SMTP_FROM"];
         const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
         Object.assign(process.env, {
             NODE_ENV: "production",
@@ -101,6 +102,11 @@ describe("PULSE API", () => {
             FRONTEND_URL: "https://app.example.test",
             CORS_ORIGINS: "https://app.example.test",
             COOKIE_SECURE: "true",
+            OPS_ADMIN_PASSWORD: "test-operations-password",
+            SMTP_HOST: "smtp.example.test",
+            SMTP_USER: "smtp-user",
+            SMTP_PASSWORD: "smtp-password",
+            SMTP_FROM: "noreply@example.test",
         });
         let signin;
         try {
@@ -641,5 +647,53 @@ describe("PULSE API", () => {
             .set("Authorization", `Bearer ${account.body.accessToken}`)
             .expect(402)
             .expect((res) => assert.equal(res.body.error.code, "SUBSCRIPTION_REQUIRED"));
+    });
+
+    it("sends an employee OTP without revealing whether an email has an account", async () => {
+        const email = "Employee@Example.test";
+        await signup(email);
+        let code;
+        await requestEmployeeOtp(email, async (recipient, generatedCode) => {
+            assert.equal(recipient, email);
+            code = generatedCode;
+        });
+        const known = await request(app).post("/api/v1/auth/employee-otp/request").send({ email });
+        assert.equal(known.status, 202, JSON.stringify(known.body));
+        const unknown = await request(app).post("/api/v1/auth/employee-otp/request").send({ email: "unknown@example.test" }).expect(202);
+        assert.deepEqual(known.body, unknown.body);
+        assert.ok(code);
+        await request(app).post("/api/v1/auth/employee-otp/verify").send({ email, code: "000000" }).expect(401);
+        const verified = await request(app).post("/api/v1/auth/employee-otp/verify").send({ email, code }).expect(200);
+        assert.equal(verified.body.user.email, email);
+        assert.ok(verified.body.accessToken);
+        await request(app).post("/api/v1/auth/employee-otp/verify").send({ email, code }).expect(401);
+    });
+
+    it("restricts operations access and reports employee attendance from check-in/out timestamps", async () => {
+        const admin = request.agent(app);
+        await admin.get("/api/v1/operations/attendance").expect(401);
+        await request(app).get("/api/v1/operations/attendance")
+            .set("Cookie", "workwell_operations=invalid").expect(401);
+        await request(app).post("/api/v1/operations/auth/signin")
+            .send({ email: "Admin@gmail.com", password: process.env.OPS_ADMIN_PASSWORD }).expect(401);
+        await admin.post("/api/v1/operations/auth/signin")
+            .send({ email: "admin@gmail.com", password: process.env.OPS_ADMIN_PASSWORD }).expect(200);
+        await admin.get("/api/v1/operations/auth/me").expect(200);
+
+        const employee = await signupAndSignin("attendance@example.test");
+        const headers = { Authorization: `Bearer ${employee.body.accessToken}` };
+        const checkedIn = await request(app).post("/api/v1/attendance/check-in").set(headers).send({}).expect(201);
+        await request(app).post("/api/v1/attendance/check-in").set(headers).send({}).expect(409);
+        const checkedOut = await request(app).post("/api/v1/attendance/check-out").set(headers).send({}).expect(200);
+        assert.ok(checkedOut.body.attendance.durationSeconds >= 0);
+
+        const date = checkedIn.body.attendance.checkedInAt.slice(0, 10);
+        const overview = await admin.get(`/api/v1/operations/attendance?date=${date}`).expect(200);
+        assert.equal(overview.body.summary.totalCheckIns, 1);
+        assert.equal(overview.body.summary.employees, 1);
+        assert.equal(overview.body.records[0].email, "attendance@example.test");
+        const csv = await admin.get(`/api/v1/operations/attendance/export?date=${date}`).expect(200);
+        assert.match(csv.text, /attendance@example\.test/);
+        assert.ok(await Attendance.exists({ userId: employee.body.user.id, checkedOutAt: { $ne: null } }));
     });
 });
