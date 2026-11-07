@@ -1,5 +1,6 @@
 @property --angle { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
 :root {
+  color-scheme: light;
   --p-red: oklch(0.552 0.229 27.5);
   --p-red-dark: oklch(0.46 0.2 27.5);
   --p-ink: oklch(0.18 0.012 70);
@@ -231,6 +232,22 @@ label, fieldset { font-size: 17px; }label { display: grid; gap: 8px; font-weight
 .alerts-panel.span-3 { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,320px),1fr)); gap: 14px; }
 .alerts-panel.span-3 > .card-heading { grid-column: 1 / -1; margin-bottom: 0; }
 .alerts-panel.span-3 > .alert-card { margin: 0; }
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --p-paper: oklch(0.16 0.012 70);
+  --p-gray: oklch(0.72 0.012 70);
+  --p-blue: oklch(0.74 0.12 255);
+  --p-line: oklch(0.31 0.012 70);
+  --p-soft-red: oklch(0.29 0.055 27.5);
+  --p-red-dark: oklch(0.76 0.15 27.5);
+  --p-soft-blue: oklch(0.27 0.04 255);
+  --surface: oklch(0.21 0.012 70);
+  --text: oklch(0.94 0.008 80);
+}
+:root[data-theme="dark"] .app-header {
+  background: color-mix(in oklch, var(--bg) 94%, transparent);
+}
 
 /* Balanced dashboard composition: charts keep their natural height. */
 @media (min-width: 1181px) {

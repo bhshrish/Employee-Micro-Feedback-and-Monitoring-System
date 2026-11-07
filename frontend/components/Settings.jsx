@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubscription } from "@/lib/subscription";
+import { useTheme } from "@/lib/theme";
 import { updateProfile } from "@/lib/api";
 import { AppShell } from "./AppShell";
 import { Modal } from "./UI";
@@ -9,6 +10,7 @@ import { Icon } from "./Icon";
 import { useToast } from "./Toast";
 function SettingsContent() {
     const { user, signIn, resetLocalPreferences } = useSubscription();
+    const { theme, setTheme } = useTheme();
     const [name, setName] = useState("");
     const [threshold, setThreshold] = useState(5);
     const [weekly, setWeekly] = useState(true);
@@ -66,6 +68,18 @@ function SettingsContent() {
                 <div className="settings-fields">
                     <label>Full name<input value={name} onChange={(e) => setName(e.target.value)} required minLength={2}/></label>
                     <label>Work email<input type="email" value={user?.email || ""} readOnly/></label>
+                </div>
+            </section>
+            <section className="settings-section">
+                <div><h2>Appearance</h2><p>Choose the display that feels most comfortable. This preference is saved on this browser.</p></div>
+                <div className="settings-fields">
+                    <fieldset className="theme-picker">
+                        <legend>Color theme</legend>
+                        <div className="segmented" role="group" aria-label="Color theme">
+                            <button type="button" className={theme === "light" ? "active" : ""} aria-pressed={theme === "light"} onClick={() => setTheme("light")}><Icon name="sun" size={18}/>Light</button>
+                            <button type="button" className={theme === "dark" ? "active" : ""} aria-pressed={theme === "dark"} onClick={() => setTheme("dark")}><Icon name="moon" size={18}/>Dark</button>
+                        </div>
+                    </fieldset>
                 </div>
             </section>
             <section className="settings-section">

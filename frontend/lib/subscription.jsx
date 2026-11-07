@@ -64,6 +64,7 @@ export function SubscriptionProvider({ children }) {
         },
         resetLocalPreferences: async () => {
             Object.keys(localStorage).filter((key) => key.startsWith("pulse:")).forEach((key) => localStorage.removeItem(key));
+            window.dispatchEvent(new Event("pulse:preferences-reset"));
             try {
                 await apiSignOut(true);
             }
