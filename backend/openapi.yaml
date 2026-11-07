@@ -393,7 +393,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: { type: object, additionalProperties: false, properties: { tags: { type: array, maxItems: 10, items: { type: string, maxLength: 32 } }, category: { type: string, enum: [Productive, Neutral, Distracting] }, task: { type: string, minLength: 1, maxLength: 120, description: "Only allowed while the session is paused." } } }
+            schema: { type: object, additionalProperties: false, properties: { tags: { type: array, maxItems: 10, items: { type: string, maxLength: 32 } }, category: { type: string, enum: [Productive, Neutral, Distracting] }, task: { type: string, minLength: 1, maxLength: 120 } } }
       responses:
         "200": { description: Session tags updated }
   /sessions/history:

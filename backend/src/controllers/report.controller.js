@@ -18,7 +18,7 @@ function reportTeamScope(req) {
         throw (0, errors_1.forbidden)("A manager must be assigned to a team");
     return req.auth.teamId;
 }
-async function activeReportSubscription(userId, organizationId) {
+async function activeReportSubscription(userId, organizationId, { allowTrial = false } = {}) {
     const user = await User_1.User.findOne({ _id: userId, organizationId })
         .select("subscription.plan subscription.status subscription.trialEndsAt");
     if (!user)
@@ -27,7 +27,9 @@ async function activeReportSubscription(userId, organizationId) {
         user.subscription.status = "trial_expired";
         await user.save();
     }
-    if (user.subscription.status !== "active" || !["Team", "Business"].includes(user.subscription.plan)) {
+    const active = user.subscription.status === "active";
+    const trial = allowTrial && user.subscription.status === "trialing";
+    if ((!active && !trial) || !["Team", "Business"].includes(user.subscription.plan)) {
         throw (0, errors_1.paymentRequired)("Reports require an active Team or Business subscription");
     }
     return user.subscription;
@@ -36,7 +38,7 @@ exports.summary = (0, async_handler_1.asyncHandler)(async (req, res) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
     const query = req.validatedQuery;
-    await activeReportSubscription(req.auth.userId, req.auth.organizationId);
+    await activeReportSubscription(req.auth.userId, req.auth.organizationId, { allowTrial: true });
     const result = await (0, report_service_1.reportSummary)(req.auth.organizationId, query.period, query.metrics, await (0, pulse_service_1.organizationMinGroupSize)(req.auth.organizationId), reportTeamScope(req));
     res.json({ ...result, data: result });
 });
@@ -45,7 +47,7 @@ exports.previewPost = (0, async_handler_1.asyncHandler)(async (req, res) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
     const { period, metrics } = req.body;
-    await activeReportSubscription(req.auth.userId, req.auth.organizationId);
+    await activeReportSubscription(req.auth.userId, req.auth.organizationId, { allowTrial: true });
     const result = await (0, report_service_1.reportSummary)(req.auth.organizationId, period, metrics, await (0, pulse_service_1.organizationMinGroupSize)(req.auth.organizationId), reportTeamScope(req));
     res.json({ ...result, data: result });
 });

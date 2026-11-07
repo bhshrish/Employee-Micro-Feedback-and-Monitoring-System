@@ -6,6 +6,7 @@ import { getReportSummary } from "@/lib/api";
 import { AppShell } from "./AppShell";
 import { Skeleton } from "./UI";
 import { Icon } from "./Icon";
+import { useSubscription } from "@/lib/subscription";
 
 const periods = [
     { label: "Last 7 days", value: "7d" },
@@ -22,6 +23,7 @@ function formatGeneratedAt(value) {
 }
 
 function MonitoringContent() {
+    const { status, trialDaysLeft } = useSubscription();
     const [period, setPeriod] = useState(periods[0].value);
     const [summary, setSummary] = useState(null);
     const [error, setError] = useState("");
@@ -79,6 +81,9 @@ function MonitoringContent() {
           <p>This demo shows workspace or team summaries, not individual timelines or raw recordings. Optional screen recording and keyboard activity counts are planned, not active here. Future screen recording will require employee opt-in with pause and stop controls; keyboard activity will count keypresses without collecting typed characters.</p>
         </div>
       </section>
+      {status === "trialing" && <p className="form-note" role="status">
+        Monitoring is included in your 7-day free trial ({trialDaysLeft} {trialDaysLeft === 1 ? "day" : "days"} remaining). Choose a monthly or yearly plan to keep access after the trial.
+      </p>}
 
       {loading && !summary ? <div className="loading-grid"><Skeleton lines={5}/><Skeleton lines={5}/></div> : null}
       {error ? <section className="monitoring-error" role="alert">

@@ -53,8 +53,6 @@ async function setActivityTags(userId, organizationId, sessionId, input) {
     const session = await TeamActivity_1.TeamActivity.findOne({ _id: sessionId, userId, organizationId, status: { $ne: "stopped" } });
     if (!session)
         throw (0, errors_1.notFound)("Active activity session not found");
-    if (input.task && session.status === "running")
-        throw (0, errors_1.badRequest)("Pause the activity before changing its project or task");
     if (input.tags)
         session.tags = [...new Set(input.tags.map((tag) => tag.trim()).filter(Boolean))];
     if (input.category)

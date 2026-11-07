@@ -156,15 +156,23 @@ export function TimerProvider({ children }) {
     const closeIdle = useCallback(() => { setIdleOpen(false); resetActivity(); }, [resetActivity]);
     const setTask = useCallback((task) => {
         const current = dataRef.current;
-        if (current.status === "running")
+        if (current.task === task)
             return;
-        if (current.sessionId && current.status === "paused") {
-            void updateActivityTask(current.sessionId, task).then(() => {
-                setData((prev) => ({ ...prev, task }));
-            }).catch(reportFailure);
+        const next = { ...current, task };
+        dataRef.current = next;
+        setData(next);
+        if (!current.sessionId || current.status === "stopped")
             return;
-        }
-        setData((prev) => ({ ...prev, task }));
+        void updateActivityTask(current.sessionId, task).catch((error) => {
+            reportFailure(error);
+            setData((prev) => {
+                if (prev.sessionId !== current.sessionId || prev.task !== task)
+                    return prev;
+                const restored = { ...prev, task: current.task };
+                dataRef.current = restored;
+                return restored;
+            });
+        });
     }, []);
     const keepIdle = useCallback(() => {
         if (dataRef.current.sessionId)

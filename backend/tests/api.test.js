@@ -80,6 +80,11 @@ describe("PULSE API", () => {
         assert.equal(response.body.accessToken, undefined);
         assert.equal(response.body.refreshToken, undefined);
         assert.equal(response.headers["set-cookie"], undefined);
+        const storedUser = await User.findOne({ email }).select("+passwordHash");
+        assert.ok(storedUser);
+        assert.equal(storedUser.email, email);
+        assert.notEqual(storedUser.passwordHash, "correct-horse-battery");
+        assert.equal(await bcrypt.compare("correct-horse-battery", storedUser.passwordHash), true);
         await request(app).post("/api/v1/auth/signin").send({
             email: email.toLowerCase(),
             password: "correct-horse-battery",
@@ -88,12 +93,35 @@ describe("PULSE API", () => {
             email,
             password: "CORRECT-HORSE-BATTERY",
         }).expect(401);
-        const signin = await request(app).post("/api/v1/auth/signin").send({
-            email,
-            password: "correct-horse-battery",
-        }).expect(200);
+        const keys = ["NODE_ENV", "MONGODB_URI", "FRONTEND_URL", "CORS_ORIGINS", "COOKIE_SECURE"];
+        const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+        Object.assign(process.env, {
+            NODE_ENV: "production",
+            MONGODB_URI: "mongodb://mongo.example.test/pulse",
+            FRONTEND_URL: "https://app.example.test",
+            CORS_ORIGINS: "https://app.example.test",
+            COOKIE_SECURE: "true",
+        });
+        let signin;
+        try {
+            signin = await request(app).post("/api/v1/auth/signin").send({
+                email,
+                password: "correct-horse-battery",
+            }).expect(200);
+        }
+        finally {
+            for (const [key, value] of Object.entries(previous)) {
+                if (value === undefined)
+                    delete process.env[key];
+                else
+                    process.env[key] = value;
+            }
+        }
         assert.ok(signin.body.accessToken);
-        assert.match(accessCookie(signin), /^pulse_refresh=/);
+        const cookie = signin.headers["set-cookie"]?.find((value) => value.startsWith("pulse_refresh="));
+        assert.ok(cookie);
+        assert.match(cookie, /;\s*secure/i);
+        assert.match(cookie, /;\s*samesite=none/i);
     });
     it("migrates legacy account and team workspace fields without removing legacy fields", async () => {
         const organizationId = new mongoose.Types.ObjectId();
@@ -216,8 +244,7 @@ describe("PULSE API", () => {
             .set("Content-Type", "application/json").set("Stripe-Signature", "invalid")
             .send("{}").expect(503);
         await request(app).post("/api/v1/reports/preview").set(auth)
-            .send({ period: "30d", metrics: ["Active time"], format: "pdf" }).expect(402)
-            .expect((res) => assert.equal(res.body.error.code, "SUBSCRIPTION_REQUIRED"));
+            .send({ period: "30d", metrics: ["Active time"], format: "pdf" }).expect(200);
     });
     it("supports tenant-scoped member invitations and assigns the invitee to the selected team", async () => {
         const owner = await signupAndSignin("owner-invite@example.test");
@@ -375,9 +402,13 @@ describe("PULSE API", () => {
         await request(app)
             .get("/api/v1/reports/summary")
             .set("Authorization", `Bearer ${first.body.accessToken}`)
+            .expect(200);
+        await User.updateOne({ _id: first.body.user.id }, { $set: { "subscription.status": "trial_expired" } });
+        await request(app)
+            .get("/api/v1/reports/summary")
+            .set("Authorization", "Bearer " + first.body.accessToken)
             .expect(402)
             .expect((res) => assert.equal(res.body.error.code, "SUBSCRIPTION_REQUIRED"));
-        await User.updateOne({ _id: first.body.user.id }, { $set: { "subscription.status": "trial_expired" } });
         await request(app).get("/api/v1/dashboard").set("Authorization", `Bearer ${first.body.accessToken}`).expect(403);
     });
     it("supports pausing and resuming a personal activity session", async () => {
@@ -430,11 +461,15 @@ describe("PULSE API", () => {
             .send({ tags: ["research", "planning"], category: "Productive" }).expect(200)
             .expect((res) => assert.deepEqual(res.body.session.tags, ["research", "planning"]));
         await request(app).patch(`/api/v1/sessions/${id}/tags`).set(auth)
-            .send({ tags: [], task: "Design review" }).expect(400);
-        await request(app).post(`/api/v1/sessions/${id}/pause`).set(auth).expect(200);
-        await request(app).patch(`/api/v1/sessions/${id}/tags`).set(auth)
             .send({ tags: [], task: "Design review" }).expect(200)
             .expect((res) => assert.equal(res.body.session.task, "Design review"));
+        await request(app).patch(`/api/v1/sessions/${id}/tags`).set(auth)
+            .send({ tags: [], task: "Development" }).expect(200)
+            .expect((res) => assert.equal(res.body.session.task, "Development"));
+        await request(app).post(`/api/v1/sessions/${id}/pause`).set(auth).expect(200);
+        await request(app).patch(`/api/v1/sessions/${id}/tags`).set(auth)
+            .send({ tags: [], task: "Customer research" }).expect(200)
+            .expect((res) => assert.equal(res.body.session.task, "Customer research"));
         await request(app).post(`/api/v1/sessions/${id}/resume`).set(auth).expect(200);
         await request(app).post(`/api/v1/sessions/${id}/stop`).set(auth).send({}).expect(200);
         const history = await request(app).get("/api/v1/sessions/history?page=1&limit=5").set(auth).expect(200);
@@ -485,14 +520,18 @@ describe("PULSE API", () => {
         assert.deepEqual(heatmap.body.teams.map((team) => team.name).sort(), ["General", "Quiet team"]);
         assert.equal(heatmap.body.cells.some((cell) => cell.teamId === String(quietTeam._id)), false);
     });
-    it("returns SUBSCRIPTION_REQUIRED for report preview and generation without an active plan", async () => {
+    it("allows monitoring previews during trial but requires an active plan for exports", async () => {
         const account = await signupAndSignin("report-gates@example.test");
         const auth = { Authorization: `Bearer ${account.body.accessToken}` };
-        const preview = await request(app).get("/api/v1/reports/preview").set(auth).expect(402);
-        assert.equal(preview.body.error.code, "SUBSCRIPTION_REQUIRED");
+        await request(app).get("/api/v1/reports/preview").set(auth).expect(200);
         const generate = await request(app).post("/api/v1/reports/generate").set(auth)
             .send({ period: "30d", metrics: ["Active time"], format: "csv" }).expect(402);
         assert.equal(generate.body.error.code, "SUBSCRIPTION_REQUIRED");
+        await User.updateMany({ organizationId: account.body.user.organizationId }, { $set: {
+            "subscription.status": "trial_expired",
+        } });
+        const expiredPreview = await request(app).get("/api/v1/reports/preview").set(auth).expect(402);
+        assert.equal(expiredPreview.body.error.code, "SUBSCRIPTION_REQUIRED");
     });
     it("includes the current week's pulse responses in a today report", async () => {
         const account = await signupAndSignin("report-pulse-today@example.test");

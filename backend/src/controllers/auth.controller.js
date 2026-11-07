@@ -44,7 +44,7 @@ function cookieOptions() {
     return {
         httpOnly: true,
         secure: config.COOKIE_SECURE || config.NODE_ENV === "production",
-        sameSite: "lax",
+        sameSite: config.NODE_ENV === "production" ? "none" : "lax",
         path: "/api/v1/auth",
         ...(config.COOKIE_DOMAIN ? { domain: config.COOKIE_DOMAIN } : {}),
         maxAge: config.REFRESH_TOKEN_DAYS * 86_400_000,
