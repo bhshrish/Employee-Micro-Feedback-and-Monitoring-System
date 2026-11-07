@@ -9,6 +9,7 @@ const userSchema = new mongoose_1.Schema({
     email: { type: String, required: true, trim: true, unique: true, index: true },
     passwordHash: { type: String, required: true, select: false },
     role: { type: String, enum: ["employee", "manager", "admin"], default: "employee", required: true },
+    isActive: { type: Boolean, default: true, index: true },
     subscription: {
         plan: { type: String, enum: ["Starter", "Team", "Business"], default: "Team" },
         status: { type: String, enum: ["trialing", "trial_expired", "active", "canceled"], default: "trialing" },

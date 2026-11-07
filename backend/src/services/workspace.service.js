@@ -33,6 +33,8 @@ async function archiveTeam(organizationId, teamId) {
     return team;
 }
 async function createInvitation(organizationId, inviterId, email, teamId) {
+    if (email === "admin@gmail.com")
+        throw (0, errors_1.badRequest)("This email is reserved for the platform administrator");
     if (!mongoose_1.Types.ObjectId.isValid(teamId))
         throw (0, errors_1.notFound)("Team not found");
     const team = await Team_1.Team.findOne({ _id: teamId, organizationId, archivedAt: null });

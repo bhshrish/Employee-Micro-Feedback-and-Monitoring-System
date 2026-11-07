@@ -17,6 +17,7 @@ import { processStripeEvent } from "../src/services/billing.service";
 import { expireTrials } from "../src/jobs/subscriptions";
 import { weekStart } from "../src/utils/week";
 import { Organization } from "../src/models/Organization";
+import { Attendance } from "../src/models/Attendance";
 import { migrateLegacyData } from "../src/legacy-migration";
 import { signin as createTestSession } from "../src/services/auth.service";
 const app = createApp();
@@ -272,6 +273,8 @@ describe("PULSE API", () => {
         assert.equal(member.body.user.organizationId, owner.body.user.organizationId);
         assert.equal(member.body.user.teamId, owner.body.user.teamId);
         assert.equal(member.body.user.role, "employee");
+        assert.equal(member.body.accessToken, undefined);
+        assert.equal(member.headers["set-cookie"], undefined);
         const checkoutEvent = {
             id: "evt_workspace_subscription",
             type: "checkout.session.completed",
@@ -297,10 +300,15 @@ describe("PULSE API", () => {
             .set("Authorization", `Bearer ${owner.body.accessToken}`)
             .send({ role: "manager" })
             .expect(200);
+        member.body.accessToken = (await createTestSession({
+            email: "new-member@example.test",
+            password: "correct-horse-battery",
+        })).accessToken;
         await request(app)
             .get("/api/v1/workspace/members")
             .set("Authorization", `Bearer ${member.body.accessToken}`)
             .expect(200)
+            .set("Authorization", `Bearer ${owner.body.accessToken}`)
             .expect((res) => assert.equal(res.body.members.length, 2));
         await request(app)
             .post("/api/v1/workspace/invitations")
@@ -641,5 +649,87 @@ describe("PULSE API", () => {
             .set("Authorization", `Bearer ${account.body.accessToken}`)
             .expect(402)
             .expect((res) => assert.equal(res.body.error.code, "SUBSCRIPTION_REQUIRED"));
+    });
+
+    it("allows only the configured platform administrator to manage businesses, users, teams, activity, and attendance", async () => {
+        const owner = await signupAndSignin("platform-owner@example.test", "Platform Owner");
+        const invitationResponse = await request(app).post("/api/v1/workspace/invitations")
+            .set("Authorization", `Bearer ${owner.body.accessToken}`)
+            .send({ email: "platform-employee@example.test", teamId: owner.body.user.teamId }).expect(201);
+        const invitation = invitationResponse.body.invitation;
+        const invitedEmployee = await request(app).post("/api/v1/auth/accept-invitation")
+            .send({ token: invitation.token, email: invitation.email, name: "Platform Employee", password: "correct-horse-battery" }).expect(201);
+        const employeeSession = await createTestSession({ email: "platform-employee@example.test", password: "correct-horse-battery" });
+        const employeeId = invitedEmployee.body.user.id;
+
+        const admin = request.agent(app);
+        await admin.get("/api/v1/operations/overview").expect(401);
+        await request(app).post("/api/v1/operations/auth/signin")
+            .send({ username: "other", email: "admin@gmail.com", password: process.env.OPS_ADMIN_PASSWORD }).expect(401);
+        await request(app).post("/api/v1/operations/auth/signin")
+            .send({ username: "admin", email: "Admin@gmail.com", password: process.env.OPS_ADMIN_PASSWORD }).expect(401);
+        await admin.post("/api/v1/operations/auth/signin")
+            .send({ username: "admin", email: "admin@gmail.com", password: process.env.OPS_ADMIN_PASSWORD }).expect(200);
+        await admin.get("/api/v1/operations/auth/me").expect(200);
+
+        const businessList = await admin.get("/api/v1/operations/businesses").expect(200);
+        assert.ok(businessList.body.businesses.some((business) => business.name === "Platform Owner's workspace"));
+        const team = await admin.post("/api/v1/operations/teams")
+            .send({ organizationId: owner.body.user.organizationId, name: "Operations" }).expect(201);
+        const assigned = await admin.patch(`/api/v1/operations/users/${employeeId}/team`)
+            .send({ teamId: team.body.team._id }).expect(200);
+        assert.equal(assigned.body.user.teamId._id, team.body.team._id);
+        await admin.delete(`/api/v1/operations/teams/${team.body.team._id}`).expect(400);
+        const emptyTeam = await admin.post("/api/v1/operations/teams")
+            .send({ organizationId: owner.body.user.organizationId, name: "Archive me" }).expect(201);
+        await admin.delete(`/api/v1/operations/teams/${emptyTeam.body.team._id}`).expect(200);
+
+        const startedAt = new Date();
+        await Attendance.create({
+            userId: employeeId,
+            organizationId: owner.body.user.organizationId,
+            checkedInAt: startedAt,
+            checkedOutAt: new Date(startedAt.getTime() + 60_000),
+            durationSeconds: 60,
+        });
+        await TeamActivity.create({
+            organizationId: owner.body.user.organizationId,
+            teamId: team.body.team._id,
+            userId: employeeId,
+            task: "Private task label",
+            category: "Productive",
+            startedAt,
+            endedAt: new Date(startedAt.getTime() + 60_000),
+            activeSeconds: 60,
+            idleSeconds: 10,
+            status: "stopped",
+        });
+        const date = startedAt.toISOString().slice(0, 10);
+        const activity = await admin.get(`/api/v1/operations/activity?date=${date}`).expect(200);
+        assert.equal(activity.body.businesses[0].activeSeconds, 60);
+        assert.equal(activity.body.businesses[0].task, undefined);
+        const attendance = await admin.get(`/api/v1/operations/attendance?date=${date}`).expect(200);
+        assert.equal(attendance.body.records[0].email, "platform-employee@example.test");
+        const csv = await admin.get(`/api/v1/operations/attendance/export?date=${date}`).expect(200);
+        assert.match(csv.text, /platform-employee@example\.test/);
+
+        const disabled = await admin.patch(`/api/v1/operations/users/${employeeId}`)
+            .send({ isActive: false }).expect(200);
+        assert.equal(disabled.body.user.isActive, false);
+        await request(app).get("/api/v1/workspace/teams")
+            .set("Authorization", `Bearer ${employeeSession.accessToken}`).expect(401);
+        const business = businessList.body.businesses.find((item) => item._id === owner.body.user.organizationId);
+        await admin.patch(`/api/v1/operations/businesses/${business._id}`).send({ isActive: false }).expect(200);
+        await request(app).get("/api/v1/workspace/teams")
+            .set("Authorization", `Bearer ${owner.body.accessToken}`).expect(401);
+        await admin.post("/api/v1/operations/auth/logout").expect(204);
+    });
+
+    it("reserves the platform administrator email from business signup", async () => {
+        await request(app).post("/api/v1/auth/signup").send({
+            name: "Admin",
+            email: "admin@gmail.com",
+            password: "correct-horse-battery",
+        }).expect(409);
     });
 });

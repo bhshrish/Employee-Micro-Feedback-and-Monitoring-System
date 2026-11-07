@@ -24,6 +24,8 @@ Run `npm run migrate:legacy` once when upgrading a database created by a legacy 
 
 `docker compose up --build` runs the API and MongoDB. Configure the required Compose variables in the shell or an untracked backend `.env` file.
 
+Set `OPS_ADMIN_PASSWORD` in the backend environment to enable the single platform operations admin login. The fixed username and email are `admin` and `admin@gmail.com`; the password is not stored in source code. Production startup requires this variable, with at least 12 characters. Platform admin endpoints use a separate HTTP-only cookie and can manage businesses, users, team assignment, daily attendance exports, and privacy-safe activity summaries. Business owners invite employees from the People page; creating a business or employee account does not sign the new account in.
+
 ## Security and privacy
 
 Passwords use bcrypt cost 12. Access tokens are short-lived JWTs; refresh tokens are random, hashed at rest, rotated on every refresh, and family-revoked when reuse is detected. Refresh tokens are only returned in an HTTP-only cookie. Tenant IDs are derived from the authenticated user, never accepted as caller-controlled scope.
@@ -49,15 +51,15 @@ Stripe is optional for local startup; billing actions return a service-unavailab
 
 The weekly cron job scores eligible aggregated pulse data and creates at most one alert per team/week. This backend does not send reminder emails because no mail delivery provider is configured.
 
-Workspace owners/admins can create members using `POST /api/v1/workspace/invitations`; the API returns a one-time, seven-day acceptance token for `POST /api/v1/auth/accept-invitation`. The token is hashed at rest and is intended to be delivered through an organization-controlled channel until an email provider is configured.
+Workspace owners/admins can create members using `POST /api/v1/workspace/invitations`; the API returns a one-time, seven-day acceptance token for `POST /api/v1/auth/accept-invitation`. The token is hashed at rest. The People page creates a shareable acceptance link; accepting it creates the employee account without signing in.
 
-Email verification, password recovery, and invitation email delivery require a configured mail provider and are not enabled in this deployment.
+Email verification, password recovery, and invitation email delivery are not enabled in this deployment.
 
 The built-in rate limiter uses Express's per-process store. Use a single API instance or add a shared store/API gateway limit before running multiple API replicas.
 
 ## Deploy to Vercel
 
-Create a separate Vercel project for this API and set its Root Directory to `backend`. `src/server.js` exports a request handler for Vercel, and `vercel.json` routes all paths to that handler. Database connections are initialized lazily and reused when the function instance is warm; CORS preflight requests are answered without requiring a database connection, and database connection errors pass through Express so allowed frontend origins still receive CORS headers. The scheduled jobs only start when running the persistent local server. Add the required production environment variables from `.env.example` in the Vercel project settings, including a hosted MongoDB URI, distinct JWT secrets, `COOKIE_SECURE=true`, the frontend URL, and the frontend origin in `CORS_ORIGINS`. Set `CORS_ORIGINS` to the frontend origin (scheme and host, no path); a trailing slash is ignored. Production refresh cookies use `SameSite=None; Secure` for cross-origin frontend/API requests. Browser third-party-cookie restrictions can still affect separate default `*.vercel.app` domains, so custom frontend and API domains under the same registrable domain are recommended. Sign in again after deploying the cookie policy change to replace an existing cookie. Do not deploy with local MongoDB or development secrets.
+Create a separate Vercel project for this API and set its Root Directory to `backend`. `src/server.js` exports a request handler for Vercel, and `vercel.json` routes all paths to that handler. Database connections are initialized lazily and reused when the function instance is warm; CORS preflight requests are answered without requiring a database connection, and database connection errors pass through Express so allowed frontend origins still receive CORS headers. The scheduled jobs only start when running the persistent local server. Add the required production environment variables from `.env.example` in the Vercel project settings, including a hosted MongoDB URI, distinct JWT secrets, `OPS_ADMIN_PASSWORD`, `COOKIE_SECURE=true`, the frontend URL, and the frontend origin in `CORS_ORIGINS`. Set `CORS_ORIGINS` to the frontend origin (scheme and host, no path); a trailing slash is ignored. Production cookies use `SameSite=None; Secure` for cross-origin frontend/API requests. Browser third-party-cookie restrictions can still affect separate default `*.vercel.app` domains, so custom frontend and API domains under the same registrable domain are recommended. Do not deploy with local MongoDB or development secrets.
 
 Vercel functions are not persistent servers, so the in-process scheduled alert and trial-expiration jobs are not a reliable scheduler there. Configure an external scheduler to invoke equivalent maintenance tasks, or deploy the API on a persistent Node.js host if those jobs must run on schedule.
 

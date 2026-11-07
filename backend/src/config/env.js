@@ -14,6 +14,7 @@ const schema = zod_1.z.object({
     COOKIE_SECURE: zod_1.z.string().default("false").transform((v) => v === "true"),
     COOKIE_DOMAIN: zod_1.z.string().optional(),
     CORS_ORIGINS: zod_1.z.string().default("http://localhost:3000"),
+    OPS_ADMIN_PASSWORD: zod_1.z.preprocess((value) => value === "" ? undefined : value, zod_1.z.string().min(12).optional()),
     MIN_PULSE_GROUP_SIZE: zod_1.z.coerce.number().int().min(5).default(5),
     STRIPE_SECRET_KEY: zod_1.z.string().optional(),
     STRIPE_WEBHOOK_SECRET: zod_1.z.string().optional(),
@@ -39,7 +40,7 @@ function getConfig() {
         throw new Error("JWT secrets must be different");
     }
     if (config.NODE_ENV === "production") {
-        for (const key of ["MONGODB_URI", "FRONTEND_URL", "CORS_ORIGINS"]) {
+        for (const key of ["MONGODB_URI", "FRONTEND_URL", "CORS_ORIGINS", "OPS_ADMIN_PASSWORD"]) {
             if (!process.env[key])
                 throw new Error(`${key} must be explicitly configured in production`);
         }

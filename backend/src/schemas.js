@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.teamIdParamsSchema = exports.userIdParamsSchema = exports.memberIdParamsSchema = exports.alertIdParamsSchema = exports.sessionIdParamsSchema = exports.checkoutSchema = exports.alertUpdateSchema = exports.pulseTeamQuerySchema = exports.alertQuerySchema = exports.dashboardQuerySchema = exports.userRoleSchema = exports.reportFormatQuerySchema = exports.reportPreviewQuerySchema = exports.reportQuerySchema = exports.profileSchema = exports.reportIdParamsSchema = exports.reportGenerateSchema = exports.analyticsQuerySchema = exports.sessionSummaryQuerySchema = exports.historyQuerySchema = exports.activityTagsSchema = exports.idleActivitySchema = exports.activityHeartbeatSchema = exports.stopActivitySchema = exports.startActivitySchema = exports.updateMemberSchema = exports.createTeamSchema = exports.pulseSchema = exports.invitationCreateSchema = exports.invitationAcceptSchema = exports.signinSchema = exports.signupSchema = void 0;
+exports.operationsTeamAssignmentSchema = exports.operationsTeamCreateSchema = exports.operationsStatusSchema = exports.operationsListQuerySchema = exports.operationsDateQuerySchema = exports.businessIdParamsSchema = exports.teamIdParamsSchema = exports.userIdParamsSchema = exports.memberIdParamsSchema = exports.alertIdParamsSchema = exports.sessionIdParamsSchema = exports.checkoutSchema = exports.alertUpdateSchema = exports.pulseTeamQuerySchema = exports.alertQuerySchema = exports.dashboardQuerySchema = exports.userRoleSchema = exports.reportFormatQuerySchema = exports.reportPreviewQuerySchema = exports.reportQuerySchema = exports.profileSchema = exports.reportIdParamsSchema = exports.reportGenerateSchema = exports.analyticsQuerySchema = exports.sessionSummaryQuerySchema = exports.historyQuerySchema = exports.activityTagsSchema = exports.idleActivitySchema = exports.activityHeartbeatSchema = exports.stopActivitySchema = exports.startActivitySchema = exports.updateMemberSchema = exports.createTeamSchema = exports.pulseSchema = exports.invitationCreateSchema = exports.invitationAcceptSchema = exports.signinSchema = exports.signupSchema = void 0;
 const zod_1 = require("zod");
 const email = zod_1.z.string().trim().email().max(254);
 const password = zod_1.z.string().min(8).max(128);
@@ -11,6 +11,28 @@ exports.signupSchema = zod_1.z.object({
     organizationName: zod_1.z.string().trim().min(2).max(120).optional(),
 }).strict();
 exports.signinSchema = zod_1.z.object({ email, password }).strict();
+exports.operationsSigninSchema = zod_1.z.object({
+    username: zod_1.z.string().min(1).max(64),
+    email,
+    password: zod_1.z.string().min(1).max(128),
+}).strict();
+exports.operationsListQuerySchema = zod_1.z.object({
+    page: zod_1.z.coerce.number().int().min(1).max(1000).default(1),
+    q: zod_1.z.string().trim().max(120).optional(),
+    role: zod_1.z.enum(["employee", "manager", "admin"]).optional(),
+}).strict();
+exports.operationsDateQuerySchema = zod_1.z.object({
+    date: zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/).default(() => new Date().toISOString().slice(0, 10)),
+    page: zod_1.z.coerce.number().int().min(1).max(1000).default(1),
+}).strict();
+exports.operationsStatusSchema = zod_1.z.object({ isActive: zod_1.z.boolean() }).strict();
+exports.operationsTeamCreateSchema = zod_1.z.object({
+    organizationId: zod_1.z.string().regex(/^[a-f\d]{24}$/i),
+    name: zod_1.z.string().trim().min(2).max(80),
+}).strict();
+exports.operationsTeamAssignmentSchema = zod_1.z.object({
+    teamId: zod_1.z.string().regex(/^[a-f\d]{24}$/i).nullable(),
+}).strict();
 exports.invitationAcceptSchema = zod_1.z.object({
     token: zod_1.z.string().min(32).max(128),
     email,
@@ -99,3 +121,4 @@ exports.alertIdParamsSchema = zod_1.z.object({ alertId: zod_1.z.string().regex(/
 exports.memberIdParamsSchema = zod_1.z.object({ memberId: zod_1.z.string().regex(/^[a-f\d]{24}$/i) }).strict();
 exports.userIdParamsSchema = zod_1.z.object({ userId: zod_1.z.string().regex(/^[a-f\d]{24}$/i) }).strict();
 exports.teamIdParamsSchema = zod_1.z.object({ teamId: zod_1.z.string().regex(/^[a-f\d]{24}$/i) }).strict();
+exports.businessIdParamsSchema = zod_1.z.object({ businessId: zod_1.z.string().regex(/^[a-f\d]{24}$/i) }).strict();

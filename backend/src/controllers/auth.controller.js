@@ -60,7 +60,11 @@ exports.signup = (0, async_handler_1.asyncHandler)(async (req, res) => {
     res.status(201).json({ user: await auth.signup(req.body) });
 });
 exports.signin = (0, async_handler_1.asyncHandler)(async (req, res) => setSession(res, await auth.signin(req.body)));
-exports.acceptInvitation = (0, async_handler_1.asyncHandler)(async (req, res) => setSession(res, await auth.acceptInvitation(req.body), 201));
+exports.acceptInvitation = (0, async_handler_1.asyncHandler)(async (req, res) => {
+    const user = await auth.acceptInvitation(req.body);
+    res.setHeader("Cache-Control", "no-store");
+    res.status(201).json({ user });
+});
 exports.refresh = (0, async_handler_1.asyncHandler)(async (req, res) => {
     const raw = req.cookies?.[cookieName];
     if (!raw)

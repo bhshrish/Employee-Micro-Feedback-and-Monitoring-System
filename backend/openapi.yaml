@@ -11,6 +11,8 @@ servers:
 tags:
   - name: Health
   - name: Authentication
+  - name: Operations
+  - name: Attendance
   - name: Workspace
   - name: Activity
   - name: Pulse
@@ -35,7 +37,7 @@ paths:
   /auth/signup:
     post:
       tags: [Authentication]
-      summary: Create a workspace owner and seven-day Team trial
+      summary: Create a business workspace owner and seven-day Team trial
       requestBody:
         required: true
         content:
@@ -88,7 +90,7 @@ paths:
                 name: { type: string, minLength: 2, maxLength: 100 }
                 password: { type: string, minLength: 8, maxLength: 128 }
       responses:
-        "201": { $ref: "#/components/responses/AuthSession" }
+        "201": { $ref: "#/components/responses/AccountCreated" }
         "401": { $ref: "#/components/responses/Unauthorized" }
   /auth/refresh:
     post:
@@ -197,7 +199,7 @@ paths:
   /workspace/members:
     get:
       tags: [Workspace]
-      summary: List users in the current tenant (manager roles only)
+      summary: List workspace members (business admins see all; managers see their team)
       security: [{ bearerAuth: [] }]
       responses:
         "200": { description: Tenant members }
@@ -220,7 +222,7 @@ paths:
               type: object
               additionalProperties: false
               properties:
-                role: { type: string, enum: [admin, manager, member] }
+                role: { type: string, enum: [admin, manager, employee] }
                 teamId: { type: string, nullable: true }
       responses:
         "200": { description: Member updated }
@@ -228,10 +230,10 @@ paths:
   /users:
     get:
       tags: [Workspace]
-      summary: List tenant-scoped users
+      summary: List tenant-scoped users (managers see their assigned team)
       security: [{ bearerAuth: [] }]
       responses:
-        "200": { description: Users; managers see their assigned team only }
+        "200": { description: Workspace users; managers see their assigned team only }
     post:
       tags: [Workspace]
       summary: Invite a tenant user to a team
@@ -263,7 +265,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: { type: object, additionalProperties: false, properties: { role: { type: string, enum: [admin, manager, member] }, teamId: { type: string, nullable: true } } }
+            schema: { type: object, additionalProperties: false, properties: { role: { type: string, enum: [admin, manager, employee] }, teamId: { type: string, nullable: true } } }
       responses:
         "200": { description: User updated }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -833,7 +835,7 @@ paths:
               additionalProperties: false
               required: [role]
               properties:
-                role: { type: string, enum: [admin, manager, member] }
+                role: { type: string, enum: [admin, manager, employee] }
       responses:
         "200": { description: Updated member }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -884,6 +886,210 @@ paths:
         "200": { description: Report file }
         "402": { $ref: "#/components/responses/SubscriptionRequired" }
         "404": { $ref: "#/components/responses/NotFound" }
+  /operations/auth/signin:
+    post:
+      tags: [Operations]
+      summary: Sign in as the single platform administrator
+      description: Requires username admin, email admin@gmail.com, and the server-configured OPS_ADMIN_PASSWORD.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [username, email, password]
+              properties:
+                username: { type: string, enum: [admin] }
+                email: { type: string, format: email, enum: [admin@gmail.com] }
+                password: { type: string, minLength: 12, maxLength: 128 }
+      responses:
+        "200": { description: Admin session established with an HTTP-only cookie. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /operations/auth/me:
+    get:
+      tags: [Operations]
+      summary: Check platform admin session
+      security: [{ operationsCookie: [] }]
+      responses:
+        "200": { description: Platform admin identity. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /operations/auth/logout:
+    post:
+      tags: [Operations]
+      summary: End platform admin session
+      security: [{ operationsCookie: [] }]
+      responses:
+        "204": { description: Admin cookie cleared. }
+  /operations/overview:
+    get:
+      tags: [Operations]
+      summary: Get platform-wide business, user, attendance, and activity totals
+      security: [{ operationsCookie: [] }]
+      responses:
+        "200": { description: Platform overview. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /operations/businesses:
+    get:
+      tags: [Operations]
+      summary: List businesses and owners
+      security: [{ operationsCookie: [] }]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: q, in: query, schema: { type: string, maxLength: 120 } }
+      responses:
+        "200": { description: Paginated businesses with owner, user, and team counts. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /operations/businesses/{businessId}:
+    patch:
+      tags: [Operations]
+      summary: Activate or suspend a business
+      security: [{ operationsCookie: [] }]
+      parameters:
+        - { name: businessId, in: path, required: true, schema: { type: string, pattern: "^[a-fA-F0-9]{24}$" } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false, required: [isActive], properties: { isActive: { type: boolean } } }
+      responses:
+        "200": { description: Updated business. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /operations/users:
+    get:
+      tags: [Operations]
+      summary: Search platform users
+      security: [{ operationsCookie: [] }]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: q, in: query, schema: { type: string, maxLength: 120 } }
+        - { name: role, in: query, schema: { type: string, enum: [employee, manager, admin] } }
+      responses:
+        "200": { description: Paginated users with business and team references. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /operations/users/{userId}:
+    patch:
+      tags: [Operations]
+      summary: Enable or disable a business user
+      security: [{ operationsCookie: [] }]
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: string, pattern: "^[a-fA-F0-9]{24}$" } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false, required: [isActive], properties: { isActive: { type: boolean } } }
+      responses:
+        "200": { description: Updated user; disabling revokes active refresh tokens. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /operations/users/{userId}/team:
+    patch:
+      tags: [Operations]
+      summary: Assign a user to an active team in their business
+      security: [{ operationsCookie: [] }]
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: string, pattern: "^[a-fA-F0-9]{24}$" } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false, required: [teamId], properties: { teamId: { type: string, nullable: true } } }
+      responses:
+        "200": { description: Updated user team assignment. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /operations/teams:
+    get:
+      tags: [Operations]
+      summary: List active business teams
+      security: [{ operationsCookie: [] }]
+      responses:
+        "200": { description: Teams across active and inactive businesses. }
+    post:
+      tags: [Operations]
+      summary: Create a team for an active business
+      security: [{ operationsCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [organizationId, name]
+              properties:
+                organizationId: { type: string, pattern: "^[a-fA-F0-9]{24}$" }
+                name: { type: string, minLength: 2, maxLength: 80 }
+      responses:
+        "201": { description: Created team. }
+  /operations/teams/{teamId}:
+    delete:
+      tags: [Operations]
+      summary: Archive an empty team
+      description: Reassign any members before archiving.
+      security: [{ operationsCookie: [] }]
+      parameters:
+        - { name: teamId, in: path, required: true, schema: { type: string, pattern: "^[a-fA-F0-9]{24}$" } }
+      responses:
+        "200": { description: Archived team. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /operations/activity:
+    get:
+      tags: [Operations]
+      summary: Get privacy-safe activity totals grouped by business and date
+      description: Does not return individual task labels, employees, or raw activity records.
+      security: [{ operationsCookie: [] }]
+      parameters:
+        - { name: date, in: query, schema: { type: string, format: date } }
+      responses:
+        "200": { description: Aggregated active and idle time. }
+  /operations/attendance:
+    get:
+      tags: [Operations]
+      summary: Review daily attendance across businesses
+      security: [{ operationsCookie: [] }]
+      parameters:
+        - { name: date, in: query, schema: { type: string, format: date } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+      responses:
+        "200": { description: Daily attendance summary and paginated records. }
+  /operations/attendance/export:
+    get:
+      tags: [Operations]
+      summary: Export daily attendance CSV
+      security: [{ operationsCookie: [] }]
+      parameters:
+        - { name: date, in: query, schema: { type: string, format: date } }
+      responses:
+        "200":
+          description: CSV export.
+          content:
+            text/csv:
+              schema: { type: string }
+  /attendance/me:
+    get:
+      tags: [Attendance]
+      summary: Get own current attendance and recent records
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Current check-in and last 30 days of attendance. }
+  /attendance/check-in:
+    post:
+      tags: [Attendance]
+      summary: Check in for work
+      security: [{ bearerAuth: [] }]
+      responses:
+        "201": { description: Attendance session started. }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /attendance/check-out:
+    post:
+      tags: [Attendance]
+      summary: Check out and calculate elapsed time
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Attendance session closed. }
+        "409": { $ref: "#/components/responses/Conflict" }
   /health:
     get:
       servers: [{ url: / }]
@@ -901,6 +1107,10 @@ components:
       type: apiKey
       in: cookie
       name: pulse_refresh
+    operationsCookie:
+      type: apiKey
+      in: cookie
+      name: workwell_operations
   schemas:
     Signup:
       type: object

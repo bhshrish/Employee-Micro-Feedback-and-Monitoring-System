@@ -73,16 +73,122 @@ async function request(path, init = {}, canRefresh = true) {
     }
     return payload;
 }
-export async function authenticate(email, password, mode, name) {
+export async function authenticate(email, password, mode, name, organizationName) {
     const result = await request(`/auth/${mode}`, {
         method: "POST",
-        body: JSON.stringify(mode === "signup" ? { name, email, password } : { email, password }),
+        body: JSON.stringify(mode === "signup" ? { name, email, password, organizationName } : { email, password }),
     }, false);
     if (mode === "signup")
         return result.user;
     setAccessToken(result.accessToken);
     localStorage.setItem("pulse:auth", "true");
     return result.user;
+}
+export async function acceptInvitation(input) {
+    const result = await request("/auth/accept-invitation", {
+        method: "POST",
+        body: JSON.stringify(input),
+    }, false);
+    return result.user;
+}
+export async function signInOperationsAdmin(username, email, password) {
+    return request("/operations/auth/signin", {
+        method: "POST",
+        body: JSON.stringify({ username, email, password }),
+    }, false);
+}
+export async function getOperationsAdmin() {
+    return request("/operations/auth/me", {}, false);
+}
+export async function signOutOperationsAdmin() {
+    return request("/operations/auth/logout", { method: "POST" }, false);
+}
+export async function getOperationsOverview() {
+    return request("/operations/overview", {}, false);
+}
+export async function getOperationsBusinesses(page = 1, q = "") {
+    const query = new URLSearchParams({ page: String(page) });
+    if (q)
+        query.set("q", q);
+    return request(`/operations/businesses?${query}`, {}, false);
+}
+export async function setOperationsBusinessActive(id, isActive) {
+    return request(`/operations/businesses/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ isActive }),
+    }, false);
+}
+export async function getOperationsUsers(page = 1, q = "") {
+    const query = new URLSearchParams({ page: String(page) });
+    if (q)
+        query.set("q", q);
+    return request(`/operations/users?${query}`, {}, false);
+}
+export async function setOperationsUserActive(id, isActive) {
+    return request(`/operations/users/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ isActive }),
+    }, false);
+}
+export async function getOperationsTeams() {
+    return request("/operations/teams", {}, false);
+}
+export async function createOperationsTeam(organizationId, name) {
+    return request("/operations/teams", {
+        method: "POST",
+        body: JSON.stringify({ organizationId, name }),
+    }, false);
+}
+export async function archiveOperationsTeam(teamId) {
+    return request(`/operations/teams/${encodeURIComponent(teamId)}`, { method: "DELETE" }, false);
+}
+export async function assignOperationsTeam(userId, teamId) {
+    return request(`/operations/users/${encodeURIComponent(userId)}/team`, {
+        method: "PATCH",
+        body: JSON.stringify({ teamId }),
+    }, false);
+}
+export async function getOperationsActivity(date) {
+    return request(`/operations/activity?date=${encodeURIComponent(date)}`, {}, false);
+}
+export async function getOperationsAttendance(date, page = 1) {
+    const query = new URLSearchParams({ date, page: String(page) });
+    return request(`/operations/attendance?${query}`, {}, false);
+}
+export async function exportOperationsAttendance(date) {
+    const response = await fetchApi(`${API_BASE}/operations/attendance/export?date=${encodeURIComponent(date)}`, { credentials: "include" });
+    if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw apiError(response.status, payload.error?.code || "EXPORT_FAILED", payload.error?.message || "Could not export attendance.");
+    }
+    return response.blob();
+}
+export async function getWorkspaceTeams() {
+    return request("/workspace/teams");
+}
+export async function getWorkspaceMembers() {
+    return request("/workspace/members");
+}
+export async function createWorkspaceTeam(name) {
+    return request("/workspace/teams", { method: "POST", body: JSON.stringify({ name }) });
+}
+export async function inviteWorkspaceMember(email, teamId) {
+    return request("/workspace/invitations", { method: "POST", body: JSON.stringify({ email, teamId }) });
+}
+export async function updateWorkspaceMember(memberId, input) {
+    return request(`/workspace/members/${encodeURIComponent(memberId)}`, { method: "PATCH", body: JSON.stringify(input) });
+}
+export async function archiveWorkspaceTeam(teamId) {
+    return request(`/workspace/teams/${encodeURIComponent(teamId)}`, { method: "DELETE" });
+}
+export async function getMyAttendance() {
+    return request("/attendance/me");
+}
+export async function checkInAttendance() {
+    return request("/attendance/check-in", { method: "POST", body: JSON.stringify({}) });
+}
+export async function checkOutAttendance() {
+    return request("/attendance/check-out", { method: "POST", body: JSON.stringify({}) });
 }
 export async function restoreSession() {
     if (localStorage.getItem("pulse:auth") !== "true")

@@ -12,6 +12,28 @@ const mongoose_1 = require("mongoose");
 const env_1 = require("../config/env");
 const User_1 = require("../models/User");
 const errors_1 = require("../utils/errors");
+async function requireOperationsAdmin(req, _res, next) {
+    try {
+        const token = req.cookies?.workwell_operations;
+        if (!token)
+            throw (0, errors_1.unauthorized)();
+        const payload = jsonwebtoken_1.default.verify(token, (0, env_1.getConfig)().JWT_ACCESS_SECRET, {
+            issuer: "workwell-operations",
+            audience: "workwell-admin",
+        });
+        if (payload.typ !== "operations_admin" || payload.sub !== "admin@gmail.com")
+            throw (0, errors_1.unauthorized)();
+        next();
+    }
+    catch (error) {
+        if (error instanceof Error && ["JsonWebTokenError", "NotBeforeError", "TokenExpiredError"].includes(error.name)) {
+            next((0, errors_1.unauthorized)("Admin session is invalid or expired"));
+            return;
+        }
+        next(error);
+    }
+}
+exports.requireOperationsAdmin = requireOperationsAdmin;
 async function authenticate(req, _res, next) {
     try {
         const header = req.get("authorization");
@@ -24,9 +46,12 @@ async function authenticate(req, _res, next) {
         });
         if (payload.typ !== "access" || !mongoose_1.Types.ObjectId.isValid(payload.sub))
             throw (0, errors_1.unauthorized)();
-        const user = await User_1.User.findById(payload.sub).select("organizationId teamId role subscription.status subscription.trialEndsAt");
-        if (!user)
+        const user = await User_1.User.findById(payload.sub).select("organizationId teamId role isActive subscription.status subscription.trialEndsAt");
+        if (!user || !user.isActive)
             throw (0, errors_1.unauthorized)();
+        const { Organization } = require("../models/Organization");
+        if (!await Organization.exists({ _id: user.organizationId, isActive: { $ne: false } }))
+            throw (0, errors_1.unauthorized)("This business workspace is inactive");
         req.auth = {
             userId: user._id,
             organizationId: user.organizationId,
@@ -36,7 +61,11 @@ async function authenticate(req, _res, next) {
         next();
     }
     catch (error) {
-        next(error instanceof Error && error.name === "TokenExpiredError" ? (0, errors_1.unauthorized)("Access token expired") : error);
+        if (error instanceof Error && ["JsonWebTokenError", "NotBeforeError", "TokenExpiredError"].includes(error.name)) {
+            next((0, errors_1.unauthorized)(error.name === "TokenExpiredError" ? "Access token expired" : "Access token is invalid"));
+            return;
+        }
+        next(error);
     }
 }
 function requireRole(...roles) {

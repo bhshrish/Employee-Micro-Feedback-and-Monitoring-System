@@ -66,6 +66,8 @@ function publicUser(user) {
     };
 }
 async function signup(input) {
+    if (input.email === "admin@gmail.com")
+        throw (0, errors_1.conflict)("This email is reserved for the platform administrator", "EMAIL_RESERVED");
     if (await User_1.User.exists({ email: input.email }))
         throw (0, errors_1.conflict)("An account with this email already exists", "EMAIL_IN_USE");
     const ownerId = new mongoose_1.Types.ObjectId();
@@ -96,8 +98,10 @@ async function signup(input) {
 }
 async function signin(input) {
     const user = await User_1.User.findOne({ email: input.email }).select("+passwordHash");
-    if (!user || !(await bcryptjs_1.default.compare(input.password, user.passwordHash)))
+    if (!user || !user.isActive || !(await bcryptjs_1.default.compare(input.password, user.passwordHash)))
         throw (0, errors_1.unauthorized)("Email or password is incorrect");
+    if (!await Organization_1.Organization.exists({ _id: user.organizationId, isActive: { $ne: false } }))
+        throw (0, errors_1.unauthorized)("This business workspace is inactive");
     if (user.subscription.status === "trialing" && user.subscription.trialEndsAt <= new Date()) {
         user.subscription.status = "trial_expired";
         await user.save();
@@ -106,6 +110,8 @@ async function signin(input) {
     return { user: publicUser(user), accessToken: accessToken(user), refreshToken: refresh.raw };
 }
 async function acceptInvitation(input) {
+    if (input.email === "admin@gmail.com")
+        throw (0, errors_1.conflict)("This email is reserved for the platform administrator", "EMAIL_RESERVED");
     const tokenHash = hashRefreshToken(input.token);
     const now = new Date();
     const invitation = await Invitation_1.Invitation.findOneAndUpdate({ tokenHash, email: input.email, acceptedAt: null, expiresAt: { $gt: now } }, { $set: { acceptedAt: now } }, { new: false });
@@ -115,8 +121,10 @@ async function acceptInvitation(input) {
         if (await User_1.User.exists({ email: input.email })) {
             throw (0, errors_1.conflict)("An account with this email already exists", "EMAIL_IN_USE");
         }
-        const organization = await Organization_1.Organization.findById(invitation.organizationId).select("ownerId");
-        const owner = organization ? await User_1.User.findById(organization.ownerId) : null;
+        const organization = await Organization_1.Organization.findById(invitation.organizationId).select("ownerId isActive");
+        if (!organization || organization.isActive === false)
+            throw (0, errors_1.unauthorized)("This business workspace is inactive");
+        const owner = await User_1.User.findById(organization.ownerId);
         if (!owner)
             throw (0, errors_1.unauthorized)("Workspace owner account is unavailable");
         const user = await User_1.User.create({
@@ -128,8 +136,7 @@ async function acceptInvitation(input) {
             role: "employee",
             subscription: owner.subscription.toObject(),
         });
-        const refresh = await createRefreshToken(user._id);
-        return { user: publicUser(user), accessToken: accessToken(user), refreshToken: refresh.raw };
+        return publicUser(user);
     }
     catch (error) {
         await Invitation_1.Invitation.updateOne({ _id: invitation._id, acceptedAt: now }, { $set: { acceptedAt: null } });
@@ -146,6 +153,11 @@ async function rotateRefreshToken(raw) {
         await RefreshToken_1.RefreshToken.updateMany({ familyId: old.familyId, revokedAt: null }, { revokedAt: new Date() });
         throw (0, errors_1.unauthorized)(old.revokedAt ? "Refresh token reuse detected" : "Refresh token has expired");
     }
+    const user = await User_1.User.findById(old.userId);
+    if (!user || !user.isActive || !await Organization_1.Organization.exists({ _id: user.organizationId, isActive: { $ne: false } })) {
+        await RefreshToken_1.RefreshToken.updateMany({ familyId: old.familyId, revokedAt: null }, { revokedAt: new Date() });
+        throw (0, errors_1.unauthorized)("This account is inactive");
+    }
     const replacement = await createRefreshToken(old.userId, old.familyId);
     const result = await RefreshToken_1.RefreshToken.updateOne({ _id: old._id, revokedAt: null }, { $set: { revokedAt: new Date() } });
     if (!result.modifiedCount) {
@@ -156,9 +168,6 @@ async function rotateRefreshToken(raw) {
     const replacementDoc = await RefreshToken_1.RefreshToken.findOne({ tokenHash: hashRefreshToken(replacement.raw) }).select("_id");
     old.replacedByTokenId = replacementDoc?._id ?? null;
     await old.save();
-    const user = await User_1.User.findById(old.userId);
-    if (!user)
-        throw (0, errors_1.unauthorized)();
     const expired = user.subscription.status === "trialing" && user.subscription.trialEndsAt <= new Date();
     if (expired) {
         user.subscription.status = "trial_expired";

@@ -23,7 +23,9 @@ docker compose -f backend/docker-compose.yml up -d
 npm run api:dev
 ```
 
-The API listens on the configured `PORT` (default `4000`). Use `GET /health` for liveness and `GET /health/ready` to verify its MongoDB connection. The OpenAPI reference is served at `/api/docs`. Creating an account does not sign you in; after signup, sign in with the new credentials to open the workspace. Email addresses and passwords are case-sensitive and must be entered with the same capitalization used at signup.
+The API listens on the configured `PORT` (default `4000`). Use `GET /health` for liveness and `GET /health/ready` to verify its MongoDB connection. The OpenAPI reference is served at `/api/docs`. Business signup creates a business workspace and owner account but does not sign you in. Employees join through a business invitation and then sign in separately. The platform admin is a single separate account (`admin` / `admin@gmail.com`); its password must be set as `OPS_ADMIN_PASSWORD` in the backend environment, never in the frontend or source. Email addresses and passwords are case-sensitive.
+
+The platform operations dashboard is available at `/admin`. It can review and activate/suspend businesses and users, create teams and assign employees, review daily attendance and export CSV, and review activity summaries aggregated by business. It does not expose individual task labels or typed/screen content.
 
 Workspace monitoring summaries are included during the seven-day free trial. After the trial, an active monthly or yearly plan is required to continue using monitoring. Report exports require an active paid plan.
 
@@ -41,6 +43,7 @@ Deploy the frontend and API as **two separate Vercel projects** from this reposi
    - `FRONTEND_URL` set to the frontend's production URL
    - `CORS_ORIGINS` set to the exact frontend production origin (scheme and host, no path)
    - `COOKIE_SECURE=true`
+   - `OPS_ADMIN_PASSWORD` set in the backend environment to the platform admin password (at least 12 characters)
 3. Deploy the API. Its base URL is the Vercel deployment URL; confirm `GET /health` responds with `{"status":"ok"}`.
 4. Set `NEXT_PUBLIC_API_URL` in the frontend project to the API URL plus `/api/v1` (for example, `https://your-api.vercel.app/api/v1`), then deploy the frontend.
 5. Test signup/sign-in and refresh-token behavior on the deployed frontend. For Stripe, configure the production Stripe variables and point the Stripe webhook at `https://your-api.vercel.app/api/v1/billing/webhook`.
@@ -49,7 +52,7 @@ Add these variables to the Vercel project settings, not to source control. Produ
 
 ## Environment
 
-See [`backend/.env.example`](./backend/.env.example) for the complete variable list and descriptions. At minimum configure `MONGODB_URI`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, and `CORS_ORIGINS`. Stripe test-mode credentials and plan price IDs are required to enable checkout and billing. Secrets must be strong, unique values in deployed environments.
+See [`backend/.env.example`](./backend/.env.example) for the complete variable list and descriptions. At minimum configure `MONGODB_URI`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `CORS_ORIGINS`, and `OPS_ADMIN_PASSWORD`. Stripe test-mode credentials and plan price IDs are required to enable checkout and billing. Secrets must be strong, unique values in deployed environments.
 
 ## Commands
 
