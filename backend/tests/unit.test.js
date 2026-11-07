@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import mongoose from "mongoose";
 import request from "supertest";
 import { describe, it } from "vitest";
 import { createApp } from "../src/app";
@@ -42,15 +43,17 @@ describe("CORS", () => {
         try {
             const response = await request(createApp({
                 ensureDatabaseConnected: async () => {
-                    throw new Error("database unavailable");
+                    throw new mongoose.Error.MongooseServerSelectionError("database unavailable");
                 },
             }))
-                .post("/api/v1/auth/signin")
-                .send({ email: "person@example.test", password: "example-password" })
-                .set("Origin", origin)
-                .expect(500);
+            .post("/api/v1/auth/signin")
+            .send({ email: "person@example.test", password: "example-password" })
+            .set("Origin", origin)
+            .expect(503);
             assert.equal(response.headers["access-control-allow-origin"], origin);
             assert.equal(response.headers["access-control-allow-credentials"], "true");
+            assert.equal(response.body.error.code, "DATABASE_UNAVAILABLE");
+            assert.equal(response.body.error.message, "Database is temporarily unavailable");
         }
         finally {
             if (previousCorsOrigins === undefined)

@@ -55,7 +55,10 @@ function setSession(res, result, statusCode = 200) {
     res.setHeader("Cache-Control", "no-store");
     res.status(statusCode).json({ user: result.user, accessToken: result.accessToken, tokenType: "Bearer" });
 }
-exports.signup = (0, async_handler_1.asyncHandler)(async (req, res) => setSession(res, await auth.signup(req.body), 201));
+exports.signup = (0, async_handler_1.asyncHandler)(async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.status(201).json({ user: await auth.signup(req.body) });
+});
 exports.signin = (0, async_handler_1.asyncHandler)(async (req, res) => setSession(res, await auth.signin(req.body)));
 exports.acceptInvitation = (0, async_handler_1.asyncHandler)(async (req, res) => setSession(res, await auth.acceptInvitation(req.body), 201));
 exports.refresh = (0, async_handler_1.asyncHandler)(async (req, res) => {

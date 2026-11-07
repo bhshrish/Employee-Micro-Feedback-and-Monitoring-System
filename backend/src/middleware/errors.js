@@ -38,6 +38,10 @@ const errorHandler = (error, req, res, _next) => {
     if (error instanceof mongoose_1.default.Error.ValidationError || error instanceof mongoose_1.default.Error.CastError) {
         normalized = new errors_1.AppError(400, "Invalid data", "VALIDATION_ERROR");
     }
+    if (error instanceof mongoose_1.default.Error.MongooseServerSelectionError) {
+        logger_1.logger.error({ err: error, requestId: req.requestId }, "MongoDB is unavailable");
+        normalized = new errors_1.AppError(503, "Database is temporarily unavailable", "DATABASE_UNAVAILABLE");
+    }
     if (error && typeof error === "object" && "code" in error && error.code === 11000) {
         normalized = new errors_1.AppError(409, "A record with these details already exists", "CONFLICT");
     }

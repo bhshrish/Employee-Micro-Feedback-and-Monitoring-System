@@ -92,8 +92,7 @@ async function signup(input) {
         await Organization_1.Organization.deleteOne({ _id: organization._id });
         throw error;
     }
-    const refresh = await createRefreshToken(user._id);
-    return { user: publicUser(user), accessToken: accessToken(user), refreshToken: refresh.raw };
+    return publicUser(user);
 }
 async function signin(input) {
     const user = await User_1.User.findOne({ email: input.email.toLowerCase() }).select("+passwordHash");

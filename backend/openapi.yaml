@@ -42,7 +42,7 @@ paths:
           application/json:
             schema: { $ref: "#/components/schemas/Signup" }
       responses:
-        "201": { $ref: "#/components/responses/AuthSession" }
+        "201": { $ref: "#/components/responses/AccountCreated" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "409": { $ref: "#/components/responses/Conflict" }
   /auth/signin:
@@ -945,6 +945,15 @@ components:
         workload: { type: integer, minimum: 1, maximum: 5 }
         comment: { type: string, maxLength: 300, description: Accepted but discarded and never persisted. }
   responses:
+    AccountCreated:
+      description: Account created; the user must sign in separately to start a session.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [user]
+            properties:
+              user: { type: object }
     AuthSession:
       description: Session; refresh token is only sent as a Secure/HttpOnly/SameSite cookie.
       headers:

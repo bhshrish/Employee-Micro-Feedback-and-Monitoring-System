@@ -18,6 +18,7 @@ import { expireTrials } from "../src/jobs/subscriptions";
 import { weekStart } from "../src/utils/week";
 import { Organization } from "../src/models/Organization";
 import { migrateLegacyData } from "../src/legacy-migration";
+import { signin as createTestSession } from "../src/services/auth.service";
 const app = createApp();
 let mongo;
 function signup(email, name = "Test User") {
@@ -26,6 +27,14 @@ function signup(email, name = "Test User") {
         email,
         password: "correct-horse-battery",
     });
+}
+async function signupAndSignin(email, name = "Test User") {
+    await signup(email, name).expect(201);
+    const session = await createTestSession({ email, password: "correct-horse-battery" });
+    return {
+        body: { user: session.user, accessToken: session.accessToken },
+        headers: { "set-cookie": [`pulse_refresh=${session.refreshToken}`] },
+    };
 }
 function accessCookie(response) {
     const value = response.headers["set-cookie"]?.find((cookie) => cookie.startsWith("pulse_refresh="));
@@ -65,10 +74,16 @@ describe("PULSE API", () => {
         const response = await signup("one@example.test").expect(201);
         assert.equal(response.body.user.role, "admin");
         assert.equal(response.body.user.subscription.status, "trialing");
-        assert.ok(response.body.accessToken);
         assert.equal(response.body.user.passwordHash, undefined);
+        assert.equal(response.body.accessToken, undefined);
         assert.equal(response.body.refreshToken, undefined);
-        assert.match(accessCookie(response), /^pulse_refresh=/);
+        assert.equal(response.headers["set-cookie"], undefined);
+        const signin = await request(app).post("/api/v1/auth/signin").send({
+            email: "one@example.test",
+            password: "correct-horse-battery",
+        }).expect(200);
+        assert.ok(signin.body.accessToken);
+        assert.match(accessCookie(signin), /^pulse_refresh=/);
     });
     it("migrates legacy account and team workspace fields without removing legacy fields", async () => {
         const organizationId = new mongoose.Types.ObjectId();
@@ -128,7 +143,7 @@ describe("PULSE API", () => {
             .expect(400);
     });
     it("rotates refresh tokens and revokes the whole token family on reuse", async () => {
-        const first = await signup("rotate@example.test").expect(201);
+        const first = await signupAndSignin("rotate@example.test");
         const oldCookie = accessCookie(first);
         const rotated = await request(app).post("/api/v1/auth/refresh").set("Cookie", oldCookie).expect(200);
         const newCookie = accessCookie(rotated);
@@ -136,7 +151,7 @@ describe("PULSE API", () => {
         await request(app).post("/api/v1/auth/refresh").set("Cookie", newCookie).expect(401);
     });
     it("supports the explicit login and users paths", async () => {
-        await signup("login@example.test").expect(201);
+        await signupAndSignin("login@example.test");
         const login = await request(app).post("/api/v1/auth/login").send({
             email: "login@example.test",
             password: "correct-horse-battery",
@@ -155,7 +170,7 @@ describe("PULSE API", () => {
         assert.equal(currentSubscription.body.subscription.status, "trialing");
     });
     it("supports the requested collection, analytics, billing, webhook, and report paths", async () => {
-        const account = await signup("contract-aliases@example.test").expect(201);
+        const account = await signupAndSignin("contract-aliases@example.test");
         const auth = { Authorization: `Bearer ${account.body.accessToken}` };
         await request(app).get("/api/v1/sessions?page=1&limit=10").set(auth).expect(200);
         await request(app).post("/api/v1/pulses").set(auth)
@@ -195,7 +210,7 @@ describe("PULSE API", () => {
             .expect((res) => assert.equal(res.body.error.code, "SUBSCRIPTION_REQUIRED"));
     });
     it("supports tenant-scoped member invitations and assigns the invitee to the selected team", async () => {
-        const owner = await signup("owner-invite@example.test").expect(201);
+        const owner = await signupAndSignin("owner-invite@example.test");
         const otherTeam = await request(app)
             .post("/api/v1/workspace/teams")
             .set("Authorization", `Bearer ${owner.body.accessToken}`)
@@ -275,7 +290,7 @@ describe("PULSE API", () => {
             .expect(401);
     });
     it("stores pulse ratings without user identity or free-text comments and hides small groups", async () => {
-        const account = await signup("pulse@example.test").expect(201);
+        const account = await signupAndSignin("pulse@example.test");
         const result = await request(app)
             .post("/api/v1/pulse")
             .set("Authorization", `Bearer ${account.body.accessToken}`)
@@ -304,7 +319,7 @@ describe("PULSE API", () => {
             .expect(409);
     });
     it("returns team aggregates only after at least five responses", async () => {
-        const account = await signup("manager@example.test").expect(201);
+        const account = await signupAndSignin("manager@example.test");
         const teamId = account.body.user.teamId;
         const organizationId = account.body.user.organizationId;
         const team = await Team.findById(teamId);
@@ -330,8 +345,8 @@ describe("PULSE API", () => {
         });
     });
     it("prevents cross-user access to personal activity sessions and blocks expired trial access", async () => {
-        const first = await signup("first@example.test").expect(201);
-        const second = await signup("second@example.test").expect(201);
+        const first = await signupAndSignin("first@example.test");
+        const second = await signupAndSignin("second@example.test");
         const started = await request(app)
             .post("/api/v1/sessions")
             .set("Authorization", `Bearer ${first.body.accessToken}`)
@@ -356,7 +371,7 @@ describe("PULSE API", () => {
         await request(app).get("/api/v1/dashboard").set("Authorization", `Bearer ${first.body.accessToken}`).expect(403);
     });
     it("supports pausing and resuming a personal activity session", async () => {
-        const account = await signup("timer@example.test").expect(201);
+        const account = await signupAndSignin("timer@example.test");
         const headers = { Authorization: `Bearer ${account.body.accessToken}` };
         const started = await request(app)
             .post("/api/v1/sessions")
@@ -373,7 +388,7 @@ describe("PULSE API", () => {
             .expect((res) => assert.equal(res.body.session.status, "stopped"));
     });
     it("returns live activity totals and persists profile settings", async () => {
-        const account = await signup("live-dashboard@example.test").expect(201);
+        const account = await signupAndSignin("live-dashboard@example.test");
         const auth = { Authorization: "Bearer " + account.body.accessToken };
         const started = await request(app).post("/api/v1/sessions/start").set(auth)
             .send({ task: "Planning", category: "Productive" }).expect(201);
@@ -390,7 +405,7 @@ describe("PULSE API", () => {
         assert.equal(profile.body.user.settings.notifications.weeklyPulse, false);
     });
     it("supports session start, heartbeat, idle, tags, history and summary paths", async () => {
-        const account = await signup("session-paths@example.test").expect(201);
+        const account = await signupAndSignin("session-paths@example.test");
         const auth = { Authorization: `Bearer ${account.body.accessToken}` };
         const started = await request(app)
             .post("/api/v1/sessions/start")
@@ -423,7 +438,7 @@ describe("PULSE API", () => {
         assert.deepEqual(await processStripeEvent(event), { duplicate: true });
     });
     it("returns analytics trends and heatmap only for sufficiently sized groups", async () => {
-        const account = await signup("analytics@example.test").expect(201);
+        const account = await signupAndSignin("analytics@example.test");
         const { organizationId, teamId } = account.body.user;
         const quietTeam = await Team.create({ organizationId, name: "Quiet team" });
         await PulseResponse.insertMany(Array.from({ length: 5 }, () => ({
@@ -454,7 +469,7 @@ describe("PULSE API", () => {
         assert.equal(heatmap.body.cells.some((cell) => cell.teamId === String(quietTeam._id)), false);
     });
     it("returns SUBSCRIPTION_REQUIRED for report preview and generation without an active plan", async () => {
-        const account = await signup("report-gates@example.test").expect(201);
+        const account = await signupAndSignin("report-gates@example.test");
         const auth = { Authorization: `Bearer ${account.body.accessToken}` };
         const preview = await request(app).get("/api/v1/reports/preview").set(auth).expect(402);
         assert.equal(preview.body.error.code, "SUBSCRIPTION_REQUIRED");
@@ -463,7 +478,7 @@ describe("PULSE API", () => {
         assert.equal(generate.body.error.code, "SUBSCRIPTION_REQUIRED");
     });
     it("includes the current week's pulse responses in a today report", async () => {
-        const account = await signup("report-pulse-today@example.test").expect(201);
+        const account = await signupAndSignin("report-pulse-today@example.test");
         await User.updateMany({ organizationId: account.body.user.organizationId }, { $set: { "subscription.status": "active", "subscription.plan": "Team" } });
         await PulseResponse.insertMany(Array.from({ length: 5 }, () => ({
             organizationId: account.body.user.organizationId,
@@ -480,7 +495,7 @@ describe("PULSE API", () => {
         assert.equal(preview.body.pulseParticipationResponses, 5);
     });
     it("generates and downloads tenant-scoped reports for an active Team plan", async () => {
-        const account = await signup("report-download@example.test").expect(201);
+        const account = await signupAndSignin("report-download@example.test");
         await User.updateMany({ organizationId: account.body.user.organizationId }, { $set: { "subscription.status": "active", "subscription.plan": "Team" } });
         const auth = { Authorization: `Bearer ${account.body.accessToken}` };
         const created = await request(app).post("/api/v1/reports/generate").set(auth)
@@ -492,7 +507,7 @@ describe("PULSE API", () => {
         assert.match(file.text, /Metric,Value/);
     });
     it("expires trials and persists invoices from Stripe webhook events", async () => {
-        const account = await signup("invoice@example.test").expect(201);
+        const account = await signupAndSignin("invoice@example.test");
         await User.updateMany({ organizationId: account.body.user.organizationId }, { $set: {
                 "subscription.stripeCustomerId": "cus_invoice",
                 "subscription.trialEndsAt": new Date(Date.now() - 1000),
@@ -564,7 +579,7 @@ describe("PULSE API", () => {
         }
     });
     it("does not allow report exports during a trial", async () => {
-        const account = await signup("reports@example.test").expect(201);
+        const account = await signupAndSignin("reports@example.test");
         await request(app)
             .get("/api/v1/reports/export?format=csv")
             .set("Authorization", `Bearer ${account.body.accessToken}`)

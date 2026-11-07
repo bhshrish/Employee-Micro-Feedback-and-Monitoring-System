@@ -14,7 +14,8 @@ export function AuthForm() {
     const [password, setPassword] = useState("");
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
-    const { signIn, signUp, selectPlan } = useSubscription();
+    const [accountCreated, setAccountCreated] = useState(false);
+    const { signIn, selectPlan } = useSubscription();
     const router = useRouter();
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -40,7 +41,14 @@ export function AuthForm() {
         setLoading(true);
         try {
             const user = await authenticate(email, password, mode, name);
-            mode === "signup" ? signUp(user) : signIn(user);
+            if (mode === "signup") {
+                setMode("signin");
+                setPassword("");
+                setErrors({});
+                setAccountCreated(true);
+                return;
+            }
+            signIn(user);
             router.push("/dashboard");
         }
         catch (error) {
@@ -50,5 +58,5 @@ export function AuthForm() {
             setLoading(false);
         }
     };
-    return <main className="auth-page"><section className="auth-story"><Logo inverse/><div><p className="section-label">Your work. Your wellbeing.</p><h1>A calmer way<br />to know how<br />work feels.</h1><p>Private personal insights. Anonymous team signals. No screen surveillance.</p></div><span>Your workspace is protected by secure account access.</span></section><section className="auth-form-wrap"><div className="auth-mobile-logo"><Logo /></div><div className="auth-form"><div className="tabs" role="tablist" aria-label="Account access"><button role="tab" aria-selected={mode === "signin"} className={mode === "signin" ? "active" : ""} onClick={() => setMode("signin")}>Sign in</button><button role="tab" aria-selected={mode === "signup"} className={mode === "signup" ? "active" : ""} onClick={() => setMode("signup")}>Create account</button></div><h2>{mode === "signin" ? "Welcome back." : "Start your free trial."}</h2><p>{mode === "signin" ? "Sign in to your PULSE workspace." : "Seven days of full access. No credit card required."}</p><form onSubmit={submit} noValidate>{mode === "signup" && <label>Full name<input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" placeholder="Alex Morgan" aria-describedby="name-error"/><FieldError>{errors.name}</FieldError></label>}<label>Work email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" placeholder="you@company.com" aria-describedby="email-error"/><FieldError>{errors.email}</FieldError></label><label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === "signin" ? "current-password" : "new-password"} placeholder="At least 8 characters" aria-describedby="password-error"/><FieldError>{errors.password}</FieldError></label><FieldError>{errors.form}</FieldError><button className="button button-full" disabled={loading}>{loading ? <><span className="spinner"/>Opening your workspace…</> : <>{mode === "signin" ? "Sign in to PULSE" : "Start 7 days free"}<Icon name="arrow"/></>}</button></form><div className="auth-privacy"><Icon name="shield"/><p>By continuing, you agree to the <Link href="/privacy">privacy policy</Link>. Your account and session are managed securely by PULSE.</p></div></div></section></main>;
+    return <main className="auth-page"><section className="auth-story"><Logo inverse/><div><p className="section-label">Your work. Your wellbeing.</p><h1>A calmer way<br />to know how<br />work feels.</h1><p>Private personal insights. Anonymous team signals. No screen surveillance.</p></div><span>Your workspace is protected by secure account access.</span></section><section className="auth-form-wrap"><div className="auth-mobile-logo"><Logo /></div><div className="auth-form"><div className="tabs" role="tablist" aria-label="Account access"><button role="tab" aria-selected={mode === "signin"} className={mode === "signin" ? "active" : ""} onClick={() => { setMode("signin"); setAccountCreated(false); setErrors({}); }}>Sign in</button><button role="tab" aria-selected={mode === "signup"} className={mode === "signup" ? "active" : ""} onClick={() => { setMode("signup"); setAccountCreated(false); setErrors({}); }}>Create account</button></div><h2>{mode === "signin" ? "Welcome back." : "Start your free trial."}</h2><p>{mode === "signin" ? "Sign in to your PULSE workspace." : "Seven days of full access. No credit card required."}</p>{accountCreated && <p className="form-note" role="status">Your account has been created. Sign in with your email and password to open your workspace.</p>}<form onSubmit={submit} noValidate>{mode === "signup" && <label>Full name<input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" placeholder="Alex Morgan" aria-describedby="name-error"/><FieldError>{errors.name}</FieldError></label>}<label>Work email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" placeholder="you@company.com" aria-describedby="email-error"/><FieldError>{errors.email}</FieldError></label><label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === "signin" ? "current-password" : "new-password"} placeholder="At least 8 characters" aria-describedby="password-error"/><FieldError>{errors.password}</FieldError></label><FieldError>{errors.form}</FieldError><button className="button button-full" disabled={loading}>{loading ? <><span className="spinner"/>{mode === "signin" ? "Signing you in…" : "Creating your account…"}</> : <>{mode === "signin" ? "Sign in to PULSE" : "Create account"}<Icon name="arrow"/></>}</button></form><div className="auth-privacy"><Icon name="shield"/><p>By continuing, you agree to the <Link href="/privacy">privacy policy</Link>. Your account and session are managed securely by PULSE.</p></div></div></section></main>;
 }

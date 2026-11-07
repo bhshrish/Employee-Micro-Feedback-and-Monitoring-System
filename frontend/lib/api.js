@@ -77,6 +77,8 @@ export async function authenticate(email, password, mode, name) {
         method: "POST",
         body: JSON.stringify(mode === "signup" ? { name, email, password } : { email, password }),
     }, false);
+    if (mode === "signup")
+        return result.user;
     setAccessToken(result.accessToken);
     localStorage.setItem("pulse:auth", "true");
     return result.user;

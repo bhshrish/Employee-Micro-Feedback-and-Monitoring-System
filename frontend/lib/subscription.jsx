@@ -43,7 +43,6 @@ export function SubscriptionProvider({ children }) {
         user,
         selection,
         signIn: acceptUser,
-        signUp: acceptUser,
         signOut: async () => {
             try {
                 await apiSignOut(true);
