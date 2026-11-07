@@ -429,6 +429,13 @@ describe("PULSE API", () => {
         await request(app).patch(`/api/v1/sessions/${id}/tags`).set(auth)
             .send({ tags: ["research", "planning"], category: "Productive" }).expect(200)
             .expect((res) => assert.deepEqual(res.body.session.tags, ["research", "planning"]));
+        await request(app).patch(`/api/v1/sessions/${id}/tags`).set(auth)
+            .send({ tags: [], task: "Design review" }).expect(400);
+        await request(app).post(`/api/v1/sessions/${id}/pause`).set(auth).expect(200);
+        await request(app).patch(`/api/v1/sessions/${id}/tags`).set(auth)
+            .send({ tags: [], task: "Design review" }).expect(200)
+            .expect((res) => assert.equal(res.body.session.task, "Design review"));
+        await request(app).post(`/api/v1/sessions/${id}/resume`).set(auth).expect(200);
         await request(app).post(`/api/v1/sessions/${id}/stop`).set(auth).send({}).expect(200);
         const history = await request(app).get("/api/v1/sessions/history?page=1&limit=5").set(auth).expect(200);
         assert.equal(history.body.items.length, 1);

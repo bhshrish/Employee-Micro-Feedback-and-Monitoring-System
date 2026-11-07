@@ -1,6 +1,7 @@
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1").replace(/\/$/, "");
 let accessToken = null;
 let refreshRequest = null;
+let dashboardRequest = null;
 export function setAccessToken(token) {
     accessToken = token;
 }
@@ -124,36 +125,75 @@ function hours(seconds) {
 function minutes(seconds) {
     return `${Math.round(seconds / 60)}m`;
 }
+async function getDashboardSnapshot() {
+    if (dashboardRequest)
+        return dashboardRequest;
+    const pending = request("/dashboard?range=30d");
+    dashboardRequest = pending;
+    try {
+        return await pending;
+    }
+    finally {
+        if (dashboardRequest === pending)
+            dashboardRequest = null;
+    }
+}
 export async function getDashboardData(range) {
-    const [response, weeklyData, streakData] = await Promise.all([
-        request(`/dashboard?range=${range.toLowerCase()}`),
-        range === "7d" ? Promise.resolve(null) : request("/dashboard?range=7d"),
-        range === "30d" ? Promise.resolve(null) : request("/dashboard?range=30d"),
-    ]);
-    const weeklyResponse = weeklyData ?? response;
+    const allActivity = await getDashboardSnapshot();
+    const now = new Date();
+    const start = new Date(now);
+    if (range === "Today")
+        start.setUTCHours(0, 0, 0, 0);
+    else
+        start.setUTCDate(start.getUTCDate() - (range === "7d" ? 7 : 30));
+    const sessions = allActivity.sessions.filter((session) => {
+        const startedAt = new Date(session.startedAt);
+        return startedAt >= start && startedAt <= now;
+    });
+    const summary = sessions.reduce((total, session) => ({
+        activeSeconds: total.activeSeconds + session.activeSeconds,
+        idleSeconds: total.idleSeconds + session.idleSeconds,
+    }), { activeSeconds: 0, idleSeconds: 0 });
+    const totalSeconds = summary.activeSeconds + summary.idleSeconds;
+    const dailyByDate = new Map();
+    for (const session of sessions) {
+        const date = session.startedAt.slice(0, 10);
+        const day = dailyByDate.get(date) ?? { date, active: 0, idle: 0, productive: 0, neutral: 0 };
+        day.active += session.activeSeconds;
+        day.idle += session.idleSeconds;
+        if (session.category === "Productive")
+            day.productive += session.activeSeconds;
+        else
+            day.neutral += session.activeSeconds;
+        dailyByDate.set(date, day);
+    }
+    const dailySummary = [...dailyByDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+    const weekStart = new Date(now);
+    weekStart.setUTCHours(0, 0, 0, 0);
+    weekStart.setUTCDate(weekStart.getUTCDate() - 6);
+    const weeklyDays = allActivity.daily.filter((day) => new Date(`${day.date}T00:00:00.000Z`) >= weekStart);
     const daily = range === "Today"
         ? Array.from({ length: 24 }, (_, hour) => {
-            const bucket = response.sessions.filter((session) => new Date(session.startedAt).getHours() === hour);
+            const bucket = sessions.filter((session) => new Date(session.startedAt).getHours() === hour);
             return {
                 label: new Date(2000, 0, 1, hour).toLocaleTimeString(undefined, { hour: "numeric" }),
                 active: bucket.reduce((sum, session) => sum + session.activeSeconds, 0) / 60,
                 idle: bucket.reduce((sum, session) => sum + session.idleSeconds, 0) / 60,
             };
         })
-        : response.daily.map((day) => ({
+        : dailySummary.map((day) => ({
             label: new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(`${day.date}T00:00:00`)),
             active: day.active / 60,
             idle: day.idle / 60,
         }));
     const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const dailyByDate = new Map(weeklyResponse.daily.map((day) => [day.date, day]));
     const weekEnd = new Date();
     weekEnd.setUTCHours(0, 0, 0, 0);
     const weekly = Array.from({ length: 7 }, (_, index) => {
         const date = new Date(weekEnd);
         date.setUTCDate(date.getUTCDate() - (6 - index));
         const key = date.toISOString().slice(0, 10);
-        const day = dailyByDate.get(key);
+        const day = dailyByDate.get(key) ?? allActivity.daily.find((item) => item.date === key);
         return {
             day: `${weekdays[date.getUTCDay()]} ${key.slice(5)}`,
             productive: (day?.productive ?? 0) / 3600,
@@ -161,7 +201,7 @@ export async function getDashboardData(range) {
             idle: (day?.idle ?? 0) / 3600,
         };
     });
-    const productivityByDate = new Map(weeklyResponse.daily.map((day) => [day.date, day]));
+    const productivityByDate = new Map(weeklyDays.map((day) => [day.date, day]));
     const trend = Array.from({ length: 7 }, (_, index) => {
         const date = new Date();
         date.setUTCHours(0, 0, 0, 0);
@@ -170,7 +210,7 @@ export async function getDashboardData(range) {
         const tracked = (day?.productive ?? 0) + (day?.neutral ?? 0);
         return tracked ? Math.round(((day?.productive ?? 0) / tracked) * 100) : 0;
     });
-    const activeDays = new Set((streakData ?? response).sessions.map((session) => session.startedAt.slice(0, 10)));
+    const activeDays = new Set(allActivity.sessions.map((session) => session.startedAt.slice(0, 10)));
     let streak = 0;
     const cursor = new Date();
     cursor.setHours(0, 0, 0, 0);
@@ -180,25 +220,24 @@ export async function getDashboardData(range) {
         streak += 1;
         cursor.setDate(cursor.getDate() - 1);
     }
-    const lastWeek = weeklyResponse.daily.slice(-7);
-    const weeklyTotal = lastWeek.reduce((sum, day) => sum + day.active + day.idle, 0);
-    const productiveSeconds = response.sessions
+    const weeklyTotal = weeklyDays.reduce((sum, day) => sum + day.active + day.idle, 0);
+    const productiveSeconds = sessions
         .filter((session) => session.category === "Productive")
         .reduce((sum, session) => sum + session.activeSeconds, 0);
-    const otherActiveSeconds = response.sessions
+    const otherActiveSeconds = sessions
         .filter((session) => session.category !== "Productive")
         .reduce((sum, session) => sum + session.activeSeconds, 0);
     const activeSeconds = productiveSeconds + otherActiveSeconds;
     return {
         kpis: {
-            total: hours(response.summary.totalSeconds),
-            active: hours(response.summary.activeSeconds),
-            idle: minutes(response.summary.idleSeconds),
+            total: hours(totalSeconds),
+            active: hours(summary.activeSeconds),
+            idle: minutes(summary.idleSeconds),
             productive: activeSeconds ? Math.round((productiveSeconds / activeSeconds) * 100) : 0,
             weekly: hours(weeklyTotal),
             streak,
         },
-        sessions: response.summary.sessionCount,
+        sessions: sessions.length,
         productiveHours: productiveSeconds / 3600,
         neutralHours: otherActiveSeconds / 3600,
         daily,
@@ -301,7 +340,7 @@ export async function startActivity(task, category) {
     return request("/sessions/start", { method: "POST", body: JSON.stringify({ task, category }) });
 }
 export async function getOpenActivity() {
-    const result = await request("/dashboard?range=30d");
+    const result = await getDashboardSnapshot();
     return result.sessions.find((item) => item.status === "running" || item.status === "paused") ?? null;
 }
 export async function pauseActivity(id) {
@@ -318,6 +357,9 @@ export async function setActivityIdle(id, idle) {
 }
 export async function updateActivityCategory(id, category) {
     return request(`/sessions/${encodeURIComponent(id)}/tags`, { method: "PATCH", body: JSON.stringify({ tags: [], category }) });
+}
+export async function updateActivityTask(id, task) {
+    return request(`/sessions/${encodeURIComponent(id)}/tags`, { method: "PATCH", body: JSON.stringify({ tags: [], task }) });
 }
 export async function heartbeatActivity(id) {
     return request(`/sessions/${encodeURIComponent(id)}/heartbeat`, { method: "POST" });

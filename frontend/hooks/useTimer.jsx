@@ -2,7 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useSubscription } from "@/lib/subscription";
 import { useIdleDetector } from "./useIdleDetector";
-import { getOpenActivity, heartbeatActivity, pauseActivity, resumeActivity, setActivityIdle, startActivity, stopActivity, updateActivityCategory, } from "@/lib/api";
+import { getOpenActivity, heartbeatActivity, pauseActivity, resumeActivity, setActivityIdle, startActivity, stopActivity, updateActivityCategory, updateActivityTask, } from "@/lib/api";
 const TimerContext = createContext(null);
 const initial = { status: "stopped", elapsed: 0, idle: 0, startedAt: null, task: "Product strategy", category: "Productive", lastSession: 0, sessionId: null };
 const currentElapsed = (data) => data.elapsed + (data.status === "running" && data.startedAt ? (Date.now() - data.startedAt) / 1000 : 0);
@@ -19,15 +19,12 @@ export function TimerProvider({ children }) {
     const [threshold, setThreshold] = useState(5);
     const [idleOpen, setIdleOpen] = useState(false);
     const [idleDuration, setIdleDuration] = useState(0);
-    const autoStarted = useRef(false);
     const pendingStart = useRef(false);
-    const resumeAfterVisible = useRef(false);
     useEffect(() => {
         setData(initial);
         dataRef.current = initial;
         setElapsedSeconds(0);
         setThreshold(Math.min(30, Math.max(1, Number(localStorage.getItem("pulse:idleThreshold")) || 5)));
-        autoStarted.current = false;
         const settings = () => setThreshold(Math.min(30, Math.max(1, Number(localStorage.getItem("pulse:idleThreshold")) || 5)));
         window.addEventListener("pulse:settings", settings);
         return () => window.removeEventListener("pulse:settings", settings);
@@ -42,10 +39,15 @@ export function TimerProvider({ children }) {
         getOpenActivity().then((session) => {
             if (!active || !session)
                 return;
+            const startedAt = new Date(session.startedAt).getTime();
+            const pausedAt = session.status === "running" || !session.pausedAt
+                ? Date.now()
+                : new Date(session.pausedAt).getTime();
+            const elapsedFromSession = Math.max(0, Math.floor((pausedAt - startedAt) / 1000) - (session.pausedSeconds ?? 0));
             const current = dataRef.current;
             const elapsed = current.sessionId === session.id && current.status !== "stopped"
                 ? current.elapsed
-                : session.activeSeconds + session.idleSeconds;
+                : Math.max(elapsedFromSession, session.activeSeconds + session.idleSeconds);
             const next = {
                 ...current,
                 status: session.status,
@@ -125,30 +127,9 @@ export function TimerProvider({ children }) {
         })();
     }, []);
     useEffect(() => {
-        if (!authenticated || !canUseApp)
-            return;
-        const autoStart = (event) => {
-            if (event.target?.closest(".timer-actions, [data-no-auto-track]"))
-                return;
-            if (!autoStarted.current && dataRef.current.status === "stopped") {
-                autoStarted.current = true;
-                start();
-            }
-        };
-        window.addEventListener("pointerdown", autoStart);
-        window.addEventListener("keydown", autoStart);
-        return () => { window.removeEventListener("pointerdown", autoStart); window.removeEventListener("keydown", autoStart); };
-    }, [authenticated, canUseApp, start]);
-    useEffect(() => {
         const visibility = () => {
-            if (document.hidden && dataRef.current.status === "running") {
-                resumeAfterVisible.current = true;
+            if (document.hidden && dataRef.current.status === "running")
                 pause();
-            }
-            else if (!document.hidden && resumeAfterVisible.current) {
-                resumeAfterVisible.current = false;
-                start();
-            }
         };
         const pagehide = () => {
             if (dataRef.current.status === "running" && dataRef.current.sessionId) {
@@ -158,7 +139,7 @@ export function TimerProvider({ children }) {
         document.addEventListener("visibilitychange", visibility);
         window.addEventListener("pagehide", pagehide);
         return () => { document.removeEventListener("visibilitychange", visibility); window.removeEventListener("pagehide", pagehide); };
-    }, [pause, start]);
+    }, [pause]);
     useEffect(() => {
         if (data.status !== "running" || !data.sessionId)
             return;
@@ -173,6 +154,18 @@ export function TimerProvider({ children }) {
     }, []);
     const { resetActivity, simulateIdle } = useIdleDetector(threshold, data.status === "running" && !idleOpen, idleHandler);
     const closeIdle = useCallback(() => { setIdleOpen(false); resetActivity(); }, [resetActivity]);
+    const setTask = useCallback((task) => {
+        const current = dataRef.current;
+        if (current.status === "running")
+            return;
+        if (current.sessionId && current.status === "paused") {
+            void updateActivityTask(current.sessionId, task).then(() => {
+                setData((prev) => ({ ...prev, task }));
+            }).catch(reportFailure);
+            return;
+        }
+        setData((prev) => ({ ...prev, task }));
+    }, []);
     const keepIdle = useCallback(() => {
         if (dataRef.current.sessionId)
             void setActivityIdle(dataRef.current.sessionId, false).catch(reportFailure);
@@ -202,7 +195,7 @@ export function TimerProvider({ children }) {
     }, [closeIdle, idleDuration]);
     const value = {
         ...data, elapsedSeconds, idleOpen, idleDuration, start, pause, stop,
-        setTask: (task) => setData((prev) => ({ ...prev, task })),
+        setTask,
         setCategory: (category) => {
             setData((prev) => ({ ...prev, category }));
             if (dataRef.current.sessionId)

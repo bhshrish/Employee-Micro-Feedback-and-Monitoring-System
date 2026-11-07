@@ -53,10 +53,14 @@ async function setActivityTags(userId, organizationId, sessionId, input) {
     const session = await TeamActivity_1.TeamActivity.findOne({ _id: sessionId, userId, organizationId, status: { $ne: "stopped" } });
     if (!session)
         throw (0, errors_1.notFound)("Active activity session not found");
+    if (input.task && session.status === "running")
+        throw (0, errors_1.badRequest)("Pause the activity before changing its project or task");
     if (input.tags)
         session.tags = [...new Set(input.tags.map((tag) => tag.trim()).filter(Boolean))];
     if (input.category)
         session.category = input.category;
+    if (input.task)
+        session.task = input.task;
     await session.save();
     return session;
 }
@@ -192,6 +196,8 @@ async function dashboard(userId, organizationId, range) {
             category: item.category,
             startedAt: item.startedAt,
             endedAt: item.endedAt,
+            pausedAt: item.pausedAt,
+            pausedSeconds: item.pausedSeconds,
             activeSeconds,
             idleSeconds,
             status: item.status,

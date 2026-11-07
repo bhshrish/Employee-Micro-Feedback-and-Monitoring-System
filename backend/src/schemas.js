@@ -43,7 +43,8 @@ exports.idleActivitySchema = zod_1.z.object({ idle: zod_1.z.boolean() }).strict(
 exports.activityTagsSchema = zod_1.z.object({
     tags: zod_1.z.array(zod_1.z.string().trim().min(1).max(32)).max(10),
     category: zod_1.z.enum(["Productive", "Neutral", "Distracting"]).optional(),
-}).strict().refine((value) => value.tags.length > 0 || value.category !== undefined, "Provide tags or category");
+    task: zod_1.z.string().trim().min(1).max(120).optional(),
+}).strict().refine((value) => value.tags.length > 0 || value.category !== undefined || value.task !== undefined, "Provide tags, category, or task");
 exports.historyQuerySchema = zod_1.z.object({
     page: zod_1.z.coerce.number().int().min(1).default(1),
     limit: zod_1.z.coerce.number().int().min(1).max(100).default(25),
