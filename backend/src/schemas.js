@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.attendanceAdminQuerySchema = exports.employeeOtpVerifySchema = exports.employeeOtpRequestSchema = exports.operationsSigninSchema = exports.teamIdParamsSchema = exports.userIdParamsSchema = exports.memberIdParamsSchema = exports.alertIdParamsSchema = exports.sessionIdParamsSchema = exports.checkoutSchema = exports.alertUpdateSchema = exports.pulseTeamQuerySchema = exports.alertQuerySchema = exports.dashboardQuerySchema = exports.userRoleSchema = exports.reportFormatQuerySchema = exports.reportPreviewQuerySchema = exports.reportQuerySchema = exports.profileSchema = exports.reportIdParamsSchema = exports.reportGenerateSchema = exports.analyticsQuerySchema = exports.sessionSummaryQuerySchema = exports.historyQuerySchema = exports.activityTagsSchema = exports.idleActivitySchema = exports.activityHeartbeatSchema = exports.stopActivitySchema = exports.startActivitySchema = exports.updateMemberSchema = exports.createTeamSchema = exports.pulseSchema = exports.invitationCreateSchema = exports.invitationAcceptSchema = exports.signinSchema = exports.signupSchema = void 0;
+exports.teamIdParamsSchema = exports.userIdParamsSchema = exports.memberIdParamsSchema = exports.alertIdParamsSchema = exports.sessionIdParamsSchema = exports.checkoutSchema = exports.alertUpdateSchema = exports.pulseTeamQuerySchema = exports.alertQuerySchema = exports.dashboardQuerySchema = exports.userRoleSchema = exports.reportFormatQuerySchema = exports.reportPreviewQuerySchema = exports.reportQuerySchema = exports.profileSchema = exports.reportIdParamsSchema = exports.reportGenerateSchema = exports.analyticsQuerySchema = exports.sessionSummaryQuerySchema = exports.historyQuerySchema = exports.activityTagsSchema = exports.idleActivitySchema = exports.activityHeartbeatSchema = exports.stopActivitySchema = exports.startActivitySchema = exports.updateMemberSchema = exports.createTeamSchema = exports.pulseSchema = exports.invitationCreateSchema = exports.invitationAcceptSchema = exports.signinSchema = exports.signupSchema = void 0;
 const zod_1 = require("zod");
 const email = zod_1.z.string().trim().email().max(254);
 const password = zod_1.z.string().min(8).max(128);
@@ -11,13 +11,6 @@ exports.signupSchema = zod_1.z.object({
     organizationName: zod_1.z.string().trim().min(2).max(120).optional(),
 }).strict();
 exports.signinSchema = zod_1.z.object({ email, password }).strict();
-exports.employeeOtpRequestSchema = zod_1.z.object({ email }).strict();
-exports.employeeOtpVerifySchema = zod_1.z.object({ email, code: zod_1.z.string().regex(/^\d{6}$/) }).strict();
-exports.operationsSigninSchema = zod_1.z.object({ email, password }).strict();
-exports.attendanceAdminQuerySchema = zod_1.z.object({
-    date: zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/).default(() => new Date().toISOString().slice(0, 10)),
-    page: zod_1.z.coerce.number().int().min(1).max(1000).default(1),
-}).strict();
 exports.invitationAcceptSchema = zod_1.z.object({
     token: zod_1.z.string().min(32).max(128),
     email,

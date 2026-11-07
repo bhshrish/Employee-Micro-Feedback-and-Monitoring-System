@@ -11,7 +11,6 @@ import { RouteGuard } from "./RouteGuard";
 import { useToast } from "./Toast";
 const nav = [
     { href: "/dashboard", label: "My day", icon: "clock" },
-    { href: "/attendance", label: "Attendance", icon: "calendar" },
     { href: "/monitoring", label: "Monitoring", icon: "pulse" },
     { href: "/team", label: "Team pulse", icon: "users" },
     { href: "/reports", label: "Reports", icon: "chart" },
@@ -63,6 +62,6 @@ function AppFrame({ children }) {
     <IdleModal />
   </div>;
 }
-export function AppShell({ children, requireApp = true }) {
-    return <TimerProvider><RouteGuard requireApp={requireApp}><AppFrame>{children}</AppFrame></RouteGuard></TimerProvider>;
+export function AppShell({ children }) {
+    return <TimerProvider><RouteGuard><AppFrame>{children}</AppFrame></RouteGuard></TimerProvider>;
 }

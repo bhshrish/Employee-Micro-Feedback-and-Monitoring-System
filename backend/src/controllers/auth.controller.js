@@ -101,11 +101,3 @@ exports.updateProfile = (0, async_handler_1.asyncHandler)(async (req, res) => {
         throw (0, errors_1.unauthorized)();
     res.json({ user: await auth.getCurrentUser(user._id) });
 });
-exports.requestEmployeeOtp = (0, async_handler_1.asyncHandler)(async (req, res) => {
-    await auth.requestEmployeeOtp(req.body.email);
-    res.setHeader("Cache-Control", "no-store");
-    res.status(202).json({ message: "If an employee account exists for this email, a sign-in code has been sent." });
-});
-exports.verifyEmployeeOtp = (0, async_handler_1.asyncHandler)(async (req, res) => {
-    setSession(res, await auth.verifyEmployeeOtp(req.body));
-});

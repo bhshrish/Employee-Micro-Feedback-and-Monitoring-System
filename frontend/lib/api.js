@@ -84,54 +84,6 @@ export async function authenticate(email, password, mode, name) {
     localStorage.setItem("pulse:auth", "true");
     return result.user;
 }
-export async function requestEmployeeOtp(email) {
-    return request("/auth/employee-otp/request", {
-        method: "POST",
-        body: JSON.stringify({ email }),
-    }, false);
-}
-export async function verifyEmployeeOtp(email, code) {
-    const result = await request("/auth/employee-otp/verify", {
-        method: "POST",
-        body: JSON.stringify({ email, code }),
-    }, false);
-    setAccessToken(result.accessToken);
-    localStorage.setItem("pulse:auth", "true");
-    return result.user;
-}
-export async function signInOperationsAdmin(email, password) {
-    return request("/operations/auth/signin", {
-        method: "POST",
-        body: JSON.stringify({ email, password }),
-    }, false);
-}
-export async function getOperationsAdmin() {
-    return request("/operations/auth/me", {}, false);
-}
-export async function signOutOperationsAdmin() {
-    return request("/operations/auth/logout", { method: "POST" }, false);
-}
-export async function getMyAttendance() {
-    return request("/attendance/me");
-}
-export async function checkInAttendance() {
-    return request("/attendance/check-in", { method: "POST" });
-}
-export async function checkOutAttendance() {
-    return request("/attendance/check-out", { method: "POST" });
-}
-export async function getOperationsAttendance(date, page = 1) {
-    const params = new URLSearchParams({ date, page: String(page) });
-    return request(`/operations/attendance?${params}`, {}, false);
-}
-export async function exportOperationsAttendance(date) {
-    const response = await fetchApi(`${API_BASE}/operations/attendance/export?date=${encodeURIComponent(date)}`, { credentials: "include" });
-    if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw apiError(response.status, payload.error?.code || "REQUEST_FAILED", payload.error?.message || "Could not export attendance.");
-    }
-    return response.blob();
-}
 export async function restoreSession() {
     if (localStorage.getItem("pulse:auth") !== "true")
         return null;
