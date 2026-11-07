@@ -38,14 +38,14 @@ async function createInvitation(organizationId, inviterId, email, teamId) {
     const team = await Team_1.Team.findOne({ _id: teamId, organizationId, archivedAt: null });
     if (!team)
         throw (0, errors_1.notFound)("Team not found");
-    if (await User_1.User.exists({ email: email.toLowerCase() }))
+    if (await User_1.User.exists({ email }))
         throw (0, errors_1.badRequest)("An account with this email already exists");
     const rawToken = (0, node_crypto_1.randomBytes)(32).toString("base64url");
     const tokenHash = (0, node_crypto_1.createHmac)("sha256", (0, env_1.getConfig)().JWT_REFRESH_SECRET).update(rawToken).digest("hex");
     const expiresAt = new Date(Date.now() + 7 * 86_400_000);
-    await Invitation_1.Invitation.updateMany({ organizationId, email: email.toLowerCase(), acceptedAt: null }, { $set: { acceptedAt: new Date() } });
-    await Invitation_1.Invitation.create({ organizationId, teamId, inviterId, email: email.toLowerCase(), tokenHash, expiresAt });
-    return { email: email.toLowerCase(), teamId: teamId.toString(), expiresAt, token: rawToken };
+    await Invitation_1.Invitation.updateMany({ organizationId, email, acceptedAt: null }, { $set: { acceptedAt: new Date() } });
+    await Invitation_1.Invitation.create({ organizationId, teamId, inviterId, email, tokenHash, expiresAt });
+    return { email, teamId: teamId.toString(), expiresAt, token: rawToken };
 }
 async function listMembers(organizationId, teamId) {
     const users = await User_1.User.find({ organizationId, ...(teamId ? { teamId } : {}) }).select("name email role teamId createdAt").populate("teamId", "name").sort({ name: 1 }).lean();

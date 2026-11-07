@@ -908,7 +908,7 @@ components:
       required: [name, email, password]
       properties:
         name: { type: string, minLength: 2, maxLength: 100 }
-        email: { type: string, format: email, maxLength: 254 }
+        email: { type: string, format: email, maxLength: 254, description: Case-sensitive; preserve capitalization when signing in. }
         password: { type: string, minLength: 8, maxLength: 128 }
         organizationName: { type: string, minLength: 2, maxLength: 120 }
     Signin:
@@ -916,7 +916,7 @@ components:
       additionalProperties: false
       required: [email, password]
       properties:
-        email: { type: string, format: email }
+        email: { type: string, format: email, description: Case-sensitive; use the same capitalization as at signup. }
         password: { type: string, minLength: 8, maxLength: 128 }
     ProfileUpdate:
       type: object

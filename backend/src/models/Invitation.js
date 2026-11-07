@@ -6,7 +6,7 @@ const invitationSchema = new mongoose_1.Schema({
     organizationId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
     teamId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Team", required: true },
     inviterId: { type: mongoose_1.Schema.Types.ObjectId, ref: "User", required: true },
-    email: { type: String, required: true, lowercase: true, trim: true },
+    email: { type: String, required: true, trim: true },
     tokenHash: { type: String, required: true, unique: true, select: false },
     expiresAt: { type: Date, required: true, index: { expires: 0 } },
     acceptedAt: { type: Date, default: null },

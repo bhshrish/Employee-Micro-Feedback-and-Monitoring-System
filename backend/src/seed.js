@@ -11,7 +11,7 @@ const Organization_1 = require("./models/Organization");
 const Team_1 = require("./models/Team");
 const User_1 = require("./models/User");
 async function seed() {
-    const email = process.env.SEED_EMAIL?.trim().toLowerCase();
+    const email = process.env.SEED_EMAIL?.trim();
     const password = process.env.SEED_PASSWORD;
     const name = process.env.SEED_NAME?.trim();
     if (!email || !password || !name)

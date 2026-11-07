@@ -66,7 +66,7 @@ function publicUser(user) {
     };
 }
 async function signup(input) {
-    if (await User_1.User.exists({ email: input.email.toLowerCase() }))
+    if (await User_1.User.exists({ email: input.email }))
         throw (0, errors_1.conflict)("An account with this email already exists", "EMAIL_IN_USE");
     const ownerId = new mongoose_1.Types.ObjectId();
     const organization = await Organization_1.Organization.create({
@@ -81,7 +81,7 @@ async function signup(input) {
             organizationId: organization._id,
             teamId: team._id,
             name: input.name.trim(),
-            email: input.email.toLowerCase(),
+            email: input.email,
             passwordHash: await bcryptjs_1.default.hash(input.password, BCRYPT_ROUNDS),
             role: "admin",
             subscription: { plan: "Team", status: "trialing", trialEndsAt: new Date(Date.now() + 7 * 86_400_000) },
@@ -95,7 +95,7 @@ async function signup(input) {
     return publicUser(user);
 }
 async function signin(input) {
-    const user = await User_1.User.findOne({ email: input.email.toLowerCase() }).select("+passwordHash");
+    const user = await User_1.User.findOne({ email: input.email }).select("+passwordHash");
     if (!user || !(await bcryptjs_1.default.compare(input.password, user.passwordHash)))
         throw (0, errors_1.unauthorized)("Email or password is incorrect");
     if (user.subscription.status === "trialing" && user.subscription.trialEndsAt <= new Date()) {
@@ -108,11 +108,11 @@ async function signin(input) {
 async function acceptInvitation(input) {
     const tokenHash = hashRefreshToken(input.token);
     const now = new Date();
-    const invitation = await Invitation_1.Invitation.findOneAndUpdate({ tokenHash, email: input.email.toLowerCase(), acceptedAt: null, expiresAt: { $gt: now } }, { $set: { acceptedAt: now } }, { new: false });
+    const invitation = await Invitation_1.Invitation.findOneAndUpdate({ tokenHash, email: input.email, acceptedAt: null, expiresAt: { $gt: now } }, { $set: { acceptedAt: now } }, { new: false });
     if (!invitation)
         throw (0, errors_1.unauthorized)("Invitation is invalid or expired");
     try {
-        if (await User_1.User.exists({ email: input.email.toLowerCase() })) {
+        if (await User_1.User.exists({ email: input.email })) {
             throw (0, errors_1.conflict)("An account with this email already exists", "EMAIL_IN_USE");
         }
         const organization = await Organization_1.Organization.findById(invitation.organizationId).select("ownerId");
@@ -123,7 +123,7 @@ async function acceptInvitation(input) {
             organizationId: invitation.organizationId,
             teamId: invitation.teamId,
             name: input.name.trim(),
-            email: input.email.toLowerCase(),
+            email: input.email,
             passwordHash: await bcryptjs_1.default.hash(input.password, BCRYPT_ROUNDS),
             role: "employee",
             subscription: owner.subscription.toObject(),

@@ -71,15 +71,25 @@ describe("PULSE API", () => {
             isAdmin: true,
         }).expect(400);
         assert.equal(invalid.body.error.requestId, invalid.headers["x-request-id"]);
-        const response = await signup("one@example.test").expect(201);
+        const email = "One@Example.test";
+        const response = await signup(email).expect(201);
         assert.equal(response.body.user.role, "admin");
         assert.equal(response.body.user.subscription.status, "trialing");
+        assert.equal(response.body.user.email, email);
         assert.equal(response.body.user.passwordHash, undefined);
         assert.equal(response.body.accessToken, undefined);
         assert.equal(response.body.refreshToken, undefined);
         assert.equal(response.headers["set-cookie"], undefined);
+        await request(app).post("/api/v1/auth/signin").send({
+            email: email.toLowerCase(),
+            password: "correct-horse-battery",
+        }).expect(401);
+        await request(app).post("/api/v1/auth/signin").send({
+            email,
+            password: "CORRECT-HORSE-BATTERY",
+        }).expect(401);
         const signin = await request(app).post("/api/v1/auth/signin").send({
-            email: "one@example.test",
+            email,
             password: "correct-horse-battery",
         }).expect(200);
         assert.ok(signin.body.accessToken);

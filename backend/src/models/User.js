@@ -6,7 +6,7 @@ const userSchema = new mongoose_1.Schema({
     organizationId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
     teamId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Team", default: null },
     name: { type: String, required: true, trim: true, minlength: 2, maxlength: 100 },
-    email: { type: String, required: true, lowercase: true, trim: true, unique: true, index: true },
+    email: { type: String, required: true, trim: true, unique: true, index: true },
     passwordHash: { type: String, required: true, select: false },
     role: { type: String, enum: ["employee", "manager", "admin"], default: "employee", required: true },
     subscription: {

@@ -4,7 +4,7 @@ import request from "supertest";
 import { describe, it } from "vitest";
 import { createApp } from "../src/app";
 import { pulseWeekRange, weekStart } from "../src/utils/week";
-import { pulseSchema, signupSchema } from "../src/schemas";
+import { pulseSchema, signinSchema, signupSchema } from "../src/schemas";
 import { calculateBurnoutScore } from "../src/services/burnout";
 
 describe("CORS", () => {
@@ -83,11 +83,15 @@ describe("validation and date utilities", () => {
         assert.equal(pulseSchema.safeParse({ mood: 4, stress: 2, workload: 3, note: "extra" }).success, false);
         assert.equal(pulseSchema.safeParse({ mood: 6, stress: 2, workload: 3 }).success, false);
     });
-    it("normalizes email casing and enforces password length limits", () => {
+    it("preserves email casing and enforces password length limits", () => {
         const result = signupSchema.safeParse({ name: "Alex Morgan", email: "ALEX@example.test", password: "strong-pass-123" });
         assert.equal(result.success, true);
         if (result.success)
-            assert.equal(result.data.email, "alex@example.test");
+            assert.equal(result.data.email, "ALEX@example.test");
+        const signin = signinSchema.safeParse({ email: "ALEX@example.test", password: "strong-pass-123" });
+        assert.equal(signin.success, true);
+        if (signin.success)
+            assert.equal(signin.data.email, "ALEX@example.test");
         assert.equal(signupSchema.safeParse({ name: "Alex", email: "alex@example.test", password: "x" }).success, false);
     });
     it("uses a stable UTC Monday as the pulse week boundary", () => {

@@ -76,6 +76,7 @@ export function AuthForm() {
                 </div>
                 <h2>{accountCreated ? "Account created." : mode === "signin" ? "Welcome back." : "Start your free trial."}</h2>
                 <p>{accountCreated ? "Your account is ready. You are not signed in." : mode === "signin" ? "Sign in to your PULSE workspace." : "Seven days of full access. No credit card required."}</p>
+                {!accountCreated && <p className="subtle-label">Email and password are case-sensitive. Enter them exactly as you did when creating your account.</p>}
                 {accountCreated ? <div role="status">
                     <p className="form-note">Your account has been created. Sign in when you are ready to open your workspace.</p>
                     <button className="button button-full" type="button" onClick={() => { setMode("signin"); setAccountCreated(false); }}>
@@ -83,8 +84,8 @@ export function AuthForm() {
                     </button>
                 </div> : <form onSubmit={submit} noValidate>
                     {mode === "signup" && <label>Full name<input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" placeholder="Alex Morgan" aria-describedby="name-error" /><FieldError>{errors.name}</FieldError></label>}
-                    <label>Work email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" placeholder="you@company.com" aria-describedby="email-error" /><FieldError>{errors.email}</FieldError></label>
-                    <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === "signin" ? "current-password" : "new-password"} placeholder="At least 8 characters" aria-describedby="password-error" /><FieldError>{errors.password}</FieldError></label>
+                    <label>Work email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" autoCapitalize="none" spellCheck={false} placeholder="you@company.com" aria-describedby="email-error" /><FieldError>{errors.email}</FieldError></label>
+                    <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={mode === "signin" ? "current-password" : "new-password"} autoCapitalize="none" placeholder="At least 8 characters" aria-describedby="password-error" /><FieldError>{errors.password}</FieldError></label>
                     <FieldError>{errors.form}</FieldError>
                     <button className="button button-full" disabled={loading}>{loading ? <><span className="spinner" />{mode === "signin" ? "Signing you in…" : "Creating your account…"}</> : <>{mode === "signin" ? "Sign in to PULSE" : "Create account"}<Icon name="arrow" /></>}</button>
                 </form>}
