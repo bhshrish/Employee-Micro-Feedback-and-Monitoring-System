@@ -39,7 +39,9 @@ function AppFrame({ children }) {
         return () => window.removeEventListener("pulse:api-error", handleApiError);
     }, [toast]);
     const visibleNav = nav.filter((item) => {
-        if (item.href === "/monitoring" || item.href === "/team" || item.href === "/reports")
+        if (item.href === "/monitoring")
+            return true;
+        if (item.href === "/team" || item.href === "/reports")
             return user?.role === "admin" || user?.role === "manager";
         if (item.href === "/billing")
             return user?.role === "admin";

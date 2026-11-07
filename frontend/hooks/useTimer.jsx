@@ -5,6 +5,8 @@ import { useIdleDetector } from "./useIdleDetector";
 import { getOpenActivity, heartbeatActivity, pauseActivity, resumeActivity, setActivityIdle, startActivity, stopActivity, updateActivityCategory, updateActivityTask, } from "@/lib/api";
 const TimerContext = createContext(null);
 const initial = { status: "stopped", elapsed: 0, idle: 0, startedAt: null, task: "Product strategy", category: "Productive", lastSession: 0, sessionId: null };
+const keypressOptInKey = (userId) => `pulse:keypress-counting:${userId}`;
+const keypressCountKey = (sessionId) => `pulse:keypress-count:${sessionId}`;
 const currentElapsed = (data) => data.elapsed + (data.status === "running" && data.startedAt ? (Date.now() - data.startedAt) / 1000 : 0);
 const settled = (data) => ({ ...data, elapsed: currentElapsed(data), startedAt: data.status === "running" ? Date.now() : null });
 function reportFailure(error) {
@@ -19,6 +21,9 @@ export function TimerProvider({ children }) {
     const [threshold, setThreshold] = useState(5);
     const [idleOpen, setIdleOpen] = useState(false);
     const [idleDuration, setIdleDuration] = useState(0);
+    const [keypressCounting, setKeypressCounting] = useState(false);
+    const [keypressCount, setKeypressCount] = useState(0);
+    const keypressCountRef = useRef(0);
     const pendingStart = useRef(false);
     useEffect(() => {
         setData(initial);
@@ -26,9 +31,21 @@ export function TimerProvider({ children }) {
         setElapsedSeconds(0);
         setThreshold(Math.min(30, Math.max(1, Number(localStorage.getItem("pulse:idleThreshold")) || 5)));
         const settings = () => setThreshold(Math.min(30, Math.max(1, Number(localStorage.getItem("pulse:idleThreshold")) || 5)));
+        const resetPreferences = () => {
+            setKeypressCounting(false);
+            keypressCountRef.current = 0;
+            setKeypressCount(0);
+        };
         window.addEventListener("pulse:settings", settings);
-        return () => window.removeEventListener("pulse:settings", settings);
+        window.addEventListener("pulse:preferences-reset", resetPreferences);
+        return () => {
+            window.removeEventListener("pulse:settings", settings);
+            window.removeEventListener("pulse:preferences-reset", resetPreferences);
+        };
     }, []);
+    useEffect(() => {
+        setKeypressCounting(user?.id ? localStorage.getItem(keypressOptInKey(user.id)) === "true" : false);
+    }, [user?.id]);
     useEffect(() => {
         setData(initial);
         dataRef.current = initial;
@@ -64,6 +81,30 @@ export function TimerProvider({ children }) {
         return () => { active = false; };
     }, [authenticated, canUseApp, user?.id]);
     useEffect(() => { dataRef.current = data; }, [data]);
+    useEffect(() => {
+        if (!data.sessionId) {
+            keypressCountRef.current = 0;
+            setKeypressCount(0);
+            return;
+        }
+        const savedCount = Number(localStorage.getItem(keypressCountKey(data.sessionId))) || 0;
+        keypressCountRef.current = savedCount;
+        setKeypressCount(savedCount);
+    }, [data.sessionId]);
+    useEffect(() => {
+        if (!keypressCounting || data.status !== "running" || !data.sessionId)
+            return;
+        const onKeydown = () => {
+            if (document.hidden)
+                return;
+            const nextCount = keypressCountRef.current + 1;
+            keypressCountRef.current = nextCount;
+            localStorage.setItem(keypressCountKey(data.sessionId), String(nextCount));
+            setKeypressCount(nextCount);
+        };
+        document.addEventListener("keydown", onKeydown);
+        return () => document.removeEventListener("keydown", onKeydown);
+    }, [keypressCounting, data.status, data.sessionId]);
     useEffect(() => {
         const interval = window.setInterval(() => setElapsedSeconds(currentElapsed(dataRef.current)), 1000);
         return () => window.clearInterval(interval);
@@ -112,6 +153,10 @@ export function TimerProvider({ children }) {
             try {
                 if (current.sessionId)
                     await stopActivity(current.sessionId);
+                if (current.sessionId)
+                    localStorage.removeItem(keypressCountKey(current.sessionId));
+                keypressCountRef.current = 0;
+                setKeypressCount(0);
                 setData((prev) => ({
                     ...prev,
                     status: "stopped",
@@ -154,6 +199,18 @@ export function TimerProvider({ children }) {
     }, []);
     const { resetActivity, simulateIdle } = useIdleDetector(threshold, data.status === "running" && !idleOpen, idleHandler);
     const closeIdle = useCallback(() => { setIdleOpen(false); resetActivity(); }, [resetActivity]);
+    const setKeypressCountingOptIn = useCallback((enabled) => {
+        if (!user?.id)
+            return;
+        localStorage.setItem(keypressOptInKey(user.id), String(enabled));
+        if (!enabled) {
+            if (dataRef.current.sessionId)
+                localStorage.removeItem(keypressCountKey(dataRef.current.sessionId));
+            keypressCountRef.current = 0;
+            setKeypressCount(0);
+        }
+        setKeypressCounting(enabled);
+    }, [user?.id]);
     const setTask = useCallback((task) => {
         const current = dataRef.current;
         if (current.task === task)
@@ -203,6 +260,7 @@ export function TimerProvider({ children }) {
     }, [closeIdle, idleDuration]);
     const value = {
         ...data, elapsedSeconds, idleOpen, idleDuration, start, pause, stop,
+        keypressCounting, keypressCount, setKeypressCounting: setKeypressCountingOptIn,
         setTask,
         setCategory: (category) => {
             setData((prev) => ({ ...prev, category }));

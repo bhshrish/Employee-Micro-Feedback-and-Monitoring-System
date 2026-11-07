@@ -108,7 +108,7 @@ function SettingsContent() {
             <div className="settings-fields privacy-list">
                 <p><Icon name="check"/><span><strong>Current demo:</strong> session timing, active and idle duration, task labels, productivity tags, and voluntary pulse responses.</span></p>
                 <p><Icon name="shield"/><span><strong>Planned screen recording:</strong> not active in this demo; any future recording will require employee opt-in and include pause and stop controls. Recordings can show visible screen content.</span></p>
-                <p><Icon name="shield"/><span><strong>Planned keyboard counts:</strong> keypresses will be counted only. Typed characters, key values, and text will not be collected.</span></p>
+                <p><Icon name="shield"/><span><strong>Optional keypress counts:</strong> when enabled, keydown event counts are stored only in this browser during active work sessions and erased when the session stops. Key values, typed characters, and text are never inspected or stored.</span></p>
                 <p><Icon name="shield"/><span><strong>Manager view:</strong> current reports show workspace or team summaries. Access and retention for any future recordings must be defined and disclosed before rollout.</span></p>
             </div>
         </section>

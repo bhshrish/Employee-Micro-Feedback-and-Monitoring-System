@@ -10,14 +10,14 @@ export default function PrivacyPage() {
             <section className="page-hero compact">
                 <p className="section-label">Privacy, in plain language</p>
                 <h1>Your work is<br />not our content.</h1>
-                <p>Workwell currently supports session timing, activity records, and voluntary wellbeing check-ins. Optional screen recording and keyboard activity counts are planned capabilities and are not active in this demo.</p>
+                <p>Workwell currently supports employee-controlled session timing, activity records, voluntary wellbeing check-ins, and optional keypress counting. Keypress counts stay in the employee's browser. Screen recording is not available.</p>
             </section>
             <section className="section privacy-document">
                 <div className="privacy-callout">
                     <Icon name="shield" size={38} />
                     <div>
-                        <h2>Planned capture is a choice.</h2>
-                        <p>Screen recording will require an employee to opt in and will be pausable and stoppable by that employee. Keyboard activity will be counted only; typed characters and key values will not be collected.</p>
+                        <h2>Counts, never content.</h2>
+                        <p>When an employee opts in, Workwell counts keydown events during active work sessions. The count stays in that browser and is not shared with managers. Workwell never reads or stores key values, typed characters, or text, and does not record screens.</p>
                     </div>
                 </div>
                 <article>
@@ -28,23 +28,22 @@ export default function PrivacyPage() {
                         <li>Your selected project or task label</li>
                         <li>Your Productive, Neutral, or Distracting tag</li>
                         <li>Voluntary mood, stress, and workload ratings</li>
+                        <li>Optional keydown event counts stored locally and erased when the session stops or counting is disabled</li>
                     </ul>
                 </article>
                 <article>
-                    <h2>Planned capture options</h2>
+                    <h2>Screen recording</h2>
                     <ul>
-                        <li>Screen recording is not available in this demo; any future recording will be off unless the employee explicitly opts in and will include employee pause and stop controls.</li>
-                        <li>Keyboard activity will be a count of keypress events only. Workwell will not record typed characters, key values, or text.</li>
-                        <li>A screen recording can show whatever is visible, including sensitive information. Employees should be able to avoid recording sensitive screens.</li>
+                        <li>Screen recording is not available in Workwell. No screen content is captured. Any future recording would require explicit employee opt-in, with pause and stop controls.</li>
                     </ul>
                 </article>
                 <article>
                     <h2>What managers can see</h2>
-                    <p>The current manager views show workspace or team summaries, not individual activity timelines or raw screen recordings. Team groups below the workspace's configured privacy minimum are suppressed. The access rules for any future recordings must be clearly disclosed before that feature is enabled.</p>
+                    <p>The current manager views show workspace or team summaries, not individual activity timelines, keypress counts, or screen recordings. Team groups below the workspace's configured privacy minimum are suppressed.</p>
                 </article>
                 <article>
                     <h2>Where workspace data lives</h2>
-                    <p>Account, activity, pulse, report, and billing records are stored in the workspace database and scoped to the authenticated organization. The browser stores short-lived access session state and non-sensitive preferences; refresh credentials are held in an HTTP-only cookie. Payment details are collected by the configured billing provider and are not submitted to the Workwell API.</p>
+                    <p>Account, activity, pulse, report, and billing records are stored in the workspace database and scoped to the authenticated organization. Keypress counts are stored locally in the employee's browser and are not sent to the Workwell API. The browser also stores short-lived access session state and non-sensitive preferences; refresh credentials are held in an HTTP-only cookie. Payment details are collected by the configured billing provider and are not submitted to the Workwell API.</p>
                 </article>
                 <article>
                     <h2>Access, security, and retention</h2>

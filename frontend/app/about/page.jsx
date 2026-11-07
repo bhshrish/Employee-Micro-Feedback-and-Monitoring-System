@@ -17,12 +17,12 @@ export default function AboutPage() {
                 <article>
                     <span>01</span>
                     <h2>Insight with employee choice</h2>
-                    <p>Workwell supports activity timing and employee wellbeing check-ins. Optional screen recording is planned to require explicit employee opt-in, with controls to pause or stop. It is not active in this demo.</p>
+                    <p>Workwell supports employee-controlled activity timing and wellbeing check-ins. Employees may optionally count keypresses locally during an active session. Screen recording is not available; any future screen recording would require explicit employee opt-in and pause and stop controls.</p>
                 </article>
                 <article>
                     <span>02</span>
                     <h2>Count activity, not content</h2>
-                    <p>The planned keyboard signal counts keypress events only. It will not capture typed characters, key values, or text. Screen recording, if enabled by an employee, can show visible screen content.</p>
+                    <p>Optional keypress counting stores only a count in the employee's browser. It never reads or saves key values, typed characters, or text. Workwell does not record screens.</p>
                 </article>
                 <article>
                     <span>03</span>

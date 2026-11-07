@@ -186,6 +186,9 @@ label, fieldset { font-size: 17px; }label { display: grid; gap: 8px; font-weight
 .monitoring-privacy > svg { flex: 0 0 auto; margin-top: 2px; }
 .monitoring-privacy strong { display: block; margin-bottom: 4px; font-size: 15px; }
 .monitoring-privacy p { margin: 0; color: var(--text); font-size: 14px; }
+.monitoring-privacy .keypress-consent { display: flex; align-items: center; gap: 10px; margin-top: 12px; color: var(--text); font-size: 15px; }
+.monitoring-privacy .keypress-consent input { flex: 0 0 auto; }
+.monitoring-privacy .keypress-count { margin-top: 8px; }
 .monitoring-error { display: grid; justify-items: center; gap: 16px; }
 .monitoring-error-card { display: flex; align-items: center; gap: 18px; width: min(760px,100%); padding: 24px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
 .monitoring-error-card > svg { flex: 0 0 auto; color: var(--accent); }
