@@ -35,8 +35,8 @@ function fixedTimeEqual(left, right) {
 
 function verifyAdminCredentials(username, email, password) {
     const expected = (0, env_1.getConfig)().OPS_ADMIN_PASSWORD;
-    if (!expected)
-        throw new errors_1.AppError(503, "Operations admin access is not configured.", "ADMIN_UNAVAILABLE");
+    if (!expected || expected.length < 12)
+        throw new errors_1.AppError(503, "Operations admin access is not configured with a password of at least 12 characters.", "ADMIN_UNAVAILABLE");
     const validUsername = fixedTimeEqual(username, adminUsername);
     const validEmail = fixedTimeEqual(email, exports.adminEmail);
     const validPassword = fixedTimeEqual(password, expected);

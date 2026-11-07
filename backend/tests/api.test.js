@@ -732,4 +732,26 @@ describe("PULSE API", () => {
             password: "correct-horse-battery",
         }).expect(409);
     });
+    it("keeps non-admin API routes available when the operations password is not configured", async () => {
+        const previousPassword = process.env.OPS_ADMIN_PASSWORD;
+        try {
+            for (const password of [undefined, "too-short"]) {
+                if (password === undefined)
+                    delete process.env.OPS_ADMIN_PASSWORD;
+                else
+                    process.env.OPS_ADMIN_PASSWORD = password;
+                await request(app).get("/health").expect(200);
+                await request(app).post("/api/v1/operations/auth/signin")
+                    .send({ username: "admin", email: "admin@gmail.com", password: "any-password" })
+                    .expect(503)
+                    .expect((res) => assert.equal(res.body.error.code, "ADMIN_UNAVAILABLE"));
+            }
+        }
+        finally {
+            if (previousPassword === undefined)
+                delete process.env.OPS_ADMIN_PASSWORD;
+            else
+                process.env.OPS_ADMIN_PASSWORD = previousPassword;
+        }
+    });
 });
