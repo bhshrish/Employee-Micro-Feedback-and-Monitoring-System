@@ -11,16 +11,20 @@ const mongoose_1 = require("mongoose");
 const Team_1 = require("../models/Team");
 const User_1 = require("../models/User");
 const Invitation_1 = require("../models/Invitation");
+const AuditLog_1 = require("../models/AuditLog");
 const node_crypto_1 = require("node:crypto");
 const env_1 = require("../config/env");
 const errors_1 = require("../utils/errors");
 async function listTeams(organizationId) {
     return Team_1.Team.find({ organizationId, archivedAt: null }).sort({ name: 1 }).lean();
 }
-async function createTeam(organizationId, name) {
-    return Team_1.Team.create({ organizationId, name });
+async function createTeam(organizationId, name, actorId) {
+    const team = await Team_1.Team.create({ organizationId, name });
+    if (actorId)
+        await AuditLog_1.AuditLog.create({ organizationId, actorId, action: "team.created", targetType: "team", targetId: team._id.toString() });
+    return team;
 }
-async function archiveTeam(organizationId, teamId) {
+async function archiveTeam(organizationId, teamId, actorId) {
     if (!mongoose_1.Types.ObjectId.isValid(teamId))
         throw (0, errors_1.notFound)("Team not found");
     if (!await Team_1.Team.exists({ _id: teamId, organizationId, archivedAt: null }))
@@ -30,9 +34,11 @@ async function archiveTeam(organizationId, teamId) {
     const team = await Team_1.Team.findOneAndUpdate({ _id: teamId, organizationId, archivedAt: null }, { $set: { archivedAt: new Date() } }, { new: true });
     if (!team)
         throw (0, errors_1.notFound)("Team not found");
+    if (actorId)
+        await AuditLog_1.AuditLog.create({ organizationId, actorId, action: "team.archived", targetType: "team", targetId: teamId });
     return team;
 }
-async function createInvitation(organizationId, inviterId, email, teamId) {
+async function createInvitation(organizationId, inviterId, email, teamId, role = "employee") {
     if (email === "admin@gmail.com")
         throw (0, errors_1.badRequest)("This email is reserved for the platform administrator");
     if (!mongoose_1.Types.ObjectId.isValid(teamId))
@@ -46,8 +52,16 @@ async function createInvitation(organizationId, inviterId, email, teamId) {
     const tokenHash = (0, node_crypto_1.createHmac)("sha256", (0, env_1.getConfig)().JWT_REFRESH_SECRET).update(rawToken).digest("hex");
     const expiresAt = new Date(Date.now() + 7 * 86_400_000);
     await Invitation_1.Invitation.updateMany({ organizationId, email, acceptedAt: null }, { $set: { acceptedAt: new Date() } });
-    await Invitation_1.Invitation.create({ organizationId, teamId, inviterId, email, tokenHash, expiresAt });
-    return { email, teamId: teamId.toString(), expiresAt, token: rawToken };
+    await Invitation_1.Invitation.create({ organizationId, teamId, inviterId, email, role, tokenHash, expiresAt });
+    await AuditLog_1.AuditLog.create({
+        organizationId,
+        actorId: inviterId,
+        action: "user.invited",
+        targetType: "user",
+        targetId: email,
+        details: { role, teamId: teamId.toString() },
+    });
+    return { email, teamId: teamId.toString(), role, expiresAt, token: rawToken };
 }
 async function listMembers(organizationId, teamId) {
     const users = await User_1.User.find({ organizationId, ...(teamId ? { teamId } : {}) }).select("name email role teamId createdAt").populate("teamId", "name").sort({ name: 1 }).lean();
@@ -73,6 +87,17 @@ async function updateMember(organizationId, actorId, memberId, input) {
         .select("name email role teamId organizationId");
     if (!user)
         throw (0, errors_1.notFound)("Member not found");
+    await AuditLog_1.AuditLog.create({
+        organizationId,
+        actorId,
+        action: "user.updated",
+        targetType: "user",
+        targetId: user._id.toString(),
+        details: {
+            ...(input.role ? { role: input.role } : {}),
+            ...(input.teamId !== undefined ? { teamId: input.teamId } : {}),
+        },
+    });
     return user;
 }
 async function ensureTeamAccess(organizationId, teamId, actorTeamId, canViewAll) {

@@ -17,6 +17,7 @@ const ProcessedWebhook_1 = require("../models/ProcessedWebhook");
 const User_1 = require("../models/User");
 const Organization_1 = require("../models/Organization");
 const Invoice_1 = require("../models/Invoice");
+const AuditLog_1 = require("../models/AuditLog");
 const errors_1 = require("../utils/errors");
 async function billingOwner(userId) {
     const member = await User_1.User.findById(userId).select("organizationId");
@@ -61,6 +62,14 @@ async function createCheckout(userId, plan, cycle) {
         ...(user.subscription.stripeCustomerId ? { customer: user.subscription.stripeCustomerId } : { customer_email: user.email }),
     };
     const session = await stripeClient().checkout.sessions.create(params, { idempotencyKey: `checkout:${user._id}:${plan}:${cycle}:${Math.floor(Date.now() / 60_000)}` });
+    await AuditLog_1.AuditLog.create({
+        organizationId: user.organizationId,
+        actorId: userId,
+        action: "billing.checkout_started",
+        targetType: "subscription",
+        targetId: session.id,
+        details: { plan, cycle },
+    });
     return { checkoutUrl: session.url, sessionId: session.id };
 }
 async function cancelSubscription(userId) {
@@ -73,6 +82,13 @@ async function cancelSubscription(userId) {
     await updateWorkspaceSubscription(user.organizationId, {
         "subscription.currentPeriodEnd": currentPeriodEnd,
         "subscription.cancelAtPeriodEnd": subscription.cancel_at_period_end,
+    });
+    await AuditLog_1.AuditLog.create({
+        organizationId: user.organizationId,
+        actorId: userId,
+        action: "billing.cancellation_scheduled",
+        targetType: "subscription",
+        targetId: subscriptionId,
     });
     return { status: subscription.status, cancelAtPeriodEnd: subscription.cancel_at_period_end, currentPeriodEnd };
 }

@@ -11,6 +11,7 @@ servers:
 tags:
   - name: Health
   - name: Authentication
+  - name: Organization administration
   - name: Operations
   - name: Attendance
   - name: Workspace
@@ -91,6 +92,54 @@ paths:
                 password: { type: string, minLength: 8, maxLength: 128 }
       responses:
         "201": { $ref: "#/components/responses/AccountCreated" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /auth/accept-invite:
+    post:
+      tags: [Authentication]
+      summary: Accept a manager or employee invitation
+      description: Creates the account with the role encoded in the one-time invitation. Does not sign in.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/InvitationAccept" }
+      responses:
+        "201": { $ref: "#/components/responses/AccountCreated" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /auth/forgot-password:
+    post:
+      tags: [Authentication]
+      summary: Request password reset instructions
+      description: Returns a generic response whether or not an active account exists. In development, the response may include a reset token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        "200": { description: Generic reset request acknowledgement }
+  /auth/reset-password:
+    post:
+      tags: [Authentication]
+      summary: Set a new password with a one-time reset token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [token, password]
+              properties:
+                token: { type: string, minLength: 32, maxLength: 128 }
+                password: { type: string, minLength: 8, maxLength: 128, description: Must include uppercase, lowercase, and number characters }
+      responses:
+        "204": { description: Password changed; existing refresh sessions revoked }
         "401": { $ref: "#/components/responses/Unauthorized" }
   /auth/refresh:
     post:
@@ -560,7 +609,6 @@ paths:
       responses:
         "200": { description: Summary }
         "403": { $ref: "#/components/responses/Forbidden" }
-        "402": { $ref: "#/components/responses/SubscriptionRequired" }
   /reports/preview:
     get:
       tags: [Reports]
@@ -886,6 +934,232 @@ paths:
         "200": { description: Report file }
         "402": { $ref: "#/components/responses/SubscriptionRequired" }
         "404": { $ref: "#/components/responses/NotFound" }
+  /admin/overview:
+    get:
+      tags: [Organization administration]
+      summary: Organization summary with 12-week morale and eligible team participation
+      description: Team data is suppressed below the organization's minimum group size. Requires the organization Admin role.
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Organization metrics and subscription status }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /admin/users:
+    get:
+      tags: [Organization administration]
+      summary: Search, filter, and paginate organization members and invitations
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: q, in: query, schema: { type: string, maxLength: 120 } }
+        - { name: role, in: query, schema: { type: string, enum: [admin, manager, employee] } }
+        - { name: teamId, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string, enum: [active, inactive, pending_invite] } }
+      responses:
+        "200": { description: Organization users and pending invitations; no pulse answers are included }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [Organization administration]
+      summary: Invite a manager or employee to a team
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email, teamId, role]
+              properties:
+                email: { type: string, format: email }
+                teamId: { type: string }
+                role: { type: string, enum: [manager, employee] }
+      responses:
+        "201": { description: Single-use invitation link/token }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /admin/users/{userId}:
+    patch:
+      tags: [Organization administration]
+      summary: Change organization role, team assignment, or active status
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { type: object, minProperties: 1 } }
+      responses:
+        "200": { description: Updated member }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /admin/users/{email}/resend-invite:
+    post:
+      tags: [Organization administration]
+      summary: Rotate an outstanding invitation token
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: email, in: path, required: true, schema: { type: string, format: email } }
+      responses:
+        "200": { description: New single-use invitation token }
+  /admin/teams:
+    get:
+      tags: [Organization administration]
+      summary: List organization teams and privacy-safe scorecards
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Teams; scorecards appear only for eligible groups }
+    post:
+      tags: [Organization administration]
+      summary: Create a team
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { type: object, required: [name], properties: { name: { type: string }, managerId: { type: string }, memberIds: { type: array, items: { type: string } } } } }
+      responses:
+        "201": { description: Team created }
+  /admin/teams/{teamId}:
+    patch:
+      tags: [Organization administration]
+      summary: Update team details, manager, or members
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: teamId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { type: object, minProperties: 1 } }
+      responses:
+        "200": { description: Team updated }
+    delete:
+      tags: [Organization administration]
+      summary: Archive an empty team
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: teamId, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: Team archived }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /admin/pulse-questions:
+    get:
+      tags: [Organization administration]
+      summary: List organization pulse questions and schedules
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Pulse question configuration }
+    post:
+      tags: [Organization administration]
+      summary: Create a scale, yes/no, or short-text pulse question
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prompt, type]
+              properties:
+                prompt: { type: string, maxLength: 240 }
+                type: { type: string, enum: [scale, yes_no, short_text] }
+                frequency: { type: string, enum: [weekly, monthly] }
+                scheduleDay: { type: integer, minimum: 0, maximum: 6 }
+                active: { type: boolean }
+      responses:
+        "201": { description: Question created }
+  /admin/pulse-questions/{questionId}:
+    patch:
+      tags: [Organization administration]
+      summary: Update a pulse question or activate/deactivate it
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: questionId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { type: object, minProperties: 1 } }
+      responses:
+        "200": { description: Question updated }
+    delete:
+      tags: [Organization administration]
+      summary: Delete a pulse question
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: questionId, in: path, required: true, schema: { type: string } }
+      responses:
+        "204": { description: Question deleted }
+  /admin/alert-rules:
+    get:
+      tags: [Organization administration]
+      summary: Get organization burnout thresholds and notification preferences
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Threshold configuration }
+    patch:
+      tags: [Organization administration]
+      summary: Update morale, consecutive-week, and sudden-drop alert thresholds
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { type: object, required: [moraleBelow, consecutiveWeeks, suddenDropPercent, emailEnabled, inAppEnabled] } }
+      responses:
+        "200": { description: Thresholds saved }
+  /admin/alerts:
+    get:
+      tags: [Organization administration]
+      summary: List aggregate organization alerts by status
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [open, acknowledged, resolved, dismissed] } }
+      responses:
+        "200": { description: Alerts contain aggregate team metrics only }
+  /admin/alerts/{alertId}:
+    patch:
+      tags: [Organization administration]
+      summary: Acknowledge or resolve an alert
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: alertId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { type: object, required: [status], properties: { status: { type: string, enum: [acknowledged, resolved] } } } }
+      responses:
+        "200": { description: Alert status updated }
+  /admin/reports:
+    get:
+      tags: [Organization administration]
+      summary: Read an aggregate report preview or export a paid CSV/PDF report
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: period, in: query, schema: { type: string, enum: [7d, 30d, quarter], default: 7d } }
+        - { name: format, in: query, schema: { type: string, enum: [csv, pdf] } }
+      responses:
+        "200": { description: Summary or report file; free-trial downloads return locked state }
+  /admin/audit-logs:
+    get:
+      tags: [Organization administration]
+      summary: View paginated organization admin actions
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+      responses:
+        "200": { description: Actor, action, target, timestamp, and metadata }
+  /admin/settings:
+    get:
+      tags: [Organization administration]
+      summary: Read organization profile, privacy threshold, and reminder schedule
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: Organization settings }
+    patch:
+      tags: [Organization administration]
+      summary: Update organization profile, retention, anonymity threshold, or reminders
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { type: object, minProperties: 1 } }
+      responses:
+        "200": { description: Settings saved and audit logged }
   /operations/auth/signin:
     post:
       tags: [Operations]
@@ -1121,6 +1395,7 @@ components:
         email: { type: string, format: email, maxLength: 254, description: Case-sensitive; preserve capitalization when signing in. }
         password: { type: string, minLength: 8, maxLength: 128 }
         organizationName: { type: string, minLength: 2, maxLength: 120 }
+        termsAccepted: { type: boolean, description: New signup clients must set this to true; omitted only for legacy clients. }
     Signin:
       type: object
       additionalProperties: false
@@ -1128,6 +1403,16 @@ components:
       properties:
         email: { type: string, format: email, description: Case-sensitive; use the same capitalization as at signup. }
         password: { type: string, minLength: 8, maxLength: 128 }
+        rememberMe: { type: boolean, default: true }
+    InvitationAccept:
+      type: object
+      additionalProperties: false
+      required: [token, email, name, password]
+      properties:
+        token: { type: string, minLength: 32, maxLength: 128 }
+        email: { type: string, format: email }
+        name: { type: string, minLength: 2, maxLength: 100 }
+        password: { type: string, minLength: 8, maxLength: 128, description: Must include uppercase, lowercase, and number characters. }
     ProfileUpdate:
       type: object
       additionalProperties: false

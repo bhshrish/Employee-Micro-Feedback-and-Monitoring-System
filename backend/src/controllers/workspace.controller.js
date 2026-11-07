@@ -45,7 +45,7 @@ exports.teams = (0, async_handler_1.asyncHandler)(async (req, res) => {
 exports.createTeam = (0, async_handler_1.asyncHandler)(async (req, res) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
-    const team = await workspace.createTeam(req.auth.organizationId, req.body.name);
+    const team = await workspace.createTeam(req.auth.organizationId, req.body.name, req.auth.userId);
     res.status(201).json({ team });
 });
 exports.inviteMember = (0, async_handler_1.asyncHandler)(async (req, res) => {
@@ -54,7 +54,7 @@ exports.inviteMember = (0, async_handler_1.asyncHandler)(async (req, res) => {
     if (req.auth.role === "manager" && req.auth.teamId?.toString() !== req.body.teamId) {
         throw (0, errors_1.forbidden)("Managers can invite members only to their assigned team");
     }
-    const invitation = await workspace.createInvitation(req.auth.organizationId, req.auth.userId, req.body.email, req.body.teamId);
+    const invitation = await workspace.createInvitation(req.auth.organizationId, req.auth.userId, req.body.email, req.body.teamId, req.body.role);
     const result = {
         email: invitation.email,
         teamId: invitation.teamId,
@@ -80,6 +80,6 @@ exports.updateMember = (0, async_handler_1.asyncHandler)(async (req, res) => {
 exports.archiveTeam = (0, async_handler_1.asyncHandler)(async (req, res) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
-    const team = await workspace.archiveTeam(req.auth.organizationId, req.params.teamId);
+    const team = await workspace.archiveTeam(req.auth.organizationId, req.params.teamId, req.auth.userId);
     res.json({ team });
 });

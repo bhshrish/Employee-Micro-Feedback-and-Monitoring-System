@@ -5,6 +5,7 @@ const mongoose_1 = require("mongoose");
 const teamSchema = new mongoose_1.Schema({
     organizationId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
     name: { type: String, required: true, trim: true, maxlength: 80 },
+    managerId: { type: mongoose_1.Schema.Types.ObjectId, ref: "User", default: null },
     archivedAt: { type: Date, default: null },
 }, { timestamps: true });
 teamSchema.index({ organizationId: 1, name: 1 }, { unique: true });

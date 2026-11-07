@@ -24,7 +24,7 @@ Run `npm run migrate:legacy` once when upgrading a database created by a legacy 
 
 `docker compose up --build` runs the API and MongoDB. Configure the required Compose variables in the shell or an untracked backend `.env` file.
 
-Set `OPS_ADMIN_PASSWORD` in the backend environment to enable the single platform operations admin login. The fixed username and email are `admin` and `admin@gmail.com`; the password is not stored in source code and must have at least 12 characters. If it is missing or too short, admin sign-in is disabled with a configuration error, while other API routes remain available. Platform admin endpoints use a separate HTTP-only cookie and can manage businesses, users, team assignment, daily attendance exports, and privacy-safe activity summaries. Business owners invite employees from the People page; creating a business or employee account does not sign the new account in.
+Set `OPS_ADMIN_PASSWORD` in the backend environment to enable the single platform operations admin login. The fixed username and email are `admin` and `admin@gmail.com`; the password is not stored in source code and must have at least 12 characters. If it is missing or too short, platform admin sign-in is disabled while organization routes remain available. The platform console is `/operations`; organization administrators use the separate `/admin` application and bearer-token RBAC.
 
 ## Security and privacy
 
@@ -53,7 +53,7 @@ The weekly cron job scores eligible aggregated pulse data and creates at most on
 
 Workspace owners/admins can create members using `POST /api/v1/workspace/invitations`; the API returns a one-time, seven-day acceptance token for `POST /api/v1/auth/accept-invitation`. The token is hashed at rest. The People page creates a shareable acceptance link; accepting it creates the employee account without signing in.
 
-Email verification, password recovery, and invitation email delivery are not enabled in this deployment.
+Password reset requests are delivered through the optional `PASSWORD_RESET_DELIVERY_URL` webhook, which receives JSON `{ "type": "password_reset", "to": "...", "resetUrl": "..." }`. `PASSWORD_RESET_DELIVERY_TOKEN` is sent as a bearer token when configured. Without a delivery URL, development responses include a reset token for local testing; production responses remain generic and do not disclose the token. Invitations remain shareable single-use links because no mail provider is built in.
 
 The built-in rate limiter uses Express's per-process store. Use a single API instance or add a shared store/API gateway limit before running multiple API replicas.
 

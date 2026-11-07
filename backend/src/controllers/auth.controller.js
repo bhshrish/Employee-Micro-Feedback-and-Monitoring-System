@@ -39,7 +39,7 @@ const auth = __importStar(require("../services/auth.service"));
 const async_handler_1 = require("../utils/async-handler");
 const errors_1 = require("../utils/errors");
 const cookieName = "pulse_refresh";
-function cookieOptions() {
+function cookieOptions(rememberMe = true) {
     const config = (0, env_1.getConfig)();
     return {
         httpOnly: true,
@@ -47,11 +47,11 @@ function cookieOptions() {
         sameSite: config.NODE_ENV === "production" ? "none" : "lax",
         path: "/api/v1/auth",
         ...(config.COOKIE_DOMAIN ? { domain: config.COOKIE_DOMAIN } : {}),
-        maxAge: config.REFRESH_TOKEN_DAYS * 86_400_000,
+        ...(rememberMe ? { maxAge: config.REFRESH_TOKEN_DAYS * 86_400_000 } : {}),
     };
 }
 function setSession(res, result, statusCode = 200) {
-    res.cookie(cookieName, result.refreshToken, cookieOptions());
+    res.cookie(cookieName, result.refreshToken, cookieOptions(result.rememberMe !== false));
     res.setHeader("Cache-Control", "no-store");
     res.status(statusCode).json({ user: result.user, accessToken: result.accessToken, tokenType: "Bearer" });
 }
@@ -64,6 +64,18 @@ exports.acceptInvitation = (0, async_handler_1.asyncHandler)(async (req, res) =>
     const user = await auth.acceptInvitation(req.body);
     res.setHeader("Cache-Control", "no-store");
     res.status(201).json({ user });
+});
+exports.forgotPassword = (0, async_handler_1.asyncHandler)(async (req, res) => {
+    const result = await auth.requestPasswordReset(req.body.email);
+    res.setHeader("Cache-Control", "no-store");
+    res.json({
+        message: "If an active account exists for that email, password reset instructions will be sent.",
+        ...(result.resetToken ? { resetToken: result.resetToken } : {}),
+    });
+});
+exports.resetPassword = (0, async_handler_1.asyncHandler)(async (req, res) => {
+    await auth.resetPassword(req.body.token, req.body.password);
+    res.status(204).end();
 });
 exports.refresh = (0, async_handler_1.asyncHandler)(async (req, res) => {
     const raw = req.cookies?.[cookieName];

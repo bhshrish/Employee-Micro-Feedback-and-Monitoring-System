@@ -10,6 +10,8 @@ exports.rotateRefreshToken = rotateRefreshToken;
 exports.revokeRefreshToken = revokeRefreshToken;
 exports.revokeAllRefreshTokens = revokeAllRefreshTokens;
 exports.getCurrentUser = getCurrentUser;
+exports.requestPasswordReset = requestPasswordReset;
+exports.resetPassword = resetPassword;
 const node_crypto_1 = require("node:crypto");
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
@@ -18,6 +20,7 @@ const env_1 = require("../config/env");
 const Organization_1 = require("../models/Organization");
 const Invitation_1 = require("../models/Invitation");
 const RefreshToken_1 = require("../models/RefreshToken");
+const PasswordReset_1 = require("../models/PasswordReset");
 const Team_1 = require("../models/Team");
 const User_1 = require("../models/User");
 const errors_1 = require("../utils/errors");
@@ -33,13 +36,15 @@ function accessToken(user) {
         audience: "pulse-client",
     });
 }
-async function createRefreshToken(userId, familyId = (0, node_crypto_1.randomUUID)()) {
+async function createRefreshToken(userId, familyId = (0, node_crypto_1.randomUUID)(), rememberMe = true) {
     const raw = (0, node_crypto_1.randomBytes)(48).toString("base64url");
+    const lifetimeDays = rememberMe ? (0, env_1.getConfig)().REFRESH_TOKEN_DAYS : 1;
     await RefreshToken_1.RefreshToken.create({
         userId,
         tokenHash: hashRefreshToken(raw),
         familyId,
-        expiresAt: new Date(Date.now() + (0, env_1.getConfig)().REFRESH_TOKEN_DAYS * 86_400_000),
+        rememberMe,
+        expiresAt: new Date(Date.now() + lifetimeDays * 86_400_000),
     });
     return { raw, familyId };
 }
@@ -74,6 +79,7 @@ async function signup(input) {
     const organization = await Organization_1.Organization.create({
         name: input.organizationName?.trim() || `${input.name.trim()}'s workspace`,
         ownerId,
+        trialEndsAt: new Date(Date.now() + 7 * 86_400_000),
     });
     const team = await Team_1.Team.create({ organizationId: organization._id, name: "General" });
     let user;
@@ -97,17 +103,32 @@ async function signup(input) {
     return publicUser(user);
 }
 async function signin(input) {
-    const user = await User_1.User.findOne({ email: input.email }).select("+passwordHash");
-    if (!user || !user.isActive || !(await bcryptjs_1.default.compare(input.password, user.passwordHash)))
+    const user = await User_1.User.findOne({ email: input.email }).select("+passwordHash +failedLoginAttempts +lockedUntil");
+    if (!user || !user.isActive)
         throw (0, errors_1.unauthorized)("Email or password is incorrect");
+    if (user.lockedUntil && user.lockedUntil > new Date())
+        throw (0, errors_1.unauthorized)("Email or password is incorrect");
+    if (!(await bcryptjs_1.default.compare(input.password, user.passwordHash))) {
+        user.failedLoginAttempts = (user.failedLoginAttempts ?? 0) + 1;
+        if (user.failedLoginAttempts >= 5) {
+            user.lockedUntil = new Date(Date.now() + 15 * 60_000);
+            user.failedLoginAttempts = 0;
+        }
+        await user.save();
+        throw (0, errors_1.unauthorized)("Email or password is incorrect");
+    }
+    user.failedLoginAttempts = 0;
+    user.lockedUntil = null;
+    await user.save();
     if (!await Organization_1.Organization.exists({ _id: user.organizationId, isActive: { $ne: false } }))
         throw (0, errors_1.unauthorized)("This business workspace is inactive");
     if (user.subscription.status === "trialing" && user.subscription.trialEndsAt <= new Date()) {
         user.subscription.status = "trial_expired";
         await user.save();
     }
-    const refresh = await createRefreshToken(user._id);
-    return { user: publicUser(user), accessToken: accessToken(user), refreshToken: refresh.raw };
+    const rememberMe = input.rememberMe !== false;
+    const refresh = await createRefreshToken(user._id, undefined, rememberMe);
+    return { user: publicUser(user), accessToken: accessToken(user), refreshToken: refresh.raw, rememberMe };
 }
 async function acceptInvitation(input) {
     if (input.email === "admin@gmail.com")
@@ -133,7 +154,7 @@ async function acceptInvitation(input) {
             name: input.name.trim(),
             email: input.email,
             passwordHash: await bcryptjs_1.default.hash(input.password, BCRYPT_ROUNDS),
-            role: "employee",
+            role: invitation.role ?? "employee",
             subscription: owner.subscription.toObject(),
         });
         return publicUser(user);
@@ -158,7 +179,7 @@ async function rotateRefreshToken(raw) {
         await RefreshToken_1.RefreshToken.updateMany({ familyId: old.familyId, revokedAt: null }, { revokedAt: new Date() });
         throw (0, errors_1.unauthorized)("This account is inactive");
     }
-    const replacement = await createRefreshToken(old.userId, old.familyId);
+    const replacement = await createRefreshToken(old.userId, old.familyId, old.rememberMe !== false);
     const result = await RefreshToken_1.RefreshToken.updateOne({ _id: old._id, revokedAt: null }, { $set: { revokedAt: new Date() } });
     if (!result.modifiedCount) {
         await RefreshToken_1.RefreshToken.updateMany({ familyId: old.familyId, revokedAt: null }, { revokedAt: new Date() });
@@ -173,7 +194,7 @@ async function rotateRefreshToken(raw) {
         user.subscription.status = "trial_expired";
         await user.save();
     }
-    return { user: publicUser(user), accessToken: accessToken(user), refreshToken: replacement.raw };
+    return { user: publicUser(user), accessToken: accessToken(user), refreshToken: replacement.raw, rememberMe: old.rememberMe !== false };
 }
 async function revokeRefreshToken(raw) {
     if (!raw)
@@ -196,4 +217,63 @@ async function getCurrentUser(userId) {
         await user.save();
     }
     return publicUser(user);
+}
+
+async function requestPasswordReset(email) {
+    const user = await User_1.User.findOne({ email, isActive: true }).select("_id");
+    if (!user)
+        return {};
+    const rawToken = (0, node_crypto_1.randomBytes)(32).toString("base64url");
+    await PasswordReset_1.PasswordReset.updateMany({ userId: user._id, usedAt: null }, { $set: { usedAt: new Date() } });
+    await PasswordReset_1.PasswordReset.create({
+        userId: user._id,
+        tokenHash: hashRefreshToken(rawToken),
+        expiresAt: new Date(Date.now() + 60 * 60_000),
+    });
+    const config = (0, env_1.getConfig)();
+    if (config.PASSWORD_RESET_DELIVERY_URL) {
+        const response = await fetch(config.PASSWORD_RESET_DELIVERY_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                ...(config.PASSWORD_RESET_DELIVERY_TOKEN
+                    ? { Authorization: `Bearer ${config.PASSWORD_RESET_DELIVERY_TOKEN}` }
+                    : {}),
+            },
+            body: JSON.stringify({
+                type: "password_reset",
+                to: email,
+                resetUrl: `${config.FRONTEND_URL}/reset-password/${rawToken}`,
+            }),
+            signal: globalThis.AbortSignal.timeout(5_000),
+        });
+        if (!response.ok)
+            throw new Error("Password reset delivery failed");
+        return {};
+    }
+    if (config.NODE_ENV !== "production")
+        return { resetToken: rawToken };
+    return {};
+}
+
+async function resetPassword(token, password) {
+    if (!token || token.length < 32)
+        throw (0, errors_1.unauthorized)("Password reset link is invalid or expired");
+    const tokenHash = hashRefreshToken(token);
+    const now = new Date();
+    const reset = await PasswordReset_1.PasswordReset.findOneAndUpdate({
+        tokenHash,
+        usedAt: null,
+        expiresAt: { $gt: now },
+    }, { $set: { usedAt: now } });
+    if (!reset)
+        throw (0, errors_1.unauthorized)("Password reset link is invalid or expired");
+    const user = await User_1.User.findById(reset.userId);
+    if (!user || !user.isActive)
+        throw (0, errors_1.unauthorized)("Password reset link is invalid or expired");
+    user.passwordHash = await bcryptjs_1.default.hash(password, BCRYPT_ROUNDS);
+    user.failedLoginAttempts = 0;
+    user.lockedUntil = null;
+    await user.save();
+    await revokeAllRefreshTokens(user._id);
 }

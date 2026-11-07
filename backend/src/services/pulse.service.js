@@ -12,16 +12,24 @@ exports.organizationMinGroupSize = organizationMinGroupSize;
 exports.analyticsTeams = analyticsTeams;
 exports.analyticsTeamTrend = analyticsTeamTrend;
 const mongoose_1 = require("mongoose");
+const { createHmac } = require("node:crypto");
+const { getConfig } = require("../config/env");
 const Alert_1 = require("../models/Alert");
 const PulseReceipt_1 = require("../models/PulseReceipt");
 const PulseResponse_1 = require("../models/PulseResponse");
 const Team_1 = require("../models/Team");
 const User_1 = require("../models/User");
 const Organization_1 = require("../models/Organization");
+const AlertRule_1 = require("../models/AlertRule");
 const errors_1 = require("../utils/errors");
 const week_1 = require("../utils/week");
 const burnout_1 = require("./burnout");
 const logger_1 = require("../utils/logger");
+function submissionTokenHash(userId, week) {
+    return createHmac("sha256", getConfig().JWT_REFRESH_SECRET)
+        .update(`${userId.toString()}:${week.toISOString()}`)
+        .digest("hex");
+}
 async function submitPulse(scope, input) {
     if (!scope.teamId)
         throw (0, errors_1.notFound)("Assign a team before submitting the weekly pulse");
@@ -29,11 +37,12 @@ async function submitPulse(scope, input) {
         throw (0, errors_1.notFound)("Assign an active team before submitting the weekly pulse");
     }
     const week = (0, week_1.weekStart)();
+    const tokenHash = submissionTokenHash(scope.userId, week);
     try {
         await PulseReceipt_1.PulseReceipt.create({
             organizationId: scope.organizationId,
             teamId: scope.teamId,
-            userId: scope.userId,
+            submissionTokenHash: tokenHash,
             weekStart: week,
             expiresAt: new Date(week.getTime() + 14 * 86_400_000),
         });
@@ -55,7 +64,7 @@ async function submitPulse(scope, input) {
         });
     }
     catch (error) {
-        await PulseReceipt_1.PulseReceipt.deleteOne({ userId: scope.userId, weekStart: week });
+        await PulseReceipt_1.PulseReceipt.deleteOne({ submissionTokenHash: tokenHash, weekStart: week });
         throw error;
     }
     try {
@@ -67,7 +76,8 @@ async function submitPulse(scope, input) {
     return { submitted: true, submittedAt: new Date().toISOString(), weekStart: week.toISOString() };
 }
 async function hasSubmitted(userId) {
-    return Boolean(await PulseReceipt_1.PulseReceipt.exists({ userId, weekStart: (0, week_1.weekStart)() }));
+    const week = (0, week_1.weekStart)();
+    return Boolean(await PulseReceipt_1.PulseReceipt.exists({ submissionTokenHash: submissionTokenHash(userId, week), weekStart: week }));
 }
 async function teamPulse(organizationId, teamId, minResponses = 5) {
     const currentWeek = (0, week_1.weekStart)();
@@ -125,12 +135,18 @@ async function scoreTeamAlerts(organizationId, configuredMinResponses) {
     const minResponses = configuredMinResponses ?? await organizationMinGroupSize(organizationId);
     const week = (0, week_1.weekStart)();
     const priorWeek = new Date(week.getTime() - 7 * 86_400_000);
-    const fourWeeksAgo = new Date(week.getTime() - 3 * 7 * 86_400_000);
+    const rules = await AlertRule_1.AlertRule.findOne({ organizationId }).lean() ?? {
+        moraleBelow: 2.5,
+        consecutiveWeeks: 2,
+        suddenDropPercent: 20,
+    };
+    const trendWeeks = Math.max(4, rules.consecutiveWeeks);
+    const trendStart = new Date(week.getTime() - (trendWeeks - 1) * 7 * 86_400_000);
     const teams = await Team_1.Team.find({ organizationId, archivedAt: null }).select("_id name").lean();
     let created = 0;
     for (const team of teams) {
         const values = await PulseResponse_1.PulseResponse.aggregate([
-            { $match: { organizationId, teamId: team._id, weekStart: { $gte: fourWeeksAgo, $lte: week } } },
+            { $match: { organizationId, teamId: team._id, weekStart: { $gte: trendStart, $lte: week } } },
             { $group: { _id: "$weekStart", count: { $sum: 1 }, stress: { $avg: "$stress" }, workload: { $avg: "$workload" }, mood: { $avg: "$mood" } } },
             { $sort: { _id: 1 } },
         ]);
@@ -155,6 +171,12 @@ async function scoreTeamAlerts(organizationId, configuredMinResponses) {
         });
         const recent = values.filter((row) => row.count >= minResponses).slice(-4);
         const consecutiveStressIncrease = recent.length === 4 && recent.slice(1).every((row, index) => recent[index].stress > 0 && row.stress >= recent[index].stress * 1.15);
+        const recentEligible = values.filter((row) => row.count >= minResponses);
+        const lowMoraleWeeks = recentEligible.slice(-rules.consecutiveWeeks);
+        const consecutiveLowMorale = lowMoraleWeeks.length === rules.consecutiveWeeks
+            && lowMoraleWeeks.every((row) => row.mood < rules.moraleBelow);
+        const suddenMoraleDrop = previous?.mood > 0
+            && ((previous.mood - current.mood) / previous.mood) * 100 >= rules.suddenDropPercent;
         const candidates = [
             ...(burnout.score >= 40 ? [{
                     type: "burnout_risk",
@@ -170,6 +192,16 @@ async function scoreTeamAlerts(organizationId, configuredMinResponses) {
                     type: "low_mood",
                     title: `${team.name} mood is low`,
                     detail: "The team's aggregated mood score is at or below 2.5.",
+                }] : []),
+            ...(consecutiveLowMorale ? [{
+                    type: "low_morale_trend",
+                    title: `${team.name} morale has stayed below its threshold`,
+                    detail: `Average morale stayed below ${rules.moraleBelow} for ${rules.consecutiveWeeks} eligible weeks.`,
+                }] : []),
+            ...(suddenMoraleDrop ? [{
+                    type: "sudden_morale_drop",
+                    title: `${team.name} morale dropped suddenly`,
+                    detail: `Average morale fell by at least ${rules.suddenDropPercent}% from the previous eligible week.`,
                 }] : []),
             ...(previousParticipation !== undefined && previousParticipation >= 0.7 && currentParticipation <= 0.5 ? [{
                     type: "participation_collapse",

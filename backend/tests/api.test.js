@@ -754,4 +754,72 @@ describe("PULSE API", () => {
                 process.env.OPS_ADMIN_PASSWORD = previousPassword;
         }
     });
+    it("creates org-scoped admin data, settings, and audit history", async () => {
+        const admin = await signupAndSignin("org-admin@example.test");
+        const authHeader = { Authorization: `Bearer ${admin.body.accessToken}` };
+        const overview = await request(app).get("/api/v1/admin/overview").set(authHeader).expect(200);
+        assert.equal(overview.body.overview.subscription.status, "trialing");
+        assert.equal(overview.body.overview.activeTeams, 1);
+        const members = await request(app).get("/api/v1/admin/users").set(authHeader).expect(200);
+        assert.equal(members.body.users.length, 1);
+        assert.equal(members.body.users[0].passwordHash, undefined);
+        const team = await request(app).post("/api/v1/admin/teams").set(authHeader).send({ name: "Research" }).expect(201);
+        await request(app).patch("/api/v1/admin/settings").set(authHeader)
+            .send({ name: "Research Org", minGroupSize: 6 }).expect(200);
+        const audit = await request(app).get("/api/v1/admin/audit-logs").set(authHeader).expect(200);
+        assert.ok(audit.body.logs.some((entry) => entry.action === "organization.settings_updated"));
+        await request(app).delete(`/api/v1/admin/teams/${team.body.team._id}`).set(authHeader).expect(200);
+    });
+    it("restricts organization admin API to admins and preserves invited roles", async () => {
+        const owner = await signupAndSignin("invite-admin@example.test");
+        const ownerAuth = { Authorization: `Bearer ${owner.body.accessToken}` };
+        const teams = await request(app).get("/api/v1/admin/teams").set(ownerAuth).expect(200);
+        const invitation = await request(app).post("/api/v1/workspace/invitations").set(ownerAuth).send({
+            email: "manager-invite@example.test",
+            teamId: teams.body.teams[0]._id,
+            role: "manager",
+        }).expect(201);
+        await request(app).post("/api/v1/auth/accept-invite").send({
+            token: invitation.body.invitation.token,
+            email: "manager-invite@example.test",
+            name: "Manager Invite",
+            password: "StrongPass123",
+        }).expect(201);
+        const manager = await createTestSession({ email: "manager-invite@example.test", password: "StrongPass123" });
+        await request(app).get("/api/v1/admin/overview")
+            .set("Authorization", `Bearer ${manager.accessToken}`).expect(403);
+    });
+    it("uses generic password recovery and revokes sessions after reset", async () => {
+        await signup("reset-password@example.test");
+        const missing = await request(app).post("/api/v1/auth/forgot-password")
+            .send({ email: "missing@example.test" }).expect(200);
+        assert.equal(missing.body.resetToken, undefined);
+        const requested = await request(app).post("/api/v1/auth/forgot-password")
+            .send({ email: "reset-password@example.test" }).expect(200);
+        assert.ok(requested.body.resetToken);
+        await request(app).post("/api/v1/auth/reset-password").send({
+            token: requested.body.resetToken,
+            password: "NewStrongPass123",
+        }).expect(204);
+        await request(app).post("/api/v1/auth/signin")
+            .send({ email: "reset-password@example.test", password: "correct-horse-battery" }).expect(401);
+        await request(app).post("/api/v1/auth/signin")
+            .send({ email: "reset-password@example.test", password: "NewStrongPass123" }).expect(200);
+    });
+    it("requires terms acceptance and strong password for the new signup flow", async () => {
+        await request(app).post("/api/v1/auth/signup").send({
+            name: "Strong User",
+            email: "weak-new-signup@example.test",
+            password: "alllowercase1",
+            organizationName: "Example Organization",
+            termsAccepted: true,
+        }).expect(400);
+        await request(app).post("/api/v1/auth/signup").send({
+            name: "Strong User",
+            email: "unchecked@example.test",
+            password: "StrongPass123",
+            organizationName: "Example Organization",
+            termsAccepted: false,
+        }).expect(400);
+    });
 });

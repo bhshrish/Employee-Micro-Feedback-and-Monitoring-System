@@ -14,6 +14,8 @@ const schema = zod_1.z.object({
     COOKIE_SECURE: zod_1.z.string().default("false").transform((v) => v === "true"),
     COOKIE_DOMAIN: zod_1.z.string().optional(),
     CORS_ORIGINS: zod_1.z.string().default("http://localhost:3000"),
+    PASSWORD_RESET_DELIVERY_URL: zod_1.z.string().url().optional(),
+    PASSWORD_RESET_DELIVERY_TOKEN: zod_1.z.string().optional(),
     OPS_ADMIN_PASSWORD: zod_1.z.preprocess((value) => value === "" ? undefined : value, zod_1.z.string().optional()),
     MIN_PULSE_GROUP_SIZE: zod_1.z.coerce.number().int().min(5).default(5),
     STRIPE_SECRET_KEY: zod_1.z.string().optional(),
