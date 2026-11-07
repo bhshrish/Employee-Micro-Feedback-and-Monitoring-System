@@ -44,9 +44,7 @@ function PeopleContent() {
         setError("");
         try {
             const result = await inviteWorkspaceMember(email, inviteTeam);
-            const link = new URL("/login", window.location.origin);
-            link.searchParams.set("invite", result.invitation.token);
-            link.searchParams.set("email", result.invitation.email);
+            const link = new URL(`/accept-invite/${result.invitation.token}`, window.location.origin);
             setInviteLink(link.toString());
             setEmail("");
             toast("Invitation created. Share the link with the employee.");

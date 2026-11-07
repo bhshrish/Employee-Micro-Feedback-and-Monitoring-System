@@ -17,6 +17,7 @@ const nav = [
     { href: "/people", label: "People", icon: "users" },
     { href: "/reports", label: "Reports", icon: "chart" },
     { href: "/billing", label: "Billing", icon: "credit" },
+    { href: "/admin", label: "Admin panel", icon: "settings" },
     { href: "/settings", label: "Settings", icon: "settings" },
 ];
 function IdleModal() {
@@ -48,6 +49,8 @@ function AppFrame({ children }) {
         if (item.href === "/people")
             return user?.role === "admin";
         if (item.href === "/billing")
+            return user?.role === "admin";
+        if (item.href === "/admin")
             return user?.role === "admin";
         return true;
     });

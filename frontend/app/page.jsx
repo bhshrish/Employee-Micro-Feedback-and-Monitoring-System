@@ -14,7 +14,7 @@ const features = [
 ];
 export default function Home() {
     return <div className="landing"><MarketingNavbar /><main>
-    <section className="hero"><div className="hero-grid-lines" aria-hidden="true"/><div className="hero-copy"><div className="hero-kicker"><span className="live-dot"/>Clear choices · Human by default</div><h1><span>Work better.</span><span>Notice sooner.</span></h1><p>Workwell pairs work-rhythm insights with anonymous weekly check-ins. Employees control their work sessions and may opt in to local keypress counts—never typed content.</p><div className="hero-actions"><Link href="/login?mode=signup" className="button button-light">Start 7 days free <Icon name="arrow"/></Link><Link href="#how-it-works" className="button button-ghost-light">See how it works</Link></div><small>No screen recording · Optional local keypress counts · No typed text collected</small></div>
+    <section className="hero"><div className="hero-grid-lines" aria-hidden="true"/><div className="hero-copy"><div className="hero-kicker"><span className="live-dot"/>Clear choices · Human by default</div><h1><span>Work better.</span><span>Notice sooner.</span></h1><p>Workwell pairs work-rhythm insights with anonymous weekly check-ins. Employees control their work sessions and may opt in to local keypress counts—never typed content.</p><div className="hero-actions"><Link href="/signup" className="button button-light">Start 7 days free <Icon name="arrow"/></Link><Link href="#how-it-works" className="button button-ghost-light">See how it works</Link></div><small>No screen recording · Optional local keypress counts · No typed text collected</small></div>
       <div className="hero-product"><div className="animated-frame"><div className="product-preview"><div className="preview-top"><div><span className="preview-label">Team wellbeing</span><h2>Good morning, Alex.</h2></div><span className="status-chip"><i />Live preview</span></div><div className="preview-grid"><div className="preview-score"><span>Team morale</span><strong>4.2<small>/ 5</small></strong><p><b>↑ 8%</b> from last week</p><Sparkline data={[3.7, 3.8, 3.9, 3.8, 4, 4.1, 4.2]}/></div><div className="preview-donut"><SvgDonut productive={84} size={170}/></div></div><div className="preview-alert"><Icon name="spark"/><div><strong>Your weekly pulse is ready</strong><span>2 minutes · Always anonymous</span></div><Icon name="arrow"/></div></div></div></div>
     </section>
 
@@ -34,6 +34,6 @@ export default function Home() {
 
     <section className="faq-section section"><Reveal><div className="section-heading"><div><p className="section-label">Questions, answered</p><h2>Clarity before<br />you commit.</h2></div><p>Need something else? <Link href="/contact" className="underlined">Talk to our team.</Link></p></div><FAQ /></Reveal></section>
 
-    <section className="cta-strip"><div><p>Seven days. One healthier habit.</p><h2>Ready to hear your team?</h2></div><Link href="/login?mode=signup" className="button button-light">Start your free trial <Icon name="arrow"/></Link></section>
+    <section className="cta-strip"><div><p>Seven days. One healthier habit.</p><h2>Ready to hear your team?</h2></div><Link href="/signup" className="button button-light">Start your free trial <Icon name="arrow"/></Link></section>
   </main><MarketingFooter /></div>;
 }

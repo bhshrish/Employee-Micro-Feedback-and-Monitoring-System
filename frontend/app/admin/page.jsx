@@ -1,3 +1,3 @@
-import { AdminPanel } from "@/components/AdminPanel";
-export const metadata = { title: "Platform operations" };
-export default function AdminPage() { return <AdminPanel/>; }
+import { OrganizationAdmin } from "@/components/admin/OrganizationAdmin";
+export const metadata = { title: "Organization administration" };
+export default function AdminPage() { return <OrganizationAdmin />; }

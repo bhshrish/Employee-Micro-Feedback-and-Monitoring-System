@@ -5,6 +5,20 @@ let dashboardRequest = null;
 export function setAccessToken(token) {
     accessToken = token;
 }
+async function syncRoleHint(token) {
+    const response = await fetch("/api/auth/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ accessToken: token }),
+    });
+    if (!response.ok)
+        throw apiError(response.status, "SESSION_HINT_FAILED", "Could not establish your secure page session.");
+}
+function clearRoleHint() {
+    if (typeof window !== "undefined")
+        void fetch("/api/auth/session", { method: "DELETE", credentials: "same-origin" });
+}
 function isAuthPath(path) {
     return path.startsWith("/auth/signin") || path.startsWith("/auth/signup") || path.startsWith("/auth/refresh");
 }
@@ -33,12 +47,13 @@ async function refreshAccessToken() {
         if (!response.ok || !payload.accessToken) {
             accessToken = null;
             if (response.status === 401) {
-                localStorage.removeItem("pulse:auth");
+                clearRoleHint();
                 window.dispatchEvent(new Event("pulse:session-expired"));
             }
             throw apiError(response.status, payload.error?.code || "AUTH_REQUIRED", payload.error?.message || "Your session has expired. Please sign in again.");
         }
         accessToken = payload.accessToken;
+        await syncRoleHint(accessToken);
         return accessToken;
     })();
     refreshRequest = pending;
@@ -73,23 +88,123 @@ async function request(path, init = {}, canRefresh = true) {
     }
     return payload;
 }
-export async function authenticate(email, password, mode, name, organizationName) {
+export async function authenticate(email, password, mode, name, organizationName, options = {}) {
     const result = await request(`/auth/${mode}`, {
         method: "POST",
-        body: JSON.stringify(mode === "signup" ? { name, email, password, organizationName } : { email, password }),
+        body: JSON.stringify(mode === "signup"
+            ? { name, email, password, organizationName, ...options }
+            : { email, password, ...options }),
     }, false);
     if (mode === "signup")
         return result.user;
     setAccessToken(result.accessToken);
-    localStorage.setItem("pulse:auth", "true");
+    await syncRoleHint(result.accessToken);
     return result.user;
 }
 export async function acceptInvitation(input) {
-    const result = await request("/auth/accept-invitation", {
+    const result = await request("/auth/accept-invite", {
         method: "POST",
         body: JSON.stringify(input),
     }, false);
     return result.user;
+}
+export async function requestPasswordReset(email) {
+    return request("/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) }, false);
+}
+export async function resetPassword(token, password) {
+    return request("/auth/reset-password", { method: "POST", body: JSON.stringify({ token, password }) }, false);
+}
+export async function getAdminOverview() {
+    return request("/admin/overview");
+}
+export async function getAdminUsers(query = {}) {
+    const params = new URLSearchParams(Object.entries(query).filter(([, value]) => value !== "" && value != null).map(([key, value]) => [key, String(value)]));
+    return request(`/admin/users?${params}`);
+}
+export async function inviteAdminUser(input) {
+    return request("/admin/users", { method: "POST", body: JSON.stringify(input) });
+}
+export async function updateAdminUser(userId, input) {
+    return request(`/admin/users/${encodeURIComponent(userId)}`, { method: "PATCH", body: JSON.stringify(input) });
+}
+export async function resendAdminInvite(email) {
+    return request(`/admin/users/${encodeURIComponent(email)}/resend-invite`, { method: "POST" });
+}
+export async function getAdminTeams() {
+    return request("/admin/teams");
+}
+export async function saveAdminTeam(teamId, input) {
+    return request(teamId ? `/admin/teams/${encodeURIComponent(teamId)}` : "/admin/teams", {
+        method: teamId ? "PATCH" : "POST",
+        body: JSON.stringify(input),
+    });
+}
+export async function deleteAdminTeam(teamId) {
+    return request(`/admin/teams/${encodeURIComponent(teamId)}`, { method: "DELETE" });
+}
+export async function getAdminQuestions() {
+    return request("/admin/pulse-questions");
+}
+export async function saveAdminQuestion(questionId, input) {
+    return request(questionId ? `/admin/pulse-questions/${encodeURIComponent(questionId)}` : "/admin/pulse-questions", {
+        method: questionId ? "PATCH" : "POST",
+        body: JSON.stringify(input),
+    });
+}
+export async function deleteAdminQuestion(questionId) {
+    return request(`/admin/pulse-questions/${encodeURIComponent(questionId)}`, { method: "DELETE" });
+}
+export async function getAdminAlertRules() {
+    return request("/admin/alert-rules");
+}
+export async function saveAdminAlertRules(input) {
+    return request("/admin/alert-rules", { method: "PATCH", body: JSON.stringify(input) });
+}
+export async function getAdminAlerts(status = "") {
+    const query = status ? `?status=${encodeURIComponent(status)}` : "";
+    return request(`/admin/alerts${query}`);
+}
+export async function updateAdminAlert(alertId, status) {
+    return request(`/admin/alerts/${encodeURIComponent(alertId)}`, { method: "PATCH", body: JSON.stringify({ status }) });
+}
+export async function getAdminReports(period = "7d") {
+    return request(`/admin/reports?period=${encodeURIComponent(period)}`);
+}
+export async function exportAdminReport(period, format) {
+    if (!accessToken)
+        await refreshAccessToken();
+    const url = `${API_BASE}/admin/reports?period=${encodeURIComponent(period)}&format=${encodeURIComponent(format)}`;
+    let response = await fetchApi(url, {
+        credentials: "include",
+        headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (response.status === 401) {
+        await refreshAccessToken();
+        response = await fetchApi(url, {
+            credentials: "include",
+            headers: { Authorization: `Bearer ${accessToken}` },
+        });
+    }
+    if (response.headers.get("content-type")?.includes("application/json")) {
+        const payload = await response.json();
+        if (!response.ok)
+            throw apiError(response.status, payload.error?.code || "REPORT_FAILED", payload.error?.message || "Could not export report.");
+        return payload;
+    }
+    if (!response.ok)
+        throw apiError(response.status, "REPORT_FAILED", "Could not export report.");
+    const disposition = response.headers.get("content-disposition") || "";
+    const filename = disposition.match(/filename="([^"]+)"/)?.[1] || `workwell-report.${format}`;
+    return { blob: await response.blob(), filename };
+}
+export async function getAdminAuditLogs(page = 1) {
+    return request(`/admin/audit-logs?page=${page}`);
+}
+export async function getAdminSettings() {
+    return request("/admin/settings");
+}
+export async function saveAdminSettings(input) {
+    return request("/admin/settings", { method: "PATCH", body: JSON.stringify(input) });
 }
 export async function signInOperationsAdmin(username, email, password) {
     return request("/operations/auth/signin", {
@@ -191,8 +306,6 @@ export async function checkOutAttendance() {
     return request("/attendance/check-out", { method: "POST", body: JSON.stringify({}) });
 }
 export async function restoreSession() {
-    if (localStorage.getItem("pulse:auth") !== "true")
-        return null;
     try {
         await refreshAccessToken();
         const result = await request("/auth/me");
@@ -200,7 +313,7 @@ export async function restoreSession() {
     }
     catch (error) {
         if (error instanceof Error && "status" in error && error.status === 401) {
-            localStorage.removeItem("pulse:auth");
+            clearRoleHint();
             setAccessToken(null);
             return null;
         }
@@ -216,7 +329,7 @@ export async function signOut(everywhere = false) {
     }
     finally {
         setAccessToken(null);
-        localStorage.removeItem("pulse:auth");
+        clearRoleHint();
     }
 }
 export async function updateProfile(input) {

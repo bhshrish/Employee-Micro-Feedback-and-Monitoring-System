@@ -12,7 +12,7 @@ export function RouteGuard({ children, requireApp = true }) {
         if (!authenticated)
             router.replace("/login");
         else if (requireApp && !canUseApp)
-            router.replace("/trial-expired");
+            router.replace("/billing");
     }, [hydrated, authenticated, canUseApp, requireApp, router]);
     if (!hydrated || !authenticated || (requireApp && !canUseApp))
         return <main className="guard-loading"><div className="container"><Skeleton lines={5}/></div></main>;

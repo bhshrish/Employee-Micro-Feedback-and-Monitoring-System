@@ -35,7 +35,7 @@ export default function AboutPage() {
                     <p>See the product concept in action.</p>
                     <h2>Build a healthier work rhythm.</h2>
                 </div>
-                <Link href="/login?mode=signup" className="button button-light">Start free <Icon name="arrow" /></Link>
+                <Link href="/signup" className="button button-light">Start free <Icon name="arrow" /></Link>
             </section>
         </main>
         <MarketingFooter />
