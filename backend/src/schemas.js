@@ -122,3 +122,39 @@ exports.memberIdParamsSchema = zod_1.z.object({ memberId: zod_1.z.string().regex
 exports.userIdParamsSchema = zod_1.z.object({ userId: zod_1.z.string().regex(/^[a-f\d]{24}$/i) }).strict();
 exports.teamIdParamsSchema = zod_1.z.object({ teamId: zod_1.z.string().regex(/^[a-f\d]{24}$/i) }).strict();
 exports.businessIdParamsSchema = zod_1.z.object({ businessId: zod_1.z.string().regex(/^[a-f\d]{24}$/i) }).strict();
+const objectId = zod_1.z.string().regex(/^[a-f\d]{24}$/i);
+exports.adminListQuerySchema = zod_1.z.object({
+    page: zod_1.z.coerce.number().int().min(1).max(1000).default(1),
+    q: zod_1.z.string().trim().max(120).optional(),
+    role: zod_1.z.enum(["admin", "manager", "employee"]).optional(),
+    status: zod_1.z.enum(["active", "inactive"]).optional(),
+}).strict();
+exports.adminInviteSchema = zod_1.z.object({
+    email,
+    teamId: objectId,
+    role: zod_1.z.enum(["employee", "manager"]).default("employee"),
+}).strict();
+exports.adminUserUpdateSchema = zod_1.z.object({
+    role: zod_1.z.enum(["admin", "manager", "employee"]).optional(),
+    teamId: objectId.nullable().optional(),
+    isActive: zod_1.z.boolean().optional(),
+}).strict().refine((value) => Object.keys(value).length > 0, "Provide at least one field");
+exports.adminEmailParamsSchema = zod_1.z.object({ email }).strict();
+exports.adminTeamSchema = zod_1.z.object({ name: zod_1.z.string().trim().min(2).max(80) }).strict();
+exports.adminAlertQuerySchema = zod_1.z.object({
+    status: zod_1.z.enum(["open", "acknowledged", "dismissed"]).optional(),
+    page: zod_1.z.coerce.number().int().min(1).max(1000).default(1),
+}).strict();
+exports.adminAlertUpdateSchema = zod_1.z.object({ status: zod_1.z.enum(["acknowledged", "dismissed"]) }).strict();
+exports.adminAuditQuerySchema = zod_1.z.object({
+    page: zod_1.z.coerce.number().int().min(1).max(1000).default(1),
+    action: zod_1.z.string().trim().max(60).optional(),
+}).strict();
+exports.adminReportQuerySchema = zod_1.z.object({
+    page: zod_1.z.coerce.number().int().min(1).max(1000).default(1),
+}).strict();
+exports.adminSettingsSchema = zod_1.z.object({
+    name: zod_1.z.string().trim().min(2).max(120).optional(),
+    minGroupSize: zod_1.z.coerce.number().int().min(5).max(100).optional(),
+}).strict().refine((value) => Object.keys(value).length > 0, "Provide at least one setting");
+exports.invitationIdParamsSchema = zod_1.z.object({ invitationId: objectId }).strict();

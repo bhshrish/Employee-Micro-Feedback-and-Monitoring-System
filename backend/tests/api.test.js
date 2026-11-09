@@ -12,6 +12,7 @@ import { User } from "../src/models/User";
 import { TeamActivity } from "../src/models/TeamActivity";
 import { Invoice } from "../src/models/Invoice";
 import { GeneratedReport } from "../src/models/GeneratedReport";
+import { Alert } from "../src/models/Alert";
 import Stripe from "stripe";
 import { processStripeEvent } from "../src/services/billing.service";
 import { expireTrials } from "../src/jobs/subscriptions";
@@ -753,5 +754,172 @@ describe("PULSE API", () => {
             else
                 process.env.OPS_ADMIN_PASSWORD = previousPassword;
         }
+    });
+
+    it("gives business admins a scoped console for members, invitations, teams, settings and audit history", async () => {
+        const owner = await signupAndSignin("business-admin@example.test", "Business Admin");
+        const auth = { Authorization: `Bearer ${owner.body.accessToken}` };
+        const teamId = owner.body.user.teamId;
+
+        const overview = await request(app).get("/api/v1/admin/overview").set(auth).expect(200);
+        assert.equal(overview.body.overview.members, 1);
+        assert.equal(overview.body.overview.admins, 1);
+        assert.equal(overview.body.overview.teams, 1);
+        assert.equal(overview.body.overview.pulse.participation, 0);
+
+        const invitation = await request(app).post("/api/v1/admin/invitations").set(auth)
+            .send({ email: "Admin-Invitee@Example.test", teamId, role: "manager" }).expect(201);
+        assert.equal(invitation.body.invitation.email, "admin-invitee@example.test");
+        assert.equal(invitation.body.invitation.role, "manager");
+        assert.ok(invitation.body.invitation.token);
+
+        const pending = await request(app).get("/api/v1/admin/invitations").set(auth).expect(200);
+        assert.equal(pending.body.invitations.length, 1);
+        assert.equal(pending.body.invitations[0].teamName, "General");
+
+        const resent = await request(app).post("/api/v1/admin/invitations/admin-invitee@example.test/resend")
+            .set(auth).expect(201);
+        assert.notEqual(resent.body.invitation.token, invitation.body.invitation.token);
+        await request(app).post("/api/v1/auth/accept-invitation").send({
+            token: invitation.body.invitation.token,
+            email: "admin-invitee@example.test",
+            name: "Stale Invite",
+            password: "correct-horse-battery",
+        }).expect(401);
+        const accepted = await request(app).post("/api/v1/auth/accept-invitation").send({
+            token: resent.body.invitation.token,
+            email: "admin-invitee@example.test",
+            name: "Invited Manager",
+            password: "correct-horse-battery",
+        }).expect(201);
+        assert.equal(accepted.body.user.role, "manager");
+
+        const members = await request(app).get("/api/v1/admin/members?q=invited&role=manager").set(auth).expect(200);
+        assert.equal(members.body.members.length, 1);
+        const memberId = members.body.members[0].id;
+        assert.equal(members.body.members[0].teamName, "General");
+
+        const createdTeam = await request(app).post("/api/v1/admin/teams").set(auth)
+            .send({ name: "Operations" }).expect(201);
+        await request(app).post("/api/v1/admin/teams").set(auth).send({ name: "Operations" }).expect(409);
+        const renamed = await request(app).patch(`/api/v1/admin/teams/${createdTeam.body.team.id}`).set(auth)
+            .send({ name: "Ops" }).expect(200);
+        assert.equal(renamed.body.team.name, "Ops");
+
+        const moved = await request(app).patch(`/api/v1/admin/members/${memberId}`).set(auth)
+            .send({ teamId: createdTeam.body.team.id, role: "employee" }).expect(200);
+        assert.equal(moved.body.member.role, "employee");
+        assert.equal(moved.body.member.teamName, "Ops");
+        await request(app).delete(`/api/v1/admin/teams/${createdTeam.body.team.id}`).set(auth).expect(400);
+        await request(app).patch(`/api/v1/admin/members/${memberId}`).set(auth).send({ teamId }).expect(200);
+        await request(app).delete(`/api/v1/admin/teams/${createdTeam.body.team.id}`).set(auth).expect(200);
+
+        const selfDemotion = await request(app).patch(`/api/v1/admin/members/${owner.body.user.id}`).set(auth)
+            .send({ role: "employee" }).expect(400);
+        assert.equal(selfDemotion.body.error.message, "You cannot change your own role");
+
+        const settings = await request(app).get("/api/v1/admin/settings").set(auth).expect(200);
+        assert.equal(settings.body.organization.name, "Business Admin's workspace");
+        assert.equal(settings.body.pulseCatalog.length, 3);
+        const updatedSettings = await request(app).patch("/api/v1/admin/settings").set(auth)
+            .send({ minGroupSize: 6 }).expect(200);
+        assert.equal(updatedSettings.body.organization.minGroupSize, 6);
+
+        const audit = await request(app).get("/api/v1/admin/audit-logs").set(auth).expect(200);
+        const actions = audit.body.logs.map((log) => log.action);
+        assert.ok(actions.includes("invitation.created"));
+        assert.ok(actions.includes("member.updated"));
+        assert.ok(actions.includes("team.archived"));
+        assert.ok(actions.includes("settings.updated"));
+        assert.equal(Object.hasOwn(audit.body.logs[0], "metadata"), false);
+
+        const employeeSession = await createTestSession({
+            email: "admin-invitee@example.test",
+            password: "correct-horse-battery",
+        });
+        await request(app).get("/api/v1/admin/overview")
+            .set("Authorization", `Bearer ${employeeSession.accessToken}`).expect(403);
+
+        const outsider = await signupAndSignin("outside-admin@example.test", "Outside Admin");
+        const outsiderAuth = { Authorization: `Bearer ${outsider.body.accessToken}` };
+        const outsiderOverview = await request(app).get("/api/v1/admin/overview").set(outsiderAuth).expect(200);
+        assert.equal(outsiderOverview.body.overview.members, 1);
+        await request(app).patch(`/api/v1/admin/members/${memberId}`).set(outsiderAuth)
+            .send({ role: "admin" }).expect(404);
+        const outsiderMembers = await request(app).get("/api/v1/admin/members").set(outsiderAuth).expect(200);
+        assert.equal(outsiderMembers.body.members.length, 1);
+    });
+
+    it("deprovisions disabled members and protects the last business admin", async () => {
+        const owner = await signupAndSignin("last-admin@example.test", "Last Admin");
+        const auth = { Authorization: `Bearer ${owner.body.accessToken}` };
+        const teammate = await User.create({
+            organizationId: owner.body.user.organizationId,
+            teamId: owner.body.user.teamId,
+            name: "Second Admin",
+            email: "second-admin@example.test",
+            passwordHash: await bcrypt.hash("correct-horse-battery", 4),
+            role: "admin",
+            subscription: { plan: "Team", status: "trialing", trialEndsAt: new Date(Date.now() + 86_400_000) },
+        });
+        const teammateSession = await createTestSession({
+            email: "second-admin@example.test",
+            password: "correct-horse-battery",
+        });
+        const disabled = await request(app).patch(`/api/v1/admin/members/${teammate.id}`).set(auth)
+            .send({ isActive: false }).expect(200);
+        assert.equal(disabled.body.member.isActive, false);
+        await request(app).get("/api/v1/workspace/teams")
+            .set("Authorization", `Bearer ${teammateSession.accessToken}`).expect(401);
+        const demoted = await request(app).patch(`/api/v1/admin/members/${teammate.id}`).set(auth)
+            .send({ role: "employee", isActive: true }).expect(200);
+        assert.equal(demoted.body.member.role, "employee");
+        const lastAdmin = await request(app).patch(`/api/v1/admin/members/${teammate.id}`).set(auth)
+            .send({ isActive: false }).expect(200);
+        assert.equal(lastAdmin.body.member.isActive, false);
+        await request(app).patch(`/api/v1/admin/members/${teammate.id}`).set(auth)
+            .send({ teamId: new mongoose.Types.ObjectId().toString() }).expect(400);
+    });
+
+    it("lets business admins triage wellbeing alerts and review generated reports", async () => {
+        const owner = await signupAndSignin("alert-admin@example.test");
+        const auth = { Authorization: `Bearer ${owner.body.accessToken}` };
+        const alert = await Alert.create({
+            organizationId: owner.body.user.organizationId,
+            teamId: owner.body.user.teamId,
+            type: "burnout_risk",
+            key: "burnout:general",
+            title: "Elevated burnout risk",
+            detail: "Aggregate stress scores rose this week.",
+            severity: "high",
+            score: 82,
+            metrics: { stress: 4.4 },
+        });
+        const listed = await request(app).get("/api/v1/admin/alerts?status=open").set(auth).expect(200);
+        assert.equal(listed.body.alerts.length, 1);
+        assert.equal(listed.body.openCount, 1);
+        assert.equal(listed.body.alerts[0].teamName, "General");
+        const acknowledged = await request(app).patch(`/api/v1/admin/alerts/${alert._id}`).set(auth)
+            .send({ status: "acknowledged" }).expect(200);
+        assert.equal(acknowledged.body.alert.status, "acknowledged");
+        await request(app).patch(`/api/v1/admin/alerts/${alert._id}`).set(auth)
+            .send({ status: "open" }).expect(400);
+
+        await GeneratedReport.create({
+            organizationId: owner.body.user.organizationId,
+            createdBy: owner.body.user.id,
+            period: "30d",
+            metrics: ["Active time"],
+            format: "csv",
+            contentType: "text/csv",
+            filename: "pulse-report.csv",
+            content: Buffer.from("Metric,Value"),
+            expiresAt: new Date(Date.now() + 86_400_000),
+        });
+        const reports = await request(app).get("/api/v1/admin/reports").set(auth).expect(200);
+        assert.equal(reports.body.reports.length, 1);
+        assert.equal(reports.body.reports[0].filename, "pulse-report.csv");
+        assert.equal(Object.hasOwn(reports.body.reports[0], "content"), false);
+        assert.equal(reports.body.reports[0].createdByName, "Test User");
     });
 });

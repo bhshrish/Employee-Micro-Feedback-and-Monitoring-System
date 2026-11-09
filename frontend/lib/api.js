@@ -475,3 +475,82 @@ export const plans = [
     { name: "Team", monthly: 16, description: "For teams turning signals into better support.", features: ["Everything in Starter", "Anonymous team scorecards", "Burnout-risk alerts", "CSV & PDF reports"] },
     { name: "Business", monthly: 28, description: "For organizations supporting every team.", features: ["Everything in Team", "Unlimited teams", "Advanced trends", "Priority support"] },
 ];
+function adminQuery(params = {}) {
+    const query = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "")
+            query.set(key, String(value));
+    });
+    const serialized = query.toString();
+    return serialized ? `?${serialized}` : "";
+}
+export async function getAdminOverview() {
+    const result = await request("/admin/overview");
+    return result.overview;
+}
+export async function getAdminMembers(params = {}) {
+    return request(`/admin/members${adminQuery(params)}`);
+}
+export async function updateAdminMember(userId, input) {
+    return request(`/admin/members/${encodeURIComponent(userId)}`, {
+        method: "PATCH",
+        body: JSON.stringify(input),
+    });
+}
+export async function getAdminInvitations() {
+    const result = await request("/admin/invitations");
+    return result.invitations;
+}
+export async function createAdminInvitation(email, teamId, role) {
+    const result = await request("/admin/invitations", {
+        method: "POST",
+        body: JSON.stringify({ email, teamId, role }),
+    });
+    return result.invitation;
+}
+export async function resendAdminInvitation(email) {
+    const result = await request(`/admin/invitations/${encodeURIComponent(email)}/resend`, { method: "POST" });
+    return result.invitation;
+}
+export async function cancelAdminInvitation(invitationId) {
+    return request(`/admin/invitations/${encodeURIComponent(invitationId)}`, { method: "DELETE" });
+}
+export async function getAdminTeams() {
+    const result = await request("/admin/teams");
+    return result.teams;
+}
+export async function createAdminTeam(name) {
+    const result = await request("/admin/teams", { method: "POST", body: JSON.stringify({ name }) });
+    return result.team;
+}
+export async function renameAdminTeam(teamId, name) {
+    const result = await request(`/admin/teams/${encodeURIComponent(teamId)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ name }),
+    });
+    return result.team;
+}
+export async function archiveAdminTeam(teamId) {
+    return request(`/admin/teams/${encodeURIComponent(teamId)}`, { method: "DELETE" });
+}
+export async function getAdminAlerts(params = {}) {
+    return request(`/admin/alerts${adminQuery(params)}`);
+}
+export async function updateAdminAlert(alertId, status) {
+    return request(`/admin/alerts/${encodeURIComponent(alertId)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+    });
+}
+export async function getAdminReports(page = 1) {
+    return request(`/admin/reports${adminQuery({ page })}`);
+}
+export async function getAdminSettings() {
+    return request("/admin/settings");
+}
+export async function updateAdminSettings(input) {
+    return request("/admin/settings", { method: "PATCH", body: JSON.stringify(input) });
+}
+export async function getAdminAuditLogs(params = {}) {
+    return request(`/admin/audit-logs${adminQuery(params)}`);
+}

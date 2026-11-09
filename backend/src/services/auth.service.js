@@ -133,7 +133,7 @@ async function acceptInvitation(input) {
             name: input.name.trim(),
             email: input.email,
             passwordHash: await bcryptjs_1.default.hash(input.password, BCRYPT_ROUNDS),
-            role: "employee",
+            role: invitation.role === "manager" ? "manager" : "employee",
             subscription: owner.subscription.toObject(),
         });
         return publicUser(user);

@@ -7,6 +7,7 @@ const invitationSchema = new mongoose_1.Schema({
     teamId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Team", required: true },
     inviterId: { type: mongoose_1.Schema.Types.ObjectId, ref: "User", required: true },
     email: { type: String, required: true, trim: true },
+    role: { type: String, enum: ["employee", "manager"], default: "employee" },
     tokenHash: { type: String, required: true, unique: true, select: false },
     expiresAt: { type: Date, required: true, index: { expires: 0 } },
     acceptedAt: { type: Date, default: null },
