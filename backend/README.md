@@ -1,6 +1,6 @@
-# Workwell backend
+# WellTrack backend
 
-Express + JavaScript + Mongoose API for Workwell. All API endpoints are versioned under `/api/v1`; the API landing page is `/api/docs` and the machine-readable contract is `/api/openapi.yaml`.
+Express + JavaScript + Mongoose API for WellTrack. All API endpoints are versioned under `/api/v1`; the API landing page is `/api/docs` and the machine-readable contract is `/api/openapi.yaml`.
 
 ## Run locally
 

@@ -43,8 +43,8 @@ function SettingsContent() {
                 },
             });
             signIn(updated);
-            localStorage.setItem("pulse:idleThreshold", String(threshold));
-            window.dispatchEvent(new Event("pulse:settings"));
+            localStorage.setItem("welltrack:idleThreshold", String(threshold));
+            window.dispatchEvent(new Event("welltrack:settings"));
             toast("Profile and preferences saved.");
         }
         catch (error) {
@@ -83,7 +83,7 @@ function SettingsContent() {
                 </div>
             </section>
             <section className="settings-section">
-                <div><h2>Tracking</h2><p>Choose when Workwell asks about inactive time.</p></div>
+                <div><h2>Tracking</h2><p>Choose when WellTrack asks about inactive time.</p></div>
                 <div className="settings-fields">
                     <label className="slider-label">
                         <span>Idle threshold <strong>{threshold} minutes</strong></span>
@@ -104,7 +104,7 @@ function SettingsContent() {
             <div className="settings-save"><button className="button" disabled={saving}>{saving ? "Saving…" : "Save settings"}</button></div>
         </form>
         <section className="settings-section privacy-settings">
-            <div><h2>Privacy, in plain language</h2><p>What Workwell does—and what is planned.</p></div>
+            <div><h2>Privacy, in plain language</h2><p>What WellTrack does—and what is planned.</p></div>
             <div className="settings-fields privacy-list">
                 <p><Icon name="check"/><span><strong>Current demo:</strong> session timing, active and idle duration, task labels, productivity tags, and voluntary pulse responses.</span></p>
                 <p><Icon name="shield"/><span><strong>Planned screen recording:</strong> not active in this demo; any future recording will require employee opt-in and include pause and stop controls. Recordings can show visible screen content.</span></p>
@@ -113,7 +113,7 @@ function SettingsContent() {
             </div>
         </section>
         <section className="settings-section danger-zone">
-            <div><h2>Reset local preferences</h2><p>Sign out and remove Workwell preferences stored in this browser. Workspace activity remains saved to your account.</p></div>
+            <div><h2>Reset local preferences</h2><p>Sign out and remove WellTrack preferences stored in this browser. Workspace activity remains saved to your account.</p></div>
             <div><button className="button button-danger" onClick={() => setResetOpen(true)}>Reset local preferences</button></div>
         </section>
         <Modal open={resetOpen} onClose={() => setResetOpen(false)} title="Reset local preferences?">

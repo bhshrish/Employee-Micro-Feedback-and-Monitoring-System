@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: Workwell API
+  title: WellTrack API
   version: 1.0.0
   description: |
     Multi-tenant API for privacy-first activity tracking, anonymous weekly pulse,
@@ -471,7 +471,7 @@ paths:
       responses:
         "200": { description: Stopped activity session }
         "404": { $ref: "#/components/responses/NotFound" }
-  /pulse:
+  /welltrack:
     post:
       tags: [Pulse]
       summary: Submit anonymous weekly mood, stress, and workload
@@ -1106,11 +1106,11 @@ components:
     refreshCookie:
       type: apiKey
       in: cookie
-      name: pulse_refresh
+      name: welltrack_refresh
     operationsCookie:
       type: apiKey
       in: cookie
-      name: workwell_operations
+      name: welltrack_operations
   schemas:
     Signup:
       type: object

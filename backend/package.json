@@ -1,8 +1,8 @@
 {
-  "name": "pulse-backend",
+  "name": "welltrack-backend",
   "version": "1.0.0",
   "private": true,
-  "description": "Workwell privacy-first wellbeing and time-tracking API",
+  "description": "WellTrack privacy-first wellbeing and time-tracking API",
   "main": "src/server.js",
   "scripts": {
     "dev": "node --watch src/server.js",

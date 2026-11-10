@@ -9,9 +9,9 @@ export function SubscriptionProvider({ children }) {
     const [hydrated, setHydrated] = useState(false);
     useEffect(() => {
         const expireSession = () => setUser(null);
-        window.addEventListener("pulse:session-expired", expireSession);
+        window.addEventListener("welltrack:session-expired", expireSession);
         try {
-            const saved = localStorage.getItem("pulse:plan");
+            const saved = localStorage.getItem("welltrack:plan");
             if (saved)
                 setSelection(JSON.parse(saved));
         }
@@ -22,9 +22,9 @@ export function SubscriptionProvider({ children }) {
                 setSelection({ plan: restored.subscription.plan, cycle: defaultSelection.cycle });
             }
         }).catch((error) => {
-            console.error("Could not restore the Workwell session", error);
+            console.error("Could not restore the WellTrack session", error);
         }).finally(() => setHydrated(true));
-        return () => window.removeEventListener("pulse:session-expired", expireSession);
+        return () => window.removeEventListener("welltrack:session-expired", expireSession);
     }, []);
     const authenticated = user !== null;
     const status = useMemo(() => user?.subscription.status ?? "none", [user]);
@@ -59,12 +59,12 @@ export function SubscriptionProvider({ children }) {
         },
         selectPlan: (plan, cycle) => {
             const next = { plan, cycle };
-            localStorage.setItem("pulse:plan", JSON.stringify(next));
+            localStorage.setItem("welltrack:plan", JSON.stringify(next));
             setSelection(next);
         },
         resetLocalPreferences: async () => {
-            Object.keys(localStorage).filter((key) => key.startsWith("pulse:")).forEach((key) => localStorage.removeItem(key));
-            window.dispatchEvent(new Event("pulse:preferences-reset"));
+            Object.keys(localStorage).filter((key) => key.startsWith("welltrack:")).forEach((key) => localStorage.removeItem(key));
+            window.dispatchEvent(new Event("welltrack:preferences-reset"));
             try {
                 await apiSignOut(true);
             }

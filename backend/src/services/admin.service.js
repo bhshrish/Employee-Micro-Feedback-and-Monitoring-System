@@ -137,7 +137,7 @@ async function adminOverview(organizationId) {
         teams,
         pendingInvitations,
         openAlerts,
-        pulse: { weekStart: currentWeek.toISOString().slice(0, 10), responses: pulseResponses, participation },
+        welltrack: { weekStart: currentWeek.toISOString().slice(0, 10), responses: pulseResponses, participation },
         attendance: { checkedInToday, currentlyIn },
     };
 }

@@ -29,8 +29,8 @@ function accessToken(user) {
     return jsonwebtoken_1.default.sign({ typ: "access", org: user.organizationId.toString(), role: user.role }, (0, env_1.getConfig)().JWT_ACCESS_SECRET, {
         subject: user._id.toString(),
         expiresIn: (0, env_1.getConfig)().ACCESS_TOKEN_TTL,
-        issuer: "pulse-api",
-        audience: "pulse-client",
+        issuer: "welltrack-api",
+        audience: "welltrack-client",
     });
 }
 async function createRefreshToken(userId, familyId = (0, node_crypto_1.randomUUID)()) {
