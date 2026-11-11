@@ -10,14 +10,14 @@ export default function PrivacyPage() {
             <section className="page-hero compact">
                 <p className="section-label">Privacy, in plain language</p>
                 <h1>Your work is<br />not our content.</h1>
-                <p>WellTrack currently supports employee-controlled session timing, activity records, voluntary wellbeing check-ins, and optional keypress counting. Keypress counts stay in the employee's browser. Screen recording is not available.</p>
+                <p>CalmWork currently supports employee-controlled session timing, activity records, voluntary wellbeing check-ins, and optional keypress counting. Keypress counts stay in the employee's browser. Screen recording is not available.</p>
             </section>
             <section className="section privacy-document">
                 <div className="privacy-callout">
                     <Icon name="shield" size={38} />
                     <div>
                         <h2>Counts, never content.</h2>
-                        <p>When an employee opts in, WellTrack counts keydown events during active work sessions. The count stays in that browser and is not shared with managers. WellTrack never reads or stores key values, typed characters, or text, and does not record screens.</p>
+                        <p>When an employee opts in, CalmWork counts keydown events during active work sessions. The count stays in that browser and is not shared with managers. CalmWork never reads or stores key values, typed characters, or text, and does not record screens.</p>
                     </div>
                 </div>
                 <article>
@@ -34,7 +34,7 @@ export default function PrivacyPage() {
                 <article>
                     <h2>Screen recording</h2>
                     <ul>
-                        <li>Screen recording is not available in WellTrack. No screen content is captured. Any future recording would require explicit employee opt-in, with pause and stop controls.</li>
+                        <li>Screen recording is not available in CalmWork. No screen content is captured. Any future recording would require explicit employee opt-in, with pause and stop controls.</li>
                     </ul>
                 </article>
                 <article>
@@ -43,11 +43,11 @@ export default function PrivacyPage() {
                 </article>
                 <article>
                     <h2>Where workspace data lives</h2>
-                    <p>Account, activity, pulse, report, and billing records are stored in the workspace database and scoped to the authenticated organization. Keypress counts are stored locally in the employee's browser and are not sent to the WellTrack API. The browser also stores short-lived access session state and non-sensitive preferences; refresh credentials are held in an HTTP-only cookie. Payment details are collected by the configured billing provider and are not submitted to the WellTrack API.</p>
+                    <p>Account, activity, pulse, report, and billing records are stored in the workspace database and scoped to the authenticated organization. Keypress counts are stored locally in the employee's browser and are not sent to the CalmWork API. The browser also stores short-lived access session state and non-sensitive preferences; refresh credentials are held in an HTTP-only cookie. Payment details are collected by the configured billing provider and are not submitted to the CalmWork API.</p>
                 </article>
                 <article>
                     <h2>Access, security, and retention</h2>
-                    <p>Workspace operators are responsible for configuring appropriate access, database security, retention, consent, and privacy-review policies before collecting employee data. Before any capture feature is rolled out, its purpose, access controls, storage, and retention period must be defined and disclosed. WellTrack does not collect pulse comments.</p>
+                    <p>Workspace operators are responsible for configuring appropriate access, database security, retention, consent, and privacy-review policies before collecting employee data. Before any capture feature is rolled out, its purpose, access controls, storage, and retention period must be defined and disclosed. CalmWork does not collect pulse comments.</p>
                 </article>
             </section>
         </main>

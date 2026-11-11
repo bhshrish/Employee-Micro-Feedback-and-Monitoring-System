@@ -151,7 +151,7 @@ function createApp({ ensureDatabaseConnected } = {}) {
         res.type("text/yaml").sendFile(node_path_1.default.resolve(__dirname, "../openapi.yaml"));
     });
     app.get("/api/docs", (_req, res) => {
-        res.type("html").send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>WellTrack API</title><style>body{font:16px system-ui;max-width:760px;margin:4rem auto;padding:0 1.5rem;color:#172222}code{background:#edf3f1;padding:.2rem .4rem;border-radius:4px}a{color:#087d6e}</style></head><body><h1>WellTrack API</h1><p>Versioned API base path: <code>/api/v1</code></p><p>OpenAPI 3 specification: <a href="/api/openapi.yaml">openapi.yaml</a></p><p>Health checks: <code>/api/v1/health/live</code> and <code>/api/v1/health/ready</code>.</p><p>Authentication uses short-lived bearer access tokens and a rotating, HTTP-only refresh cookie.</p></body></html>`);
+        res.type("html").send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CalmWork API</title><style>body{font:16px system-ui;max-width:760px;margin:4rem auto;padding:0 1.5rem;color:#172222}code{background:#edf3f1;padding:.2rem .4rem;border-radius:4px}a{color:#087d6e}</style></head><body><h1>CalmWork API</h1><p>Versioned API base path: <code>/api/v1</code></p><p>OpenAPI 3 specification: <a href="/api/openapi.yaml">openapi.yaml</a></p><p>Health checks: <code>/api/v1/health/live</code> and <code>/api/v1/health/ready</code>.</p><p>Authentication uses short-lived bearer access tokens and a rotating, HTTP-only refresh cookie.</p></body></html>`);
     });
     app.use(errors_1.notFoundHandler);
     app.use(errors_1.errorHandler);

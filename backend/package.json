@@ -1,8 +1,8 @@
 {
-  "name": "welltrack-backend",
+  "name": "calmwork-backend",
   "version": "1.0.0",
   "private": true,
-  "description": "WellTrack privacy-first wellbeing and time-tracking API",
+  "description": "CalmWork privacy-first wellbeing and time-tracking API",
   "main": "src/server.js",
   "scripts": {
     "dev": "node --watch src/server.js",

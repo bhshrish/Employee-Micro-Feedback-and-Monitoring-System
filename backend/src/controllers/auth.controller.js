@@ -38,7 +38,7 @@ const env_1 = require("../config/env");
 const auth = __importStar(require("../services/auth.service"));
 const async_handler_1 = require("../utils/async-handler");
 const errors_1 = require("../utils/errors");
-const cookieName = "welltrack_refresh";
+const cookieName = "calmwork_refresh";
 function cookieOptions() {
     const config = (0, env_1.getConfig)();
     return {

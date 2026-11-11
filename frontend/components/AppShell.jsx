@@ -37,8 +37,8 @@ function AppFrame({ children }) {
             const message = event.detail;
             toast(message || "The activity request failed.");
         };
-        window.addEventListener("welltrack:api-error", handleApiError);
-        return () => window.removeEventListener("welltrack:api-error", handleApiError);
+        window.addEventListener("calmwork:api-error", handleApiError);
+        return () => window.removeEventListener("calmwork:api-error", handleApiError);
     }, [toast]);
     const visibleNav = nav.filter((item) => {
         if (item.href === "/monitoring")
@@ -53,7 +53,7 @@ function AppFrame({ children }) {
     });
     return <div className="app-layout">
     <aside className="app-sidebar"><Logo /><nav aria-label="Workspace">{visibleNav.map((item) => <Link key={item.href} href={item.href} className={pathname === item.href ? "active" : ""}><Icon name={item.icon}/><span>{item.label}</span></Link>)}</nav><div className="sidebar-note"><Icon name="shield"/><p>Individual activity stays private. Managers see team aggregates only.</p></div></aside>
-    <div className="app-column"><header className="app-header"><div className="app-header-inner"><Link href="/dashboard" className={`tracker-pill ${timerStatus === "running" ? "running" : ""}`}><span className="live-dot"/><span>{timerStatus === "running" ? formatDuration(elapsedSeconds) : timerStatus === "paused" ? "Paused" : "Start tracking"}</span><small>{task}</small></Link><div className="user-area"><span className="plan-label">{status === "active" ? selection.plan : status === "trialing" ? "Free trial" : "WellTrack"}</span><button className="avatar" onClick={() => setMenu(!menu)} aria-expanded={menu} aria-label="Open user menu">{initials}</button>{menu && <div className="user-menu"><strong>{user?.name}</strong><span>{user?.email}</span><Link href="/settings" onClick={() => setMenu(false)}>Profile & settings</Link><button onClick={async () => { try {
+    <div className="app-column"><header className="app-header"><div className="app-header-inner"><Link href="/dashboard" className={`tracker-pill ${timerStatus === "running" ? "running" : ""}`}><span className="live-dot"/><span>{timerStatus === "running" ? formatDuration(elapsedSeconds) : timerStatus === "paused" ? "Paused" : "Start tracking"}</span><small>{task}</small></Link><div className="user-area"><span className="plan-label">{status === "active" ? selection.plan : status === "trialing" ? "Free trial" : "CalmWork"}</span><button className="avatar" onClick={() => setMenu(!menu)} aria-expanded={menu} aria-label="Open user menu">{initials}</button>{menu && <div className="user-menu"><strong>{user?.name}</strong><span>{user?.email}</span><Link href="/settings" onClick={() => setMenu(false)}>Profile & settings</Link><button onClick={async () => { try {
         await signOut();
         router.push("/");
     }

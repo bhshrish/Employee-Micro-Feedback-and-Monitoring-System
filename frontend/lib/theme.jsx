@@ -2,7 +2,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 
 const ThemeContext = createContext(null);
-const themeStorageKey = "welltrack:theme";
+const themeStorageKey = "calmwork:theme";
 
 export function ThemeProvider({ children }) {
     const [theme, setThemeState] = useState("light");
@@ -16,8 +16,8 @@ export function ThemeProvider({ children }) {
             setThemeState("light");
             document.documentElement.dataset.theme = "light";
         };
-        window.addEventListener("welltrack:preferences-reset", resetTheme);
-        return () => window.removeEventListener("welltrack:preferences-reset", resetTheme);
+        window.addEventListener("calmwork:preferences-reset", resetTheme);
+        return () => window.removeEventListener("calmwork:preferences-reset", resetTheme);
     }, []);
 
     const setTheme = (nextTheme) => {

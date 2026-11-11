@@ -18,7 +18,7 @@ async function fetchApi(input, init) {
     catch (error) {
         if (!(error instanceof TypeError))
             throw error;
-        throw apiError(0, "API_UNAVAILABLE", `Can't reach the WellTrack API at ${API_BASE}. Start MongoDB and run \`npm run api:dev\` after configuring backend/.env. For a remote API, set NEXT_PUBLIC_API_URL and allow this site's origin in CORS_ORIGINS.`);
+        throw apiError(0, "API_UNAVAILABLE", `Can't reach the CalmWork API at ${API_BASE}. Start MongoDB and run \`npm run api:dev\` after configuring backend/.env. For a remote API, set NEXT_PUBLIC_API_URL and allow this site's origin in CORS_ORIGINS.`);
     }
 }
 async function refreshAccessToken() {
@@ -33,8 +33,8 @@ async function refreshAccessToken() {
         if (!response.ok || !payload.accessToken) {
             accessToken = null;
             if (response.status === 401) {
-                localStorage.removeItem("welltrack:auth");
-                window.dispatchEvent(new Event("welltrack:session-expired"));
+                localStorage.removeItem("calmwork:auth");
+                window.dispatchEvent(new Event("calmwork:session-expired"));
             }
             throw apiError(response.status, payload.error?.code || "AUTH_REQUIRED", payload.error?.message || "Your session has expired. Please sign in again.");
         }
@@ -81,7 +81,7 @@ export async function authenticate(email, password, mode, name, organizationName
     if (mode === "signup")
         return result.user;
     setAccessToken(result.accessToken);
-    localStorage.setItem("welltrack:auth", "true");
+    localStorage.setItem("calmwork:auth", "true");
     return result.user;
 }
 export async function acceptInvitation(input) {
@@ -191,7 +191,7 @@ export async function checkOutAttendance() {
     return request("/attendance/check-out", { method: "POST", body: JSON.stringify({}) });
 }
 export async function restoreSession() {
-    if (localStorage.getItem("welltrack:auth") !== "true")
+    if (localStorage.getItem("calmwork:auth") !== "true")
         return null;
     try {
         await refreshAccessToken();
@@ -200,7 +200,7 @@ export async function restoreSession() {
     }
     catch (error) {
         if (error instanceof Error && "status" in error && error.status === 401) {
-            localStorage.removeItem("welltrack:auth");
+            localStorage.removeItem("calmwork:auth");
             setAccessToken(null);
             return null;
         }
@@ -216,7 +216,7 @@ export async function signOut(everywhere = false) {
     }
     finally {
         setAccessToken(null);
-        localStorage.removeItem("welltrack:auth");
+        localStorage.removeItem("calmwork:auth");
     }
 }
 export async function updateProfile(input) {

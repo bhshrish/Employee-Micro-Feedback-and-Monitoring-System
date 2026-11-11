@@ -14,12 +14,12 @@ const User_1 = require("../models/User");
 const errors_1 = require("../utils/errors");
 async function requireOperationsAdmin(req, _res, next) {
     try {
-        const token = req.cookies?.welltrack_operations;
+        const token = req.cookies?.calmwork_operations;
         if (!token)
             throw (0, errors_1.unauthorized)();
         const payload = jsonwebtoken_1.default.verify(token, (0, env_1.getConfig)().JWT_ACCESS_SECRET, {
-            issuer: "welltrack-operations",
-            audience: "welltrack-admin",
+            issuer: "calmwork-operations",
+            audience: "calmwork-admin",
         });
         if (payload.typ !== "operations_admin" || payload.sub !== "admin@gmail.com")
             throw (0, errors_1.unauthorized)();
@@ -41,8 +41,8 @@ async function authenticate(req, _res, next) {
             throw (0, errors_1.unauthorized)();
         const token = header.slice(7);
         const payload = jsonwebtoken_1.default.verify(token, (0, env_1.getConfig)().JWT_ACCESS_SECRET, {
-            issuer: "welltrack-api",
-            audience: "welltrack-client",
+            issuer: "calmwork-api",
+            audience: "calmwork-client",
         });
         if (payload.typ !== "access" || !mongoose_1.Types.ObjectId.isValid(payload.sub))
             throw (0, errors_1.unauthorized)();

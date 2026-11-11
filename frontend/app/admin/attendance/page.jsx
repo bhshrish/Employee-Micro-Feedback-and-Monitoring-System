@@ -85,7 +85,7 @@ export function AdminAttendance() {
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
-            a.download = `welltrack-attendance-${date}.csv`;
+            a.download = `calmwork-attendance-${date}.csv`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);

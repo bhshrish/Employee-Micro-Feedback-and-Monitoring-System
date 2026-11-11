@@ -131,7 +131,7 @@ export function AuthForm() {
     const description = accountCreated
         ? "Your account is ready. You are not signed in."
         : accountType === "admin"
-            ? "Sign in to manage WellTrack businesses, users, attendance, teams, and privacy-safe activity summaries."
+            ? "Sign in to manage CalmWork businesses, users, attendance, teams, and privacy-safe activity summaries."
             : joining
                 ? "Create your employee account using the invitation from your business."
                 : signingUp

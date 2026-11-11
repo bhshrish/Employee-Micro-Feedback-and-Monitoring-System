@@ -6,7 +6,7 @@ const env_1 = require("../config/env");
 const async_handler_1 = require("../utils/async-handler");
 const operations = require("../services/operations.service");
 const Organization_1 = require("../models/Organization");
-const cookieName = "welltrack_operations";
+const cookieName = "calmwork_operations";
 function cookieOptions() {
     const config = (0, env_1.getConfig)();
     return {
@@ -22,8 +22,8 @@ exports.adminSignIn = (0, async_handler_1.asyncHandler)(async (req, res) => {
     const config = (0, env_1.getConfig)();
     const token = (0, jsonwebtoken_1.sign)({ typ: "operations_admin" }, config.JWT_ACCESS_SECRET, {
         subject: operations.adminEmail,
-        issuer: "welltrack-operations",
-        audience: "welltrack-admin",
+        issuer: "calmwork-operations",
+        audience: "calmwork-admin",
         expiresIn: "8h",
     });
     res.cookie(cookieName, token, cookieOptions());
@@ -73,6 +73,6 @@ exports.attendance = (0, async_handler_1.asyncHandler)(async (req, res) => {
 exports.attendanceExport = (0, async_handler_1.asyncHandler)(async (req, res) => {
     const csv = await operations.attendanceCsv(req.validatedQuery.date);
     res.type("text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="welltrack-attendance-${req.validatedQuery.date}.csv"`);
+    res.setHeader("Content-Disposition", `attachment; filename="calmwork-attendance-${req.validatedQuery.date}.csv"`);
     res.send(csv);
 });

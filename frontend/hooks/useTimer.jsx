@@ -5,13 +5,13 @@ import { useIdleDetector } from "./useIdleDetector";
 import { getOpenActivity, heartbeatActivity, pauseActivity, resumeActivity, setActivityIdle, startActivity, stopActivity, updateActivityCategory, updateActivityTask, } from "@/lib/api";
 const TimerContext = createContext(null);
 const initial = { status: "stopped", elapsed: 0, idle: 0, startedAt: null, task: "Product strategy", category: "Productive", lastSession: 0, sessionId: null };
-const keypressOptInKey = (userId) => `welltrack:keypress-counting:${userId}`;
-const keypressCountKey = (sessionId) => `welltrack:keypress-count:${sessionId}`;
+const keypressOptInKey = (userId) => `calmwork:keypress-counting:${userId}`;
+const keypressCountKey = (sessionId) => `calmwork:keypress-count:${sessionId}`;
 const currentElapsed = (data) => data.elapsed + (data.status === "running" && data.startedAt ? (Date.now() - data.startedAt) / 1000 : 0);
 const settled = (data) => ({ ...data, elapsed: currentElapsed(data), startedAt: data.status === "running" ? Date.now() : null });
 function reportFailure(error) {
     const message = error instanceof Error ? error.message : "The activity request failed.";
-    window.dispatchEvent(new CustomEvent("welltrack:api-error", { detail: message }));
+    window.dispatchEvent(new CustomEvent("calmwork:api-error", { detail: message }));
 }
 export function TimerProvider({ children }) {
     const { authenticated, canUseApp, user } = useSubscription();
@@ -29,18 +29,18 @@ export function TimerProvider({ children }) {
         setData(initial);
         dataRef.current = initial;
         setElapsedSeconds(0);
-        setThreshold(Math.min(30, Math.max(1, Number(localStorage.getItem("welltrack:idleThreshold")) || 5)));
-        const settings = () => setThreshold(Math.min(30, Math.max(1, Number(localStorage.getItem("welltrack:idleThreshold")) || 5)));
+        setThreshold(Math.min(30, Math.max(1, Number(localStorage.getItem("calmwork:idleThreshold")) || 5)));
+        const settings = () => setThreshold(Math.min(30, Math.max(1, Number(localStorage.getItem("calmwork:idleThreshold")) || 5)));
         const resetPreferences = () => {
             setKeypressCounting(false);
             keypressCountRef.current = 0;
             setKeypressCount(0);
         };
-        window.addEventListener("welltrack:settings", settings);
-        window.addEventListener("welltrack:preferences-reset", resetPreferences);
+        window.addEventListener("calmwork:settings", settings);
+        window.addEventListener("calmwork:preferences-reset", resetPreferences);
         return () => {
-            window.removeEventListener("welltrack:settings", settings);
-            window.removeEventListener("welltrack:preferences-reset", resetPreferences);
+            window.removeEventListener("calmwork:settings", settings);
+            window.removeEventListener("calmwork:preferences-reset", resetPreferences);
         };
     }, []);
     useEffect(() => {

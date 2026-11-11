@@ -35,11 +35,11 @@ async function signupAndSignin(email, name = "Test User") {
     const session = await createTestSession({ email, password: "correct-horse-battery" });
     return {
         body: { user: session.user, accessToken: session.accessToken },
-        headers: { "set-cookie": [`welltrack_refresh=${session.refreshToken}`] },
+        headers: { "set-cookie": [`calmwork_refresh=${session.refreshToken}`] },
     };
 }
 function accessCookie(response) {
-    const value = response.headers["set-cookie"]?.find((cookie) => cookie.startsWith("welltrack_refresh="));
+    const value = response.headers["set-cookie"]?.find((cookie) => cookie.startsWith("calmwork_refresh="));
     if (!value)
         throw new Error("refresh cookie missing");
     return value.split(";")[0];
@@ -120,7 +120,7 @@ describe("PULSE API", () => {
             }
         }
         assert.ok(signin.body.accessToken);
-        const cookie = signin.headers["set-cookie"]?.find((value) => value.startsWith("welltrack_refresh="));
+        const cookie = signin.headers["set-cookie"]?.find((value) => value.startsWith("calmwork_refresh="));
         assert.ok(cookie);
         assert.match(cookie, /;\s*secure/i);
         assert.match(cookie, /;\s*samesite=none/i);

@@ -94,7 +94,7 @@ function MonitoringContent() {
           <Icon name="shield" size={25}/>
           <div>
             <strong>Optional keypress counts</strong>
-            <p>When enabled, WellTrack counts keydown events only while your work session is running and this tab is visible. It does not inspect, save, or send key values, typed characters, or text. The count stays in this browser, is not shared with managers, and is erased when you stop or turn counting off.</p>
+            <p>When enabled, CalmWork counts keydown events only while your work session is running and this tab is visible. It does not inspect, save, or send key values, typed characters, or text. The count stays in this browser, is not shared with managers, and is erased when you stop or turn counting off.</p>
             <label className="keypress-consent">
               <input type="checkbox" checked={keypressCounting} onChange={(event) => setKeypressCounting(event.target.checked)}/>
               <span>Enable keypress counting</span>
@@ -108,7 +108,7 @@ function MonitoringContent() {
         <Icon name="shield" size={25}/>
         <div>
           <strong>{canViewTeamSummary ? "Team summaries remain aggregated" : "You control your work-session tracking"}</strong>
-          <p>{canViewTeamSummary ? "Managers see workspace or team summaries, not employee-level activity timelines. Keypress counts are optional, local to each employee's browser, and never shared. WellTrack does not record screen content or typed text." : "WellTrack does not record screen content or typed text. You can pause or stop your activity session and turn keypress counting off at any time."}</p>
+          <p>{canViewTeamSummary ? "Managers see workspace or team summaries, not employee-level activity timelines. Keypress counts are optional, local to each employee's browser, and never shared. CalmWork does not record screen content or typed text." : "CalmWork does not record screen content or typed text. You can pause or stop your activity session and turn keypress counting off at any time."}</p>
         </div>
       </section>
       {canViewTeamSummary && status === "trialing" && <p className="form-note" role="status">

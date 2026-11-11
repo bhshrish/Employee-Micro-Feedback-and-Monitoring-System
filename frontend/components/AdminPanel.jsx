@@ -200,7 +200,7 @@ export function AdminPanel() {
             const url = URL.createObjectURL(blob);
             const anchor = document.createElement("a");
             anchor.href = url;
-            anchor.download = `welltrack-attendance-${date}.csv`;
+            anchor.download = `calmwork-attendance-${date}.csv`;
             anchor.click();
             URL.revokeObjectURL(url);
         }
@@ -218,7 +218,7 @@ export function AdminPanel() {
         return <main className="admin-auth-page">
             <div className="admin-auth-card">
                 <Logo/><p className="section-label">Platform operations</p><h1>Admin sign in</h1>
-                <p>Use the single configured WellTrack platform administrator account.</p>
+                <p>Use the single configured CalmWork platform administrator account.</p>
                 <form onSubmit={signIn}>
                     <label>Username<input value="admin" readOnly autoComplete="username"/></label>
                     <label>Work email<input type="email" value="admin@gmail.com" readOnly autoComplete="email"/></label>
@@ -236,7 +236,7 @@ export function AdminPanel() {
         <header className="admin-header"><Logo/><div><span>Platform admin · admin</span><button className="button button-outline button-small" disabled={loading} onClick={() => void signOut()}>Sign out</button></div></header>
         <div className="admin-layout">
             <aside className="admin-sidebar" aria-label="Admin management">
-                <p className="section-label">Manage WellTrack</p>
+                <p className="section-label">Manage CalmWork</p>
                 {sections.map(([key, label]) => <button key={key} className={section === key ? "active" : ""} onClick={() => { setSection(key); setPage(1); setSearch(""); }}><Icon name={key === "overview" ? "chart" : key === "attendance" ? "calendar" : key === "activity" ? "pulse" : key === "teams" ? "users" : "users"}/>{label}</button>)}
             </aside>
             <section className="admin-content">
