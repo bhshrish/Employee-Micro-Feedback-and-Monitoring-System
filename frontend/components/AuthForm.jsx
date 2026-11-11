@@ -192,6 +192,7 @@ export function AuthForm() {
                     <button className="button button-full" disabled={loading}>{loading
                         ? <><span className="spinner"/>{accountType === "admin" || formMode === "signin" ? "Signing in…" : "Creating account…"}</>
                         : <>{accountType === "admin" || formMode === "signin" ? "Sign in" : joining ? "Create employee account" : signingUp ? "Create business account" : "Sign in"}<Icon name="arrow"/></>}</button>
+                    {!signingUp && !joining && <p className="auth-text-switch"><Link href="/forgot-password">Forgot your password?</Link></p>}
                 </form>}
                 <div className="auth-privacy"><Icon name="shield"/><p>By continuing, you agree to the <Link href="/privacy">privacy policy</Link>. Work activity is summarized without recording screens or typed text.</p></div>
             </div>

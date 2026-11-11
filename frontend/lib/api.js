@@ -6,7 +6,7 @@ export function setAccessToken(token) {
     accessToken = token;
 }
 function isAuthPath(path) {
-    return path.startsWith("/auth/signin") || path.startsWith("/auth/signup") || path.startsWith("/auth/refresh");
+    return path.startsWith("/auth/signin") || path.startsWith("/auth/signup") || path.startsWith("/auth/refresh") || path.startsWith("/auth/forgot-password") || path.startsWith("/auth/reset-password");
 }
 function apiError(status, code, message) {
     return Object.assign(new Error(message), { status, code });
@@ -90,6 +90,18 @@ export async function acceptInvitation(input) {
         body: JSON.stringify(input),
     }, false);
     return result.user;
+}
+export async function forgotPassword(email) {
+    return request("/auth/forgot-password", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+    }, false);
+}
+export async function resetPassword(token, password) {
+    return request("/auth/reset-password", {
+        method: "POST",
+        body: JSON.stringify({ token, password }),
+    }, false);
 }
 export async function signInOperationsAdmin(username, email, password) {
     return request("/operations/auth/signin", {

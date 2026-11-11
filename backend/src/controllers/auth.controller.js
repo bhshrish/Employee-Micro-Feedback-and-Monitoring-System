@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateProfile = exports.me = exports.logoutEverywhere = exports.logout = exports.refresh = exports.acceptInvitation = exports.signin = exports.signup = void 0;
+exports.updateProfile = exports.me = exports.logoutEverywhere = exports.logout = exports.refresh = exports.acceptInvitation = exports.signin = exports.signup = exports.forgotPassword = exports.resetPassword = void 0;
 const env_1 = require("../config/env");
 const auth = __importStar(require("../services/auth.service"));
 const async_handler_1 = require("../utils/async-handler");
@@ -104,4 +104,12 @@ exports.updateProfile = (0, async_handler_1.asyncHandler)(async (req, res) => {
     if (!user)
         throw (0, errors_1.unauthorized)();
     res.json({ user: await auth.getCurrentUser(user._id) });
+});
+exports.forgotPassword = (0, async_handler_1.asyncHandler)(async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.status(200).json(await auth.forgotPassword(req.body));
+});
+exports.resetPassword = (0, async_handler_1.asyncHandler)(async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.status(200).json(await auth.resetPassword(req.body));
 });

@@ -10,6 +10,8 @@ exports.rotateRefreshToken = rotateRefreshToken;
 exports.revokeRefreshToken = revokeRefreshToken;
 exports.revokeAllRefreshTokens = revokeAllRefreshTokens;
 exports.getCurrentUser = getCurrentUser;
+exports.forgotPassword = forgotPassword;
+exports.resetPassword = resetPassword;
 const node_crypto_1 = require("node:crypto");
 const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
@@ -18,8 +20,10 @@ const env_1 = require("../config/env");
 const Organization_1 = require("../models/Organization");
 const Invitation_1 = require("../models/Invitation");
 const RefreshToken_1 = require("../models/RefreshToken");
+const PasswordResetToken_1 = require("../models/PasswordResetToken");
 const Team_1 = require("../models/Team");
 const User_1 = require("../models/User");
+const email_1 = require("./email.service");
 const errors_1 = require("../utils/errors");
 const BCRYPT_ROUNDS = 12;
 function hashRefreshToken(token) {
@@ -197,3 +201,52 @@ async function getCurrentUser(userId) {
     }
     return publicUser(user);
 }
+const RESET_TOKEN_LENGTH = 48;
+function hashResetToken(token) {
+    return (0, node_crypto_1.createHmac)("sha256", (0, env_1.getConfig)().JWT_REFRESH_SECRET).update(token).digest("hex");
+}
+async function createPasswordResetToken(userId) {
+    const config = (0, env_1.getConfig)();
+    const raw = (0, node_crypto_1.randomBytes)(RESET_TOKEN_LENGTH).toString("base64url");
+    const tokenHash = hashResetToken(raw);
+    const expiresAt = new Date(Date.now() + config.PASSWORD_RESET_TTL_MINUTES * 60 * 1000);
+    await PasswordResetToken_1.PasswordResetToken.create({
+        userId,
+        tokenHash,
+        expiresAt,
+    });
+    return raw;
+}
+async function forgotPassword(input) {
+    const user = await User_1.User.findOne({ email: input.email.trim().toLowerCase() });
+    if (user) {
+        const raw = await createPasswordResetToken(user._id);
+        await (0, email_1.sendPasswordResetEmail)({ to: user.email, token: raw });
+    }
+    // Always succeed without revealing whether the email exists.
+    return { message: "If an account exists for this email, a password reset link has been sent." };
+}
+async function resetPassword(input) {
+    const tokenHash = hashResetToken(input.token);
+    const now = new Date();
+    const record = await PasswordResetToken_1.PasswordResetToken.findOne({
+        tokenHash,
+        usedAt: null,
+        revokedAt: null,
+        expiresAt: { $gt: now },
+    }).select("+tokenHash");
+    if (!record)
+        throw (0, errors_1.unauthorized)("Reset token is invalid or expired");
+    const user = await User_1.User.findOne({ _id: record.userId, isActive: true }).select("+passwordHash");
+    if (!user) {
+        await PasswordResetToken_1.PasswordResetToken.updateOne({ _id: record._id }, { revokedAt: now });
+        throw (0, errors_1.unauthorized)("Reset token is invalid or expired");
+    }
+    user.passwordHash = await bcryptjs_1.default.hash(input.password, BCRYPT_ROUNDS);
+    await user.save();
+    await PasswordResetToken_1.PasswordResetToken.updateOne({ _id: record._id }, { usedAt: now });
+    await PasswordResetToken_1.PasswordResetToken.updateMany({ userId: record.userId, revokedAt: null }, { revokedAt: now });
+    await RefreshToken_1.RefreshToken.updateMany({ userId: record.userId, revokedAt: null }, { revokedAt: now });
+    return { message: "Your password has been reset. You can sign in with your new password." };
+}
+
