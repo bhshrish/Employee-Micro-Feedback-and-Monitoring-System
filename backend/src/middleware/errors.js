@@ -51,6 +51,8 @@ const errorHandler = (error, req, res, _next) => {
     }
     const appError = normalized;
     res.status(appError.statusCode).json({
+        success: false,
+        data: null,
         error: {
             code: appError.code,
             message: appError.message,

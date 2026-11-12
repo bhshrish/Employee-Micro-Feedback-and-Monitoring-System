@@ -15,7 +15,6 @@ import {
     getOperationsUsers,
     setOperationsBusinessActive,
     setOperationsUserActive,
-    signInOperationsAdmin,
     signOutOperationsAdmin,
 } from "@/lib/api";
 import { FieldError } from "./UI";
@@ -45,7 +44,6 @@ function formatDuration(seconds = 0) {
 export function AdminPanel() {
     const [authorized, setAuthorized] = useState(false);
     const [checking, setChecking] = useState(true);
-    const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [section, setSection] = useState("overview");
@@ -104,23 +102,6 @@ export function AdminPanel() {
         if (authorized)
             void loadSection();
     }, [authorized, loadSection]);
-
-    const signIn = async (event) => {
-        event.preventDefault();
-        setLoading(true);
-        setError("");
-        try {
-            await signInOperationsAdmin("admin", "admin@gmail.com", password);
-            setPassword("");
-            setAuthorized(true);
-        }
-        catch (cause) {
-            setError(cause instanceof Error ? cause.message : "Admin sign-in failed.");
-        }
-        finally {
-            setLoading(false);
-        }
-    };
 
     const signOut = async () => {
         setLoading(true);
@@ -218,14 +199,9 @@ export function AdminPanel() {
         return <main className="admin-auth-page">
             <div className="admin-auth-card">
                 <Logo/><p className="section-label">Platform operations</p><h1>Admin sign in</h1>
-                <p>Use the single configured CalmWork platform administrator account.</p>
-                <form onSubmit={signIn}>
-                    <label>Username<input value="admin" readOnly autoComplete="username"/></label>
-                    <label>Work email<input type="email" value="admin@gmail.com" readOnly autoComplete="email"/></label>
-                    <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required/></label>
-                    {error && <FieldError>{error}</FieldError>}
-                    <button className="button button-full" disabled={loading}>{loading ? "Signing in…" : "Sign in as admin"}</button>
-                </form>
+                <p>Use a one-time code to access platform operations.</p>
+                {error && <FieldError>{error}</FieldError>}
+                <Link className="button button-full" href="/admin/login">Continue to administrator sign in</Link>
                 <Link href="/login">Return to employee or business sign in</Link>
             </div>
         </main>;

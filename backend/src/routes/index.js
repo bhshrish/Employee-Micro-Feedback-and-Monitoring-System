@@ -48,6 +48,7 @@ const billingController = __importStar(require("../controllers/billing.controlle
 const pulseController = __importStar(require("../controllers/pulse.controller"));
 const reportController = __importStar(require("../controllers/report.controller"));
 const workspaceController = __importStar(require("../controllers/workspace.controller"));
+const employeeToolsController = require("../controllers/employee-tools.controller");
 const auth_1 = require("../middleware/auth");
 const validate_1 = require("../middleware/validate");
 const schemas_1 = require("../schemas");
@@ -59,12 +60,14 @@ const api = (0, express_1.Router)();
 const teamFeature = (0, auth_1.requirePlan)("Team", "Business");
 const activeWorkspace = auth_1.requireEntitlement;
 const authRoutes = (0, express_1.Router)();
-authRoutes.post("/signup", (0, validate_1.validateBody)(schemas_1.signupSchema), authController.signup);
-authRoutes.post("/signin", (0, validate_1.validateBody)(schemas_1.signinSchema), authController.signin);
-authRoutes.post("/login", (0, validate_1.validateBody)(schemas_1.signinSchema), authController.signin);
-authRoutes.post("/accept-invitation", (0, validate_1.validateBody)(schemas_1.invitationAcceptSchema), authController.acceptInvitation);
-authRoutes.post("/forgot-password", (0, validate_1.validateBody)(schemas_1.forgotPasswordSchema), authController.forgotPassword);
-authRoutes.post("/reset-password", (0, validate_1.validateBody)(schemas_1.resetPasswordSchema), authController.resetPassword);
+if (process.env.NODE_ENV === "test") {
+    authRoutes.post("/signup", (0, validate_1.validateBody)(schemas_1.signupSchema), authController.signup);
+    authRoutes.post("/signin", (0, validate_1.validateBody)(schemas_1.signinSchema), authController.signin);
+    authRoutes.post("/login", (0, validate_1.validateBody)(schemas_1.signinSchema), authController.signin);
+    authRoutes.post("/accept-invitation", (0, validate_1.validateBody)(schemas_1.invitationAcceptSchema), authController.acceptInvitation);
+}
+authRoutes.post("/otp/request", (0, validate_1.validateBody)(schemas_1.otpRequestSchema), authController.requestOtp);
+authRoutes.post("/otp/verify", (0, validate_1.validateBody)(schemas_1.otpVerifySchema), authController.verifyOtp);
 authRoutes.post("/refresh", authController.refresh);
 authRoutes.post("/logout", authController.logout);
 authRoutes.post("/logout-all", auth_1.authenticate, authController.logoutEverywhere);
@@ -72,7 +75,8 @@ authRoutes.get("/me", auth_1.authenticate, authController.me);
 authRoutes.patch("/me", auth_1.authenticate, (0, validate_1.validateBody)(schemas_1.profileSchema), authController.updateProfile);
 api.use("/auth", authRoutes);
 const operationsRoutes = (0, express_1.Router)();
-operationsRoutes.post("/auth/signin", (0, validate_1.validateBody)(schemas_1.operationsSigninSchema), operationsController.adminSignIn);
+operationsRoutes.post("/auth/otp/request", (0, validate_1.validateBody)(schemas_1.adminOtpRequestSchema), operationsController.requestAdminOtp);
+operationsRoutes.post("/auth/otp/verify", (0, validate_1.validateBody)(schemas_1.adminOtpVerifySchema), operationsController.verifyAdminOtp);
 operationsRoutes.post("/auth/logout", auth_1.requireOperationsAdmin, operationsController.adminSignOut);
 operationsRoutes.get("/auth/me", auth_1.requireOperationsAdmin, operationsController.adminMe);
 operationsRoutes.use(auth_1.requireOperationsAdmin);
@@ -109,6 +113,22 @@ adminRoutes.get("/audit-logs", (0, validate_1.validateQuery)(schemas_1.adminAudi
 adminRoutes.get("/settings", adminController.settings);
 adminRoutes.patch("/settings", (0, validate_1.validateBody)(schemas_1.adminSettingsSchema), adminController.updateSettings);
 api.use("/admin", adminRoutes);
+const employeeToolsRoutes = (0, express_1.Router)();
+employeeToolsRoutes.use(auth_1.authenticate, activeWorkspace);
+employeeToolsRoutes.get("/planner", employeeToolsController.listPlanner);
+employeeToolsRoutes.post("/planner", (0, validate_1.validateBody)(schemas_1.plannerCreateSchema), employeeToolsController.createPlanner);
+employeeToolsRoutes.patch("/planner/:toolId", (0, validate_1.validateParams)(schemas_1.toolIdParamsSchema), (0, validate_1.validateBody)(schemas_1.plannerUpdateSchema), employeeToolsController.updatePlanner);
+employeeToolsRoutes.delete("/planner/:toolId", (0, validate_1.validateParams)(schemas_1.toolIdParamsSchema), employeeToolsController.deletePlanner);
+employeeToolsRoutes.get("/leave", employeeToolsController.listLeave);
+employeeToolsRoutes.post("/leave", (0, auth_1.requireRole)("employee"), (0, validate_1.validateBody)(schemas_1.leaveCreateSchema), employeeToolsController.createLeave);
+employeeToolsRoutes.patch("/leave/:toolId/decision", (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateParams)(schemas_1.toolIdParamsSchema), (0, validate_1.validateBody)(schemas_1.leaveDecisionSchema), employeeToolsController.decideLeave);
+employeeToolsRoutes.get("/calendar", employeeToolsController.listCalendar);
+employeeToolsRoutes.post("/calendar", (0, validate_1.validateBody)(schemas_1.calendarEventSchema), employeeToolsController.createCalendarEvent);
+employeeToolsRoutes.get("/signatures", employeeToolsController.listSignatures);
+employeeToolsRoutes.post("/signatures", (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateBody)(schemas_1.signatureCreateSchema), employeeToolsController.createSignature);
+employeeToolsRoutes.post("/signatures/:toolId/sign", (0, auth_1.requireRole)("employee"), (0, validate_1.validateParams)(schemas_1.toolIdParamsSchema), (0, validate_1.validateBody)(schemas_1.signatureSignSchema), employeeToolsController.signDocument);
+employeeToolsRoutes.post("/salary/check", (0, auth_1.requireRole)("employee"), (0, validate_1.validateBody)(schemas_1.salaryCheckSchema), employeeToolsController.salaryCheck);
+api.use("/tools", employeeToolsRoutes);
 api.get("/attendance/me", auth_1.authenticate, attendanceController.current);
 api.post("/attendance/check-in", auth_1.authenticate, attendanceController.checkIn);
 api.post("/attendance/check-out", auth_1.authenticate, attendanceController.checkOut);
@@ -198,8 +218,6 @@ billingRoutes.post("/checkout-session", (0, auth_1.requireRole)("admin"), (0, va
 billingRoutes.post("/cancel", (0, auth_1.requireRole)("admin"), billingController.cancel);
 billingRoutes.get("/invoices", (0, auth_1.requireRole)("admin"), billingController.listInvoices);
 billingRoutes.get("/subscription", billingController.currentSubscription);
-billingRoutes.post("/portal-session", (0, auth_1.requireRole)("admin"), billingController.portalSession);
-billingRoutes.post("/subscription/portal-session", (0, auth_1.requireRole)("admin"), billingController.portalSession);
 api.use("/billing", billingRoutes);
 api.get("/alerts/:alertId", auth_1.authenticate, activeWorkspace, teamFeature, (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateParams)(schemas_1.alertIdParamsSchema), (0, async_handler_1.asyncHandler)(async (req, res) => {
     if (!req.auth)

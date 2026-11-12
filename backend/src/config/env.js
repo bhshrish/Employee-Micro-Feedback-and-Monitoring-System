@@ -9,12 +9,13 @@ const schema = zod_1.z.object({
     FRONTEND_URL: zod_1.z.string().url().default("http://localhost:3000"),
     JWT_ACCESS_SECRET: zod_1.z.string().min(32),
     JWT_REFRESH_SECRET: zod_1.z.string().min(32),
+    JWT_ADMIN_SECRET: zod_1.z.string().min(32),
     ACCESS_TOKEN_TTL: zod_1.z.string().default("15m"),
     REFRESH_TOKEN_DAYS: zod_1.z.coerce.number().int().min(1).max(7).default(7),
     COOKIE_SECURE: zod_1.z.string().default("false").transform((v) => v === "true"),
     COOKIE_DOMAIN: zod_1.z.string().optional(),
     CORS_ORIGINS: zod_1.z.string().default("http://localhost:3000"),
-    OPS_ADMIN_PASSWORD: zod_1.z.preprocess((value) => value === "" ? undefined : value, zod_1.z.string().optional()),
+    OPS_ADMIN_EMAIL: zod_1.z.string().email().default("admin@gmail.com"),
     MIN_PULSE_GROUP_SIZE: zod_1.z.coerce.number().int().min(5).default(5),
     PASSWORD_RESET_TTL_MINUTES: zod_1.z.coerce.number().int().min(5).max(10080).default(60),
     SMTP_HOST: zod_1.z.string().optional(),
@@ -23,14 +24,17 @@ const schema = zod_1.z.object({
     SMTP_PASS: zod_1.z.string().optional(),
     SMTP_FROM: zod_1.z.string().email().optional(),
     SMTP_FROM_NAME: zod_1.z.string().default("CalmWork"),
-    STRIPE_SECRET_KEY: zod_1.z.string().optional(),
-    STRIPE_WEBHOOK_SECRET: zod_1.z.string().optional(),
-    STRIPE_PRICE_STARTER_MONTHLY: zod_1.z.string().optional(),
-    STRIPE_PRICE_STARTER_YEARLY: zod_1.z.string().optional(),
-    STRIPE_PRICE_TEAM_MONTHLY: zod_1.z.string().optional(),
-    STRIPE_PRICE_TEAM_YEARLY: zod_1.z.string().optional(),
-    STRIPE_PRICE_BUSINESS_MONTHLY: zod_1.z.string().optional(),
-    STRIPE_PRICE_BUSINESS_YEARLY: zod_1.z.string().optional(),
+    SMS_API_URL: zod_1.z.string().url().optional(),
+    SMS_API_TOKEN: zod_1.z.string().optional(),
+    RAZORPAY_KEY_ID: zod_1.z.string().optional(),
+    RAZORPAY_KEY_SECRET: zod_1.z.string().optional(),
+    RAZORPAY_WEBHOOK_SECRET: zod_1.z.string().optional(),
+    RAZORPAY_PLAN_STARTER_MONTHLY: zod_1.z.string().optional(),
+    RAZORPAY_PLAN_STARTER_YEARLY: zod_1.z.string().optional(),
+    RAZORPAY_PLAN_TEAM_MONTHLY: zod_1.z.string().optional(),
+    RAZORPAY_PLAN_TEAM_YEARLY: zod_1.z.string().optional(),
+    RAZORPAY_PLAN_BUSINESS_MONTHLY: zod_1.z.string().optional(),
+    RAZORPAY_PLAN_BUSINESS_YEARLY: zod_1.z.string().optional(),
     LOG_LEVEL: zod_1.z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
 });
 function getConfig() {
@@ -38,12 +42,17 @@ function getConfig() {
     if (!parsed.success)
         throw new Error(`Invalid environment: ${parsed.error.issues.map((i) => i.path.join(".")).join(", ")}`);
     const config = parsed.data;
-    for (const [key, value] of [["JWT_ACCESS_SECRET", config.JWT_ACCESS_SECRET], ["JWT_REFRESH_SECRET", config.JWT_REFRESH_SECRET]]) {
+    for (const [key, value] of [
+        ["JWT_ACCESS_SECRET", config.JWT_ACCESS_SECRET],
+        ["JWT_REFRESH_SECRET", config.JWT_REFRESH_SECRET],
+        ["JWT_ADMIN_SECRET", config.JWT_ADMIN_SECRET],
+    ]) {
         if (/^(replace-with|change-me|your-secret)/i.test(value)) {
             throw new Error(`${key} must be replaced with an environment-provided secret`);
         }
     }
-    if (config.NODE_ENV === "production" && config.JWT_ACCESS_SECRET === config.JWT_REFRESH_SECRET) {
+    if (config.NODE_ENV === "production" &&
+        new Set([config.JWT_ACCESS_SECRET, config.JWT_REFRESH_SECRET, config.JWT_ADMIN_SECRET]).size !== 3) {
         throw new Error("JWT secrets must be different");
     }
     if (config.NODE_ENV === "production") {

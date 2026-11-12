@@ -123,4 +123,16 @@ describe("validation and date utilities", () => {
         assert.equal(high.components.participation, 80);
         assert.ok(high.components.weekOverWeekIncrease > 0);
     });
+    it("includes aggregated operational workload without overriding employee pulse input", () => {
+        const reported = calculateBurnoutScore({ stress: 2, workload: 2, mood: 4, participation: 0.8 });
+        const overloaded = calculateBurnoutScore({
+            stress: 2,
+            workload: 2,
+            mood: 4,
+            participation: 0.8,
+            operationalWorkload: 100,
+        });
+        assert.ok(overloaded.score > reported.score);
+        assert.equal(overloaded.components.operationalWorkload, 100);
+    });
 });

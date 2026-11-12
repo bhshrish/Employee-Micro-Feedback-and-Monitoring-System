@@ -3,10 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Logo } from "@/components/Logo";
 import { Icon } from "@/components/Icon";
-import { FieldError, Skeleton, Toast } from "@/components/UI";
+import { FieldError, Skeleton } from "@/components/UI";
 import { useToast } from "@/components/Toast";
 import {
-    signInOperationsAdmin,
     signOutOperationsAdmin,
     getOperationsAdmin,
     getOperationsUsers,
@@ -19,7 +18,6 @@ export function AdminUsers() {
     const toast = useToast();
     const [authorized, setAuthorized] = useState(false);
     const [checking, setChecking] = useState(true);
-    const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [page, setPage] = useState(1);
@@ -54,23 +52,6 @@ export function AdminUsers() {
 
     useEffect(() => { if (authorized) void load(); }, [authorized, load]);
 
-    const signIn = async (event) => {
-        event.preventDefault();
-        setLoading(true);
-        setError("");
-        try {
-            await signInOperationsAdmin("admin", "admin@gmail.com", password);
-            setPassword("");
-            setAuthorized(true);
-        }
-        catch (cause) {
-            setError(cause instanceof Error ? cause.message : "Admin sign-in failed.");
-        }
-        finally {
-            setLoading(false);
-        }
-    };
-
     const signOut = async () => {
         setLoading(true);
         try {
@@ -94,14 +75,9 @@ export function AdminUsers() {
                 <div className="admin-auth-card">
                     <Logo inverse />
                     <h1>Platform operations sign-in</h1>
-                    <p>Sign in to manage users.</p>
+                    <p>Use a one-time code to access platform operations.</p>
                     {error && <FieldError>{error}</FieldError>}
-                    <form onSubmit={signIn}>
-                        <label>Username<input defaultValue="admin" readOnly /></label>
-                        <label>Work email<input type="email" defaultValue="admin@gmail.com" readOnly /></label>
-                        <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" placeholder="Operations admin password" /></label>
-                        <button className="button" disabled={loading}>{loading ? "Signing in…" : "Sign in to operations"}</button>
-                    </form>
+                    <button className="button" type="button" onClick={() => window.location.assign("/admin/login")}>Continue to administrator sign in</button>
                 </div>
             </main>
         );
@@ -141,17 +117,16 @@ export function AdminUsers() {
     };
     return (
         <div className="admin-layout">
-            <Toast />
             <aside className="admin-sidebar">
                 <Logo inverse style={{ marginBottom: 8 }} />
                 <p className="section-label">Platform</p>
                 <nav style={{ display: "grid", gap: 6, marginBottom: 20 }}>
-                    <a href="/admin" style={{ display: "flex", alignItems: "center", gap: 12, padding: 10px 12px, borderRadius: 9px, background: "transparent", textAlign: "left", fontWeight: 600, color: "var(--text)", textDecoration: "none" }}><Icon name="chart" size={16} /> Overview</a>
-                    <a href="/admin/businesses" style={{ display: "flex", alignItems: "center", gap: 12, padding: 10px 12px, borderRadius: 9px, background: "transparent", textAlign: "left", fontWeight: 600, color: "var(--text)", textDecoration: "none" }}><Icon name="shield" size={16} /> Businesses</a>
-                    <a href="/admin/users" style={{ display: "flex", alignItems: "center", gap: 12, padding: 10px 12px, borderRadius: 9px, background: "var(--p-soft-red)", color: "var(--p-red-dark)", fontWeight: 700, textDecoration: "none" }}><Icon name="users" size={16} /> Users</a>
-                    <a href="/admin/teams" style={{ display: "flex", alignItems: "center", gap: 12, padding: 10px 12px, borderRadius: 9px, background: "transparent", textAlign: "left", fontWeight: 600, color: "var(--text)", textDecoration: "none" }}><Icon name="users" size={16} /> Teams</a>
-                    <a href="/admin/activity" style={{ display: "flex", alignItems: "center", gap: 12, padding: 10px 12px, borderRadius: 9px, background: "transparent", textAlign: "left", fontWeight: 600, color: "var(--text)", textDecoration: "none" }}><Icon name="clock" size={16} /> Activity</a>
-                    <a href="/admin/attendance" style={{ display: "flex", alignItems: "center", gap: 12, padding: 10px 12px, borderRadius: 9px, background: "transparent", textAlign: "left", fontWeight: 600, color: "var(--text)", textDecoration: "none" }}><Icon name="calendar" size={16} /> Attendance</a>
+                    <a href="/admin" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: "9px", background: "transparent", textAlign: "left", fontWeight: 600, color: "var(--text)", textDecoration: "none" }}><Icon name="chart" size={16} /> Overview</a>
+                    <a href="/admin/businesses" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: "9px", background: "transparent", textAlign: "left", fontWeight: 600, color: "var(--text)", textDecoration: "none" }}><Icon name="shield" size={16} /> Businesses</a>
+                    <a href="/admin/users" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: "9px", background: "var(--p-soft-red)", color: "var(--p-red-dark)", fontWeight: 700, textDecoration: "none" }}><Icon name="users" size={16} /> Users</a>
+                    <a href="/admin/teams" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: "9px", background: "transparent", textAlign: "left", fontWeight: 600, color: "var(--text)", textDecoration: "none" }}><Icon name="users" size={16} /> Teams</a>
+                    <a href="/admin/activity" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: "9px", background: "transparent", textAlign: "left", fontWeight: 600, color: "var(--text)", textDecoration: "none" }}><Icon name="clock" size={16} /> Activity</a>
+                    <a href="/admin/attendance" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: "9px", background: "transparent", textAlign: "left", fontWeight: 600, color: "var(--text)", textDecoration: "none" }}><Icon name="calendar" size={16} /> Attendance</a>
                 </nav>
                 <div style={{ marginTop: "auto", paddingTop: 20, borderTop: "1px solid var(--line)", color: "var(--muted)", fontSize: 14 }}>
                     <p>Signed in as operations admin</p>
@@ -177,13 +152,13 @@ export function AdminUsers() {
                         <div><p className="section-label">Accounts</p><h2>Users</h2></div>
                         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                             <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search users by name or email…" className="admin-search-input" style={{ flex: 1 }} />
-                            <select value={role} onChange={(e) => { setRole(e.target.value); setPage(1); }} style={{ minWidth: 130, minHeight: 42, padding: 8px 10px, fontSize: 15 }}>
+                            <select value={role} onChange={(e) => { setRole(e.target.value); setPage(1); }} style={{ minWidth: 130, minHeight: 42, padding: "8px 10px", fontSize: 15 }}>
                                 <option value="">All roles</option>
                                 <option value="admin">Admin</option>
                                 <option value="manager">Manager</option>
                                 <option value="employee">Employee</option>
                             </select>
-                            <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} style={{ minWidth: 130, minHeight: 42, padding: 8px 10px, fontSize: 15 }}>
+                            <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} style={{ minWidth: 130, minHeight: 42, padding: "8px 10px", fontSize: 15 }}>
                                 <option value="">All accounts</option>
                                 <option value="active">Active</option>
                                 <option value="inactive">Deactivated</option>

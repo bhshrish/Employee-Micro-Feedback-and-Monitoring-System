@@ -17,11 +17,11 @@ async function requireOperationsAdmin(req, _res, next) {
         const token = req.cookies?.calmwork_operations;
         if (!token)
             throw (0, errors_1.unauthorized)();
-        const payload = jsonwebtoken_1.default.verify(token, (0, env_1.getConfig)().JWT_ACCESS_SECRET, {
+        const payload = jsonwebtoken_1.default.verify(token, (0, env_1.getConfig)().JWT_ADMIN_SECRET, {
             issuer: "calmwork-operations",
             audience: "calmwork-admin",
         });
-        if (payload.typ !== "operations_admin" || payload.sub !== "admin@gmail.com")
+        if (payload.typ !== "operations_admin" || payload.sub !== (0, env_1.getConfig)().OPS_ADMIN_EMAIL)
             throw (0, errors_1.unauthorized)();
         next();
     }
@@ -37,9 +37,9 @@ exports.requireOperationsAdmin = requireOperationsAdmin;
 async function authenticate(req, _res, next) {
     try {
         const header = req.get("authorization");
-        if (!header?.startsWith("Bearer "))
+        const token = req.cookies?.calmwork_access || (header?.startsWith("Bearer ") ? header.slice(7) : null);
+        if (!token)
             throw (0, errors_1.unauthorized)();
-        const token = header.slice(7);
         const payload = jsonwebtoken_1.default.verify(token, (0, env_1.getConfig)().JWT_ACCESS_SECRET, {
             issuer: "calmwork-api",
             audience: "calmwork-client",

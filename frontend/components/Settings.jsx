@@ -12,6 +12,7 @@ function SettingsContent() {
     const { user, signIn, resetLocalPreferences } = useSubscription();
     const { theme, setTheme } = useTheme();
     const [name, setName] = useState("");
+    const [phone, setPhone] = useState("");
     const [threshold, setThreshold] = useState(5);
     const [weekly, setWeekly] = useState(true);
     const [idle, setIdle] = useState(true);
@@ -24,6 +25,7 @@ function SettingsContent() {
         if (!user)
             return;
         setName(user.name);
+        setPhone(user.phone || "");
         setThreshold(user.settings.idleThresholdMinutes);
         setWeekly(user.settings.notifications.weeklyPulse);
         setIdle(user.settings.notifications.idlePrompt);
@@ -37,6 +39,7 @@ function SettingsContent() {
         try {
             const { user: updated } = await updateProfile({
                 name,
+                phone: phone || null,
                 settings: {
                     idleThresholdMinutes: threshold,
                     notifications: { weeklyPulse: weekly, idlePrompt: idle, productUpdates: product },
@@ -68,6 +71,7 @@ function SettingsContent() {
                 <div className="settings-fields">
                     <label>Full name<input value={name} onChange={(e) => setName(e.target.value)} required minLength={2}/></label>
                     <label>Work email<input type="email" value={user?.email || ""} readOnly/></label>
+                    <label>Phone for optional SMS sign-in<input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+14155550123" autoComplete="tel"/></label>
                 </div>
             </section>
             <section className="settings-section">

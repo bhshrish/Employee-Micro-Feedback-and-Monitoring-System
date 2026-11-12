@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.signup = signup;
 exports.signin = signin;
+exports.createSessionForUser = createSessionForUser;
 exports.acceptInvitation = acceptInvitation;
 exports.rotateRefreshToken = rotateRefreshToken;
 exports.revokeRefreshToken = revokeRefreshToken;
@@ -47,6 +48,14 @@ async function createRefreshToken(userId, familyId = (0, node_crypto_1.randomUUI
     });
     return { raw, familyId };
 }
+async function createSessionForUser(user) {
+    if (user.subscription.status === "trialing" && user.subscription.trialEndsAt <= new Date()) {
+        user.subscription.status = "trial_expired";
+        await user.save();
+    }
+    const refresh = await createRefreshToken(user._id);
+    return { user: publicUser(user), accessToken: accessToken(user), refreshToken: refresh.raw };
+}
 function publicUser(user) {
     const subscription = user.subscription;
     const trialExpired = subscription.status === "trialing" && subscription.trialEndsAt <= new Date();
@@ -54,6 +63,7 @@ function publicUser(user) {
         id: user._id.toString(),
         name: user.name,
         email: user.email,
+        phone: user.phone ?? null,
         organizationId: user.organizationId.toString(),
         teamId: user.teamId?.toString() ?? null,
         role: user.role,
@@ -106,12 +116,7 @@ async function signin(input) {
         throw (0, errors_1.unauthorized)("Email or password is incorrect");
     if (!await Organization_1.Organization.exists({ _id: user.organizationId, isActive: { $ne: false } }))
         throw (0, errors_1.unauthorized)("This business workspace is inactive");
-    if (user.subscription.status === "trialing" && user.subscription.trialEndsAt <= new Date()) {
-        user.subscription.status = "trial_expired";
-        await user.save();
-    }
-    const refresh = await createRefreshToken(user._id);
-    return { user: publicUser(user), accessToken: accessToken(user), refreshToken: refresh.raw };
+    return createSessionForUser(user);
 }
 async function acceptInvitation(input) {
     if (input.email === "admin@gmail.com")
@@ -249,4 +254,3 @@ async function resetPassword(input) {
     await RefreshToken_1.RefreshToken.updateMany({ userId: record.userId, revokedAt: null }, { revokedAt: now });
     return { message: "Your password has been reset. You can sign in with your new password." };
 }
-

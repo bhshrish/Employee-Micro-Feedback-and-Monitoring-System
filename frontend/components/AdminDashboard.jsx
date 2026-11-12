@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { Logo } from "./Logo";
 import { Icon } from "./Icon";
-import { FieldError, KpiCard, Skeleton, Toast } from "./UI";
+import { FieldError, KpiCard, Skeleton } from "./UI";
 import { useToast } from "./Toast";
 import {
-    signInOperationsAdmin,
     signOutOperationsAdmin,
     getOperationsAdmin,
     getOperationsOverview,
@@ -52,7 +52,6 @@ export function AdminDashboard() {
     const toast = useToast();
     const [authorized, setAuthorized] = useState(false);
     const [checking, setChecking] = useState(true);
-    const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [section, setSection] = useState("overview");
@@ -117,23 +116,6 @@ export function AdminDashboard() {
         if (authorized)
             void loadSection();
     }, [authorized, loadSection]);
-
-    const signIn = async (event) => {
-        event.preventDefault();
-        setLoading(true);
-        setError("");
-        try {
-            await signInOperationsAdmin("admin", "admin@gmail.com", password);
-            setPassword("");
-            setAuthorized(true);
-        }
-        catch (cause) {
-            setError(cause instanceof Error ? cause.message : "Admin sign-in failed.");
-        }
-        finally {
-            setLoading(false);
-        }
-    };
 
     const signOut = async () => {
         setLoading(true);
@@ -242,7 +224,7 @@ export function AdminDashboard() {
                     <Logo inverse />
                     <h1>Platform operations</h1>
                     <p>Sign in with the platform operations admin account to manage businesses, users, teams, and attendance across the workspace.</p>
-                    <div className="admin-auth-spinner"><span className="skeleton" style={{ width: "40%", height: 14px }} /><span className="skeleton" style={{ width: "60%", height: 14px }} /></div>
+                    <div className="admin-auth-spinner"><span className="skeleton" style={{ width: "40%", height: "14px" }} /><span className="skeleton" style={{ width: "60%", height: "14px" }} /></div>
                     <p style={{ color: "var(--muted)", fontSize: 14, margin: 0 }}>Checking operations access…</p>
                 </div>
             </main>
@@ -255,15 +237,9 @@ export function AdminDashboard() {
                 <div className="admin-auth-card">
                     <Logo inverse />
                     <h1>Platform operations sign-in</h1>
-                    <p>Enter the platform operations admin credentials to open the dashboard.</p>
+                    <p>Platform access requires a one-time email code.</p>
                     {error && <FieldError>{error}</FieldError>}
-                    <form onSubmit={signIn}>
-                        <label>Username<input defaultValue="admin" readOnly /></label>
-                        <label>Work email<input type="email" defaultValue="admin@gmail.com" readOnly /></label>
-                        <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required autoComplete="current-password" placeholder="Operations admin password" /></label>
-                        <button className="button" disabled={loading}>{loading ? "Signing in…" : "Sign in to operations"}</button>
-                    </form>
-                    <p style={{ color: "var(--muted)", fontSize: 14, marginTop: 12 }}>Forgot the operations password? Set `OPS_ADMIN_PASSWORD` in the backend environment.</p>
+                    <Link className="button" href="/admin/login">Continue to administrator sign in</Link>
                 </div>
             </main>
         );
@@ -272,7 +248,6 @@ export function AdminDashboard() {
     // Authorized: full dashboard
     return (
         <div className="admin-layout">
-            <Toast />
             <aside className="admin-sidebar">
                 <Logo inverse style={{ marginBottom: 8 }} />
                 <p className="section-label">Platform</p>

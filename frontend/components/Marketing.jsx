@@ -14,7 +14,7 @@ const faqs = [
     ["Does CalmWork record my screen or typed text?", "No. CalmWork does not record screens or typed text. If an employee opts in, it counts keypress events during active work sessions; the count stays in that browser and is not shared with managers."],
     ["Can my manager see my individual pulse answers?", "No. Pulse responses are shown only as aggregated team averages. Teams with fewer than five responses are hidden from manager reporting."],
     ["What happens after the 7-day trial?", "Tracking and reports pause until you choose a plan. Your activity history remains preserved in this browser and becomes available again after activation."],
-    ["Is checkout connected to a payment provider?", "Checkout uses Stripe-hosted payment pages when Stripe is configured by the workspace operator. CalmWork never accepts or stores card numbers or CVCs."],
+    ["Is checkout connected to a payment provider?", "Checkout uses Razorpay-hosted subscription pages when Razorpay is configured by the workspace operator. CalmWork never accepts or stores card numbers or CVCs."],
 ];
 export function FAQ() {
     const [open, setOpen] = useState(0);

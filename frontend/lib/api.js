@@ -1,12 +1,8 @@
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1").replace(/\/$/, "");
-let accessToken = null;
 let refreshRequest = null;
 let dashboardRequest = null;
-export function setAccessToken(token) {
-    accessToken = token;
-}
 function isAuthPath(path) {
-    return path.startsWith("/auth/signin") || path.startsWith("/auth/signup") || path.startsWith("/auth/refresh") || path.startsWith("/auth/forgot-password") || path.startsWith("/auth/reset-password");
+    return path.startsWith("/auth/otp/") || path.startsWith("/auth/refresh") || path.startsWith("/operations/auth/otp/");
 }
 function apiError(status, code, message) {
     return Object.assign(new Error(message), { status, code });
@@ -30,16 +26,14 @@ async function refreshAccessToken() {
             credentials: "include",
         });
         const payload = await response.json().catch(() => ({}));
-        if (!response.ok || !payload.accessToken) {
-            accessToken = null;
+        if (!response.ok) {
             if (response.status === 401) {
                 localStorage.removeItem("calmwork:auth");
                 window.dispatchEvent(new Event("calmwork:session-expired"));
             }
             throw apiError(response.status, payload.error?.code || "AUTH_REQUIRED", payload.error?.message || "Your session has expired. Please sign in again.");
         }
-        accessToken = payload.accessToken;
-        return accessToken;
+        return true;
     })();
     refreshRequest = pending;
     try {
@@ -54,10 +48,8 @@ async function request(path, init = {}, canRefresh = true) {
     const headers = new Headers(init.headers);
     if (init.body && !headers.has("Content-Type"))
         headers.set("Content-Type", "application/json");
-    if (accessToken)
-        headers.set("Authorization", `Bearer ${accessToken}`);
     const response = await fetchApi(`${API_BASE}${path}`, { ...init, headers, credentials: "include" });
-    if (response.status === 401 && canRefresh && !isAuthPath(path) && accessToken) {
+    if (response.status === 401 && canRefresh && !isAuthPath(path)) {
         await refreshAccessToken();
         return request(path, init, false);
     }
@@ -73,41 +65,22 @@ async function request(path, init = {}, canRefresh = true) {
     }
     return payload;
 }
-export async function authenticate(email, password, mode, name, organizationName) {
-    const result = await request(`/auth/${mode}`, {
-        method: "POST",
-        body: JSON.stringify(mode === "signup" ? { name, email, password, organizationName } : { email, password }),
-    }, false);
-    if (mode === "signup")
-        return result.user;
-    setAccessToken(result.accessToken);
-    localStorage.setItem("calmwork:auth", "true");
-    return result.user;
+export async function requestOtp(input) {
+    return request("/auth/otp/request", { method: "POST", body: JSON.stringify(input) }, false);
 }
-export async function acceptInvitation(input) {
-    const result = await request("/auth/accept-invitation", {
+export async function verifyOtp(input) {
+    const result = await request("/auth/otp/verify", {
         method: "POST",
         body: JSON.stringify(input),
     }, false);
+    localStorage.setItem("calmwork:auth", "true");
     return result.user;
 }
-export async function forgotPassword(email) {
-    return request("/auth/forgot-password", {
-        method: "POST",
-        body: JSON.stringify({ email }),
-    }, false);
+export async function requestAdminOtp(email) {
+    return request("/operations/auth/otp/request", { method: "POST", body: JSON.stringify({ email }) }, false);
 }
-export async function resetPassword(token, password) {
-    return request("/auth/reset-password", {
-        method: "POST",
-        body: JSON.stringify({ token, password }),
-    }, false);
-}
-export async function signInOperationsAdmin(username, email, password) {
-    return request("/operations/auth/signin", {
-        method: "POST",
-        body: JSON.stringify({ username, email, password }),
-    }, false);
+export async function verifyAdminOtp(email, code) {
+    return request("/operations/auth/otp/verify", { method: "POST", body: JSON.stringify({ email, code }) }, false);
 }
 export async function getOperationsAdmin() {
     return request("/operations/auth/me", {}, false);
@@ -202,6 +175,63 @@ export async function checkInAttendance() {
 export async function checkOutAttendance() {
     return request("/attendance/check-out", { method: "POST", body: JSON.stringify({}) });
 }
+export async function getToolPlanner() {
+    const result = await request("/tools/planner");
+    return result.tasks;
+}
+export async function createToolPlanner(input) {
+    const result = await request("/tools/planner", { method: "POST", body: JSON.stringify(input) });
+    return result.task;
+}
+export async function updateToolPlanner(toolId, input) {
+    const result = await request(`/tools/planner/${encodeURIComponent(toolId)}`, { method: "PATCH", body: JSON.stringify(input) });
+    return result.task;
+}
+export async function deleteToolPlanner(toolId) {
+    return request(`/tools/planner/${encodeURIComponent(toolId)}`, { method: "DELETE" });
+}
+export async function getToolLeave() {
+    const result = await request("/tools/leave");
+    return result.requests;
+}
+export async function createToolLeave(input) {
+    const result = await request("/tools/leave", { method: "POST", body: JSON.stringify(input) });
+    return result.request;
+}
+export async function decideToolLeave(toolId, status) {
+    const result = await request(`/tools/leave/${encodeURIComponent(toolId)}/decision`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+    });
+    return result.request;
+}
+export async function getToolCalendar() {
+    const result = await request("/tools/calendar");
+    return result.events;
+}
+export async function createToolCalendarEvent(input) {
+    const result = await request("/tools/calendar", { method: "POST", body: JSON.stringify(input) });
+    return result.event;
+}
+export async function getToolSignatures() {
+    const result = await request("/tools/signatures");
+    return result.documents;
+}
+export async function createToolSignature(input) {
+    const result = await request("/tools/signatures", { method: "POST", body: JSON.stringify(input) });
+    return result.document;
+}
+export async function signToolDocument(toolId, signedName) {
+    const result = await request(`/tools/signatures/${encodeURIComponent(toolId)}/sign`, {
+        method: "POST",
+        body: JSON.stringify({ signedName, confirmation: true }),
+    });
+    return result.document;
+}
+export async function calculateSalaryEstimate(input) {
+    const result = await request("/tools/salary/check", { method: "POST", body: JSON.stringify(input) });
+    return result.estimate;
+}
 export async function restoreSession() {
     if (localStorage.getItem("calmwork:auth") !== "true")
         return null;
@@ -213,7 +243,6 @@ export async function restoreSession() {
     catch (error) {
         if (error instanceof Error && "status" in error && error.status === 401) {
             localStorage.removeItem("calmwork:auth");
-            setAccessToken(null);
             return null;
         }
         throw error;
@@ -221,13 +250,12 @@ export async function restoreSession() {
 }
 export async function signOut(everywhere = false) {
     try {
-        if (everywhere && accessToken)
+        if (everywhere)
             await request("/auth/logout-all", { method: "POST" });
         else
             await request("/auth/logout", { method: "POST" });
     }
     finally {
-        setAccessToken(null);
         localStorage.removeItem("calmwork:auth");
     }
 }
@@ -446,7 +474,7 @@ export async function downloadReport(period, metrics, format) {
     });
     const response = await fetchApi(`${API_BASE}${result.report.downloadUrl}`, {
         credentials: "include",
-        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+
     });
     if (!response.ok) {
         const payload = await response.json().catch(() => ({}));

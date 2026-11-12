@@ -18,6 +18,7 @@ const PulseResponse_1 = require("../models/PulseResponse");
 const Team_1 = require("../models/Team");
 const User_1 = require("../models/User");
 const Organization_1 = require("../models/Organization");
+const EmployeeTool_1 = require("../models/EmployeeTool");
 const errors_1 = require("../utils/errors");
 const week_1 = require("../utils/week");
 const burnout_1 = require("./burnout");
@@ -121,6 +122,48 @@ async function updateAlert(organizationId, alertId, status, acknowledgedBy, team
         throw (0, errors_1.notFound)("Alert not found");
     return alert;
 }
+async function teamOperationalWorkload(organizationId, teamId, week) {
+    const members = await User_1.User.find({ organizationId, teamId, isActive: { $ne: false } }).select("_id").lean();
+    if (!members.length)
+        return null;
+    const weekEnd = new Date(week.getTime() + 7 * 86_400_000);
+    const tools = await EmployeeTool_1.EmployeeTool.find({
+        organizationId,
+        userId: { $in: members.map((member) => member._id) },
+        $or: [
+            { kind: "planner_task", startsAt: { $gte: week, $lt: weekEnd } },
+            { kind: "meeting", startsAt: { $gte: week, $lt: weekEnd } },
+            { kind: "leave_request", status: "approved", startsAt: { $lt: weekEnd }, endsAt: { $gt: week } },
+        ],
+    }).select("kind estimatedMinutes startsAt endsAt").lean();
+    if (!tools.length)
+        return null;
+    let plannedMinutes = 0;
+    let meetingMinutes = 0;
+    let leaveDays = 0;
+    for (const tool of tools) {
+        if (tool.kind === "planner_task")
+            plannedMinutes += tool.estimatedMinutes || 0;
+        if (tool.kind === "meeting")
+            meetingMinutes += tool.estimatedMinutes || 0;
+        if (tool.kind === "leave_request") {
+            const overlapStart = Math.max(new Date(tool.startsAt).getTime(), week.getTime());
+            const overlapEnd = Math.min(new Date(tool.endsAt).getTime(), weekEnd.getTime());
+            leaveDays += Math.max(0, (overlapEnd - overlapStart) / 86_400_000);
+        }
+    }
+    const averageLeaveDays = leaveDays / members.length;
+    const capacityHours = members.length * Math.max(8, (5 - Math.min(5, averageLeaveDays)) * 8);
+    const plannedAndMeetingHours = (plannedMinutes + meetingMinutes) / 60;
+    const loadRatio = plannedAndMeetingHours / capacityHours;
+    const workload = Math.min(5, Math.max(1, 1 + loadRatio * 4 + Math.min(0.5, averageLeaveDays * 0.1)));
+    return {
+        workload,
+        plannedMinutes,
+        meetingMinutes,
+        leaveDays: Number(leaveDays.toFixed(2)),
+    };
+}
 async function scoreTeamAlerts(organizationId, configuredMinResponses) {
     const minResponses = configuredMinResponses ?? await organizationMinGroupSize(organizationId);
     const week = (0, week_1.weekStart)();
@@ -141,15 +184,21 @@ async function scoreTeamAlerts(organizationId, configuredMinResponses) {
         const memberCount = await User_1.User.countDocuments({ organizationId, teamId: team._id });
         const currentParticipation = memberCount ? current.count / memberCount : 0;
         const previousParticipation = previous && memberCount ? previous.count / memberCount : undefined;
+        const [currentOperations, previousOperations] = await Promise.all([
+            teamOperationalWorkload(organizationId, team._id, week),
+            previous ? teamOperationalWorkload(organizationId, team._id, priorWeek) : Promise.resolve(null),
+        ]);
         const burnout = (0, burnout_1.calculateBurnoutScore)({
             stress: current.stress,
             workload: current.workload,
             mood: current.mood,
             participation: currentParticipation,
+            ...(currentOperations ? { operationalWorkload: currentOperations.workload } : {}),
             ...(previous ? {
                 previousStress: previous.stress,
                 previousWorkload: previous.workload,
                 previousMood: previous.mood,
+                ...(previousOperations ? { previousOperationalWorkload: previousOperations.workload } : {}),
                 ...(previousParticipation !== undefined ? { previousParticipation } : {}),
             } : {}),
         });
@@ -191,6 +240,11 @@ async function scoreTeamAlerts(organizationId, configuredMinResponses) {
                         workload: current.workload,
                         mood: current.mood,
                         participation: currentParticipation,
+                        ...(currentOperations ? {
+                            plannedMinutes: currentOperations.plannedMinutes,
+                            meetingMinutes: currentOperations.meetingMinutes,
+                            leaveDays: currentOperations.leaveDays,
+                        } : {}),
                     },
                 },
                 $setOnInsert: { organizationId, teamId: team._id, type: candidate.type },

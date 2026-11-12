@@ -1,5 +1,2 @@
-import { ForgotPasswordForm } from "./ForgotPasswordForm";
-export const metadata = { title: "Forgot password · CalmWork" };
-export default function ForgotPasswordPage() {
-    return <ForgotPasswordForm />;
-}
+import { redirect } from "next/navigation";
+export default function ForgotPasswordPage() { redirect("/login"); }

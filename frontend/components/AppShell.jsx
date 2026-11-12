@@ -12,6 +12,7 @@ import { useToast } from "./Toast";
 const nav = [
     { href: "/dashboard", label: "My day", icon: "clock" },
     { href: "/attendance", label: "Attendance", icon: "calendar" },
+    { href: "/tools", label: "Tools", icon: "calendar" },
     { href: "/monitoring", label: "Monitoring", icon: "pulse" },
     { href: "/team", label: "Team pulse", icon: "users" },
     { href: "/people", label: "People", icon: "users" },
