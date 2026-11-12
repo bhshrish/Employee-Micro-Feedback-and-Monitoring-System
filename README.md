@@ -23,7 +23,7 @@ docker compose --env-file backend/.env -f backend/docker-compose.yml up -d
 npm run api:dev
 ```
 
-The API listens on the configured `PORT` (default `4000`). Use `GET /health` for liveness and `GET /health/ready` to verify its MongoDB connection. The OpenAPI reference is served at `/api/docs`. Business owners sign up with their name, business name, email, and password; employees create password accounts through business invitations. Users can request an email password-reset link from the login page. Configure SMTP for password-reset delivery. The platform administrator signs in at `/admin/login` with an emailed one-time code sent to `OPS_ADMIN_EMAIL`; its JWT uses the separate `JWT_ADMIN_SECRET`.
+The API listens on the configured `PORT` (default `4000`). Use `GET /health` for liveness and `GET /health/ready` to verify its MongoDB connection. The OpenAPI reference is served at `/api/docs`. Business owners sign up with their name, business name, email, and password; employees create password accounts through business invitations. Users can sign in with a password or request a one-time email or SMS sign-in code. Employees can enroll a phone number in Settings for SMS codes. Users can request an email password-reset link from the login page. Configure SMTP for email codes and password-reset delivery. The platform administrator signs in at `/admin/login` with an emailed one-time code sent to `OPS_ADMIN_EMAIL`; its JWT uses the separate `JWT_ADMIN_SECRET`.
 
 The platform operations dashboard is available at `/admin`. It can review and activate/suspend businesses and users, create teams and assign employees, review daily attendance and export CSV, and review activity summaries aggregated by business. It does not expose individual salary estimates or pulse responses.
 
@@ -43,11 +43,11 @@ Deploy the frontend and API as **two separate Vercel projects** from this reposi
    - `FRONTEND_URL` set to the frontend's production URL
    - `CORS_ORIGINS` set to the exact frontend production origin (scheme and host, no path)
    - `COOKIE_SECURE=true`
-   - `OPS_ADMIN_EMAIL` and working SMTP credentials for administrator OTP sign-in
+   - `OPS_ADMIN_EMAIL` and working SMTP credentials for administrator OTP sign-in, user email codes, and password resets
    - Razorpay key ID, key secret, webhook secret, and the six recurring plan IDs described in [`backend/.env.example`](./backend/.env.example)
 3. Deploy the API. Its base URL is the Vercel deployment URL; confirm `GET /health` responds with `{"status":"ok"}`.
 4. Set `NEXT_PUBLIC_API_URL` in the frontend project to the API URL plus `/api/v1` (for example, `https://your-api.vercel.app/api/v1`), then deploy the frontend.
-5. Test OTP sign-in and refresh-token behavior on the deployed frontend. Configure Razorpay webhooks to call `https://your-api.vercel.app/api/v1/webhooks/razorpay` and subscribe to the subscription lifecycle and payment failure events.
+5. Test password sign-in, email/SMS code sign-in, password reset, and refresh-token behavior on the deployed frontend. Configure Razorpay webhooks to call `https://your-api.vercel.app/api/v1/webhooks/razorpay` and subscribe to the subscription lifecycle and payment failure events.
 
 Add these variables to the Vercel project settings, not to source control. Production refresh cookies use `SameSite=None; Secure` so the frontend can refresh sessions when the frontend and API have different origins. Sign in again after deploying this cookie change to replace an older cookie. Browser third-party-cookie restrictions can still affect separate default `*.vercel.app` domains; custom frontend and API domains under the same registrable domain (for example, `app.example.com` and `api.example.com`) are recommended. Leave `COOKIE_DOMAIN` unset unless you have a specific domain-cookie requirement. Vercel functions are not persistent servers, so the API's in-process alert and trial-expiration jobs do not run reliably there; use an external scheduler or a persistent host if those jobs are required.
 
@@ -84,7 +84,7 @@ Burnout analytics combine normalized stress, workload, inverse mood, participati
 
 ## API overview
 
-Versioned JSON routes are under `/api/v1`: email/password authentication and recovery, administrator OTP authentication, user and team administration, time sessions, weekly pulses, manager-only aggregate analytics, alerts, Razorpay billing, employee tools, and subscription-gated reports. JSON responses include `success`, `data`, and `error` fields; compatibility fields are retained for existing clients. See the OpenAPI document at [`backend/openapi.yaml`](./backend/openapi.yaml).
+Versioned JSON routes are under `/api/v1`: email/password and email/SMS-code authentication, password recovery, administrator OTP authentication, user and team administration, time sessions, weekly pulses, manager-only aggregate analytics, alerts, Razorpay billing, employee tools, and subscription-gated reports. JSON responses include `success`, `data`, and `error` fields; compatibility fields are retained for existing clients. See the OpenAPI document at [`backend/openapi.yaml`](./backend/openapi.yaml).
 
 Razorpay subscription webhooks are verified against the raw request body and deduplicated before subscription state or invoice records are updated.
 

@@ -24,7 +24,7 @@ Run `npm run migrate:legacy` once when upgrading a database created by a legacy 
 
 From the repository root, `docker compose --env-file backend/.env -f backend/docker-compose.yml up --build` runs the API and MongoDB using the local-only values in `backend/.env`.
 
-Business owners create accounts with a name, business name, email, and password. Employees establish password accounts through invitation links. Sign-in uses email and password; password reset links are delivered by SMTP and are single-use and time-limited. Platform administrators continue to use `/admin/login`, the configured `OPS_ADMIN_EMAIL`, and an emailed OTP; admin sessions are stored in a separate HTTP-only cookie.
+Business owners create accounts with a name, business name, email, and password. Employees establish password accounts through invitation links. Users sign in with email and password or request a one-time email/SMS code; SMS sign-in requires an enrolled phone number. Password reset links and email codes are delivered by SMTP, and reset links are single-use and time-limited. Platform administrators continue to use `/admin/login`, the configured `OPS_ADMIN_EMAIL`, and an emailed OTP; admin sessions are stored in a separate HTTP-only cookie.
 
 ## Security and privacy
 

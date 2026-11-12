@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { acceptInvitation, signInWithPassword, signup } from "@/lib/api";
+import { acceptInvitation, requestOtp, signInWithPassword, signup, verifyOtp } from "@/lib/api";
 import { useSubscription } from "@/lib/subscription";
 import { Logo } from "./Logo";
 import { Icon } from "./Icon";
@@ -14,7 +14,13 @@ export function AuthForm() {
     const [name, setName] = useState("");
     const [businessName, setBusinessName] = useState("");
     const [email, setEmail] = useState("");
+    const [phone, setPhone] = useState("");
     const [password, setPassword] = useState("");
+    const [code, setCode] = useState("");
+    const [channel, setChannel] = useState("email");
+    const [useCode, setUseCode] = useState(false);
+    const [otpRequested, setOtpRequested] = useState(false);
+    const [resendIn, setResendIn] = useState(0);
     const [inviteToken, setInviteToken] = useState("");
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
@@ -41,9 +47,20 @@ export function AuthForm() {
         }
     }, []);
 
+    useEffect(() => {
+        if (resendIn <= 0)
+            return undefined;
+        const timer = window.setTimeout(() => setResendIn((value) => Math.max(0, value - 1)), 1000);
+        return () => window.clearTimeout(timer);
+    }, [resendIn]);
+
     const chooseAccountType = (type) => {
         setAccountType(type);
         setFormMode("signin");
+        setUseCode(false);
+        setOtpRequested(false);
+        setCode("");
+        setResendIn(0);
         setErrors({});
         if (type !== "employee")
             setEmail("");
@@ -51,17 +68,33 @@ export function AuthForm() {
 
     const switchFormMode = (mode) => {
         setFormMode(mode);
+        setUseCode(false);
+        setOtpRequested(false);
+        setCode("");
+        setResendIn(0);
         setErrors({});
         setPassword("");
+    };
+
+    const switchAuthMethod = (codeSignIn) => {
+        setUseCode(codeSignIn);
+        setOtpRequested(false);
+        setCode("");
+        setResendIn(0);
+        setErrors({});
     };
 
     const submit = async (event) => {
         event.preventDefault();
         const next = {};
-        if (!/^\S+@\S+\.\S+$/.test(email))
+        if ((!useCode || channel === "email") && !/^\S+@\S+\.\S+$/.test(email))
             next.email = "Enter a valid work email.";
-        if (password.length < 8)
+        if (useCode && channel === "sms" && !/^\+[1-9]\d{7,14}$/.test(phone))
+            next.phone = "Enter a phone number in international format, including + and country code.";
+        if (!useCode && password.length < 8)
             next.password = "Password must be at least 8 characters.";
+        if (useCode && otpRequested && !/^\d{6}$/.test(code))
+            next.code = "Enter the 6-digit code.";
         if ((signingUp || joining) && name.trim().length < 2)
             next.name = "Enter your name.";
         if (signingUp && businessName.trim().length < 2)
@@ -74,6 +107,38 @@ export function AuthForm() {
 
         setLoading(true);
         try {
+            if (useCode && !otpRequested) {
+                await requestOtp({
+                    channel,
+                    ...(channel === "email" ? { email: email.trim() } : { phone: phone.trim() }),
+                    purpose: "signin",
+                });
+                setOtpRequested(true);
+                setResendIn(60);
+                setErrors({ form: "If the account can sign in, a verification code has been sent." });
+                return;
+            }
+            if (useCode) {
+                const user = await verifyOtp({
+                    channel,
+                    ...(channel === "email" ? { email: email.trim() } : { phone: phone.trim() }),
+                    purpose: "signin",
+                    code,
+                });
+                const roleMatches = accountType === "business"
+                    ? user.role === "admin"
+                    : user.role === "employee" || user.role === "manager";
+                if (!roleMatches) {
+                    await signOut();
+                    setErrors({ form: accountType === "business"
+                        ? "This account belongs to an employee. Choose Employee sign in."
+                        : "This account belongs to a business. Choose Business sign in." });
+                    return;
+                }
+                signIn(user);
+                router.push("/dashboard");
+                return;
+            }
             if (signingUp) {
                 await signup({
                     name: name.trim(),
@@ -142,24 +207,46 @@ export function AuthForm() {
                     {joining ? "Back to employee sign in" : "Have an employee invitation? Join your business"}
                 </button>}
                 <h2>{joining ? "Join your business." : signingUp ? "Create your business workspace." : accountType === "business" ? "Business sign in." : "Employee sign in."}</h2>
-                <p>{joining
+                <p>{otpRequested
+                    ? `Enter the 6-digit code sent to ${channel === "email" ? email : phone}.`
+                    : joining
                     ? "Accept your business invitation and create your password."
                     : signingUp
                         ? "Create your workspace with your name, work email, and password."
-                        : "Sign in with your work email and password."}</p>
-                <p className="subtle-label">Use a password with at least 8 characters.</p>
+                        : useCode
+                            ? `Sign in securely with a one-time ${channel === "email" ? "email" : "SMS"} code.`
+                            : "Sign in with your work email and password."}</p>
+                {!useCode && <p className="subtle-label">Use a password with at least 8 characters.</p>}
+                {!signingUp && !joining && !otpRequested && <div className="auth-mode-switch" role="group" aria-label="Sign-in method">
+                    <button type="button" className={!useCode ? "active" : ""} onClick={() => switchAuthMethod(false)}>Password</button>
+                    <button type="button" className={useCode ? "active" : ""} onClick={() => switchAuthMethod(true)}>Use a code</button>
+                </div>}
+                {useCode && !otpRequested && <div className="auth-mode-switch" role="group" aria-label="Verification method">
+                    <button type="button" className={channel === "email" ? "active" : ""} onClick={() => { setChannel("email"); setErrors({}); }}>Email code</button>
+                    <button type="button" className={channel === "sms" ? "active" : ""} onClick={() => { setChannel("sms"); setErrors({}); }}>SMS code</button>
+                </div>}
                 <form onSubmit={submit} noValidate>
                     {(signingUp || joining) && <label>Full name<input value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" placeholder="Alex Morgan"/><FieldError>{errors.name}</FieldError></label>}
                     {signingUp && <label>Business name<input value={businessName} onChange={(event) => setBusinessName(event.target.value)} autoComplete="organization" maxLength={120} placeholder="Your company"/><FieldError>{errors.businessName}</FieldError></label>}
-                    <label>Work email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" autoCapitalize="none" spellCheck={false} placeholder="you@company.com"/><FieldError>{errors.email}</FieldError></label>
+                    {!otpRequested && (!useCode || channel === "email") && <label>Work email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" autoCapitalize="none" spellCheck={false} placeholder="you@company.com"/><FieldError>{errors.email}</FieldError></label>}
+                    {!otpRequested && useCode && channel === "sms" && <label>Phone number<input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} autoComplete="tel" placeholder="+14155550123"/><FieldError>{errors.phone}</FieldError></label>}
                     {joining && <label>Invitation code<input value={inviteToken} onChange={(event) => setInviteToken(event.target.value)} autoCapitalize="none" spellCheck={false}/><FieldError>{errors.inviteToken}</FieldError></label>}
-                    <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete={signingUp || joining ? "new-password" : "current-password"} minLength={8} maxLength={128} placeholder="At least 8 characters"/><FieldError>{errors.password}</FieldError></label>
+                    {!useCode && <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete={signingUp || joining ? "new-password" : "current-password"} minLength={8} maxLength={128} placeholder="At least 8 characters"/><FieldError>{errors.password}</FieldError></label>}
+                    {otpRequested && <label>6-digit verification code<input inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="000000"/><FieldError>{errors.code}</FieldError></label>}
                     <FieldError>{errors.form}</FieldError>
                     <button className="button button-full" disabled={loading}>{loading
                         ? <><span className="spinner"/>Please wait…</>
-                        : <>{signingUp ? "Create account" : joining ? "Join your business" : "Sign in"}<Icon name="arrow"/></>}</button>
+                        : <>{otpRequested ? "Verify and continue" : useCode
+                            ? channel === "email" ? "Email me a code" : "Send me a code"
+                            : signingUp ? "Create account" : joining ? "Join your business" : "Sign in"}<Icon name="arrow"/></>}</button>
+                    {otpRequested && <div className="auth-mode-switch">
+                        <button type="button" disabled={resendIn > 0 || loading} onClick={() => { setOtpRequested(false); setCode(""); setErrors({}); }}>
+                            {resendIn > 0 ? `Request another code in ${resendIn}s` : "Request another code"}
+                        </button>
+                        <button type="button" disabled={loading} onClick={() => { setOtpRequested(false); setCode(""); setResendIn(0); setErrors({}); }}>Change address</button>
+                    </div>}
                 </form>
-                {!signingUp && !joining && <p className="auth-forgot-link"><Link href="/forgot-password">Forgot password?</Link></p>}
+                {!signingUp && !joining && !useCode && <p className="auth-forgot-link"><Link href="/forgot-password">Forgot password?</Link></p>}
                 <p className="auth-text-switch"><Link href="/admin/login">Platform administrator sign in</Link></p>
                 <div className="auth-privacy"><Icon name="shield"/><p>By continuing, you agree to the <Link href="/privacy">privacy policy</Link>. Work activity is summarized without recording screens or typed text.</p></div>
             </div>
