@@ -189,7 +189,7 @@ export function AuthForm() {
                     <FieldError>{errors.form}</FieldError>
                     <button className="button button-full" disabled={loading}>{loading
                         ? <><span className="spinner"/>{otpRequested ? "Verifying…" : "Sending code…"}</>
-                        : <>{otpRequested ? "Verify and continue" : "Send me the code"}<Icon name="arrow"/></>}</button>
+                        : <>{otpRequested ? "Verify and continue" : "Email me a code"}<Icon name="arrow"/></>}</button>
                     {otpRequested && <div className="auth-mode-switch">
                         <button type="button" disabled={resendIn > 0 || loading} onClick={() => { setOtpRequested(false); setCode(""); setErrors({}); }}>
                             {resendIn > 0 ? `Request another code in ${resendIn}s` : "Request another code"}
