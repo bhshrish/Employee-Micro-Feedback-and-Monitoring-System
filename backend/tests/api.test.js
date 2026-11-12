@@ -4,6 +4,8 @@ import { MongoMemoryServer } from "mongodb-memory-server";
 import request from "supertest";
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, beforeEach, describe, it } from "vitest";
+import { createHmac } from "node:crypto";
+import jwt from "jsonwebtoken";
 import { createApp } from "../src/app";
 import { PulseResponse } from "../src/models/PulseResponse";
 import { PulseReceipt } from "../src/models/PulseReceipt";
@@ -13,14 +15,16 @@ import { TeamActivity } from "../src/models/TeamActivity";
 import { Invoice } from "../src/models/Invoice";
 import { GeneratedReport } from "../src/models/GeneratedReport";
 import { Alert } from "../src/models/Alert";
-import Stripe from "stripe";
-import { processStripeEvent } from "../src/services/billing.service";
+import { processRazorpayEvent } from "../src/services/billing.service";
 import { expireTrials } from "../src/jobs/subscriptions";
 import { weekStart } from "../src/utils/week";
 import { Organization } from "../src/models/Organization";
 import { Attendance } from "../src/models/Attendance";
+import { OtpChallenge } from "../src/models/OtpChallenge";
+import { EmployeeTool } from "../src/models/EmployeeTool";
 import { migrateLegacyData } from "../src/legacy-migration";
 import { signin as createTestSession } from "../src/services/auth.service";
+import { hashCode } from "../src/services/otp.service";
 const app = createApp();
 let mongo;
 function signup(email, name = "Test User") {
@@ -43,6 +47,20 @@ function accessCookie(response) {
     if (!value)
         throw new Error("refresh cookie missing");
     return value.split(";")[0];
+}
+function createOtpChallenge(destination, purpose, code = "123456", options = {}) {
+    const now = new Date();
+    return OtpChallenge.create({
+        destination,
+        channel: "email",
+        purpose,
+        codeHash: hashCode(destination, purpose, code, "email"),
+        attempts: 0,
+        resendAfter: options.resendAfter ?? new Date(now.getTime() + 60_000),
+        expiresAt: options.expiresAt ?? new Date(now.getTime() + 5 * 60_000),
+        consumedAt: null,
+        payload: options.payload ?? {},
+    });
 }
 beforeAll(async () => {
     mongo = await MongoMemoryServer.create({ instance: { launchTimeout: 30_000 } });
@@ -209,6 +227,77 @@ describe("PULSE API", () => {
             .expect(200);
         assert.equal(currentSubscription.body.subscription.status, "trialing");
     });
+    it("enforces OTP expiry, resend cooldown, five-attempt limit, and cookie-only sessions", async () => {
+        const account = await signupAndSignin("otp-limit@example.test");
+        const destination = account.body.user.email;
+        await createOtpChallenge(destination, "signin");
+        await request(app).post("/api/v1/auth/otp/request")
+            .send({ email: destination, purpose: "signin" }).expect(429);
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+            await request(app).post("/api/v1/auth/otp/verify")
+                .send({ email: destination, purpose: "signin", code: "000000" }).expect(401);
+        }
+        assert.equal((await OtpChallenge.findOne({ destination, purpose: "signin" })).attempts, 5);
+        await request(app).post("/api/v1/auth/otp/verify")
+            .send({ email: destination, purpose: "signin", code: "123456" }).expect(401);
+
+        const expiredDestination = "otp-expired@example.test";
+        await createOtpChallenge(expiredDestination, "signin", "123456", { expiresAt: new Date(Date.now() - 1000) });
+        await request(app).post("/api/v1/auth/otp/verify")
+            .send({ email: expiredDestination, purpose: "signin", code: "123456" }).expect(401);
+    });
+    it("establishes OTP sessions only in HTTP-only cookies and isolates admin JWTs", async () => {
+        const account = await signupAndSignin("otp-session@example.test");
+        await createOtpChallenge(account.body.user.email, "signin");
+        const session = await request(app).post("/api/v1/auth/otp/verify")
+            .send({ email: account.body.user.email, purpose: "signin", code: "123456" }).expect(200);
+        assert.equal(session.body.accessToken, undefined);
+        assert.ok(session.headers["set-cookie"].some((cookie) => /calmwork_access=.*HttpOnly/i.test(cookie)));
+        assert.ok(session.headers["set-cookie"].some((cookie) => /calmwork_refresh=.*HttpOnly/i.test(cookie)));
+
+        await createOtpChallenge("admin@gmail.com", "admin");
+        const admin = await request(app).post("/api/v1/operations/auth/otp/verify")
+            .send({ email: "admin@gmail.com", code: "123456" }).expect(200);
+        const cookie = admin.headers["set-cookie"].find((value) => value.startsWith("calmwork_operations="));
+        assert.ok(cookie);
+        const token = cookie.split(";")[0].slice("calmwork_operations=".length);
+        assert.equal(jwt.verify(token, process.env.JWT_ADMIN_SECRET).typ, "operations_admin");
+        assert.throws(() => jwt.verify(token, process.env.JWT_ACCESS_SECRET));
+    });
+    it("keeps planner tasks tenant- and user-scoped and does not persist salary estimates", async () => {
+        const firstOwner = await signupAndSignin("tools-first@example.test");
+        const secondOwner = await signupAndSignin("tools-second@example.test");
+        const firstAuth = { Authorization: `Bearer ${firstOwner.body.accessToken}` };
+        const secondAuth = { Authorization: `Bearer ${secondOwner.body.accessToken}` };
+        const dueAt = new Date(Date.now() + 86_400_000).toISOString();
+        const created = await request(app).post("/api/v1/tools/planner").set(firstAuth)
+            .send({ title: "Focus time", estimatedMinutes: 45, dueAt }).expect(201);
+        assert.equal(new Date(created.body.task.startsAt).toISOString(), dueAt);
+        const updatedDueAt = new Date(Date.now() + 172_800_000).toISOString();
+        const updated = await request(app).patch(`/api/v1/tools/planner/${created.body.task._id}`).set(firstAuth)
+            .send({ dueAt: updatedDueAt }).expect(200);
+        assert.equal(new Date(updated.body.task.startsAt).toISOString(), updatedDueAt);
+        const otherTasks = await request(app).get("/api/v1/tools/planner").set(secondAuth).expect(200);
+        assert.equal(otherTasks.body.tasks.length, 0);
+
+        await request(app).post("/api/v1/tools/salary/check").set(firstAuth)
+            .send({ grossMonthly: 5000 }).expect(403);
+        const employee = await User.create({
+            organizationId: firstOwner.body.user.organizationId,
+            teamId: firstOwner.body.user.teamId,
+            name: "Salary Private",
+            email: "salary-private@example.test",
+            passwordHash: await bcrypt.hash("correct-horse-battery", 12),
+            role: "employee",
+            subscription: { plan: "Team", status: "trialing", trialEndsAt: new Date(Date.now() + 86_400_000) },
+        });
+        const employeeSession = await createTestSession({ email: employee.email, password: "correct-horse-battery" });
+        const salary = await request(app).post("/api/v1/tools/salary/check")
+            .set({ Authorization: `Bearer ${employeeSession.accessToken}` })
+            .send({ grossMonthly: 5000, deductionsMonthly: 500, estimatedTaxRate: 10 }).expect(200);
+        assert.equal(salary.body.estimate.estimatedTakeHomeMonthly, 4000);
+        assert.equal(await EmployeeTool.countDocuments({ organizationId: employee.organizationId, kind: "salary" }), 0);
+    });
     it("supports the requested collection, analytics, billing, webhook, and report paths", async () => {
         const account = await signupAndSignin("contract-aliases@example.test");
         const auth = { Authorization: `Bearer ${account.body.accessToken}` };
@@ -242,9 +331,9 @@ describe("PULSE API", () => {
             .expect((res) => assert.equal(res.body.member.role, "manager"));
         await request(app).post("/api/v1/billing/checkout-session").set(auth)
             .send({ plan: "Team", cycle: "monthly" }).expect(503);
-        await request(app).post("/api/v1/webhooks/stripe")
-            .set("Content-Type", "application/json").set("Stripe-Signature", "invalid")
-            .send("{}").expect(503);
+        await request(app).post("/api/v1/webhooks/razorpay")
+            .set("Content-Type", "application/json").set("X-Razorpay-Signature", "invalid")
+            .send("{}").expect(403);
         await request(app).post("/api/v1/reports/preview").set(auth)
             .send({ period: "30d", metrics: ["Active time"], format: "pdf" }).expect(200);
     });
@@ -277,22 +366,19 @@ describe("PULSE API", () => {
         assert.equal(member.body.accessToken, undefined);
         assert.equal(member.headers["set-cookie"], undefined);
         const checkoutEvent = {
-            id: "evt_workspace_subscription",
-            type: "checkout.session.completed",
-            data: {
-                object: {
-                    client_reference_id: owner.body.user.id,
-                    customer: "cus_workspace",
-                    subscription: "sub_workspace",
-                    metadata: {
-                        userId: owner.body.user.id,
-                        organizationId: owner.body.user.organizationId,
-                        plan: "Business",
-                    },
+            event: "subscription.activated",
+            payload: { subscription: { entity: {
+                id: "sub_workspace",
+                status: "active",
+                current_end: Math.floor(Date.now() / 1000) + 86_400,
+                notes: {
+                    userId: owner.body.user.id,
+                    organizationId: owner.body.user.organizationId,
+                    plan: "Business",
                 },
-            },
+            } } },
         };
-        await processStripeEvent(checkoutEvent);
+        await processRazorpayEvent(checkoutEvent, "evt_workspace_subscription");
         const updatedMember = await User.findById(member.body.user.id);
         assert.equal(updatedMember?.subscription.plan, "Business");
         assert.equal(updatedMember?.subscription.status, "active");
@@ -489,14 +575,13 @@ describe("PULSE API", () => {
         await request(app).post("/api/v1/sessions/heartbeat").set(auth)
             .send({ sessionId: id }).expect(404);
     });
-    it("persists Stripe event idempotency after successful handling", async () => {
+    it("persists Razorpay event idempotency after successful handling", async () => {
         const event = {
-            id: "evt_idempotency_test",
-            type: "customer.updated",
-            data: { object: {} },
+            event: "subscription.pending",
+            payload: {},
         };
-        assert.deepEqual(await processStripeEvent(event), { duplicate: false });
-        assert.deepEqual(await processStripeEvent(event), { duplicate: true });
+        assert.deepEqual(await processRazorpayEvent(event, "evt_idempotency_test"), { duplicate: false });
+        assert.deepEqual(await processRazorpayEvent(event, "evt_idempotency_test"), { duplicate: true });
     });
     it("returns analytics trends and heatmap only for sufficiently sized groups", async () => {
         const account = await signupAndSignin("analytics@example.test");
@@ -571,76 +656,67 @@ describe("PULSE API", () => {
         assert.match(file.headers["content-type"], /text\/csv/);
         assert.match(file.text, /Metric,Value/);
     });
-    it("expires trials and persists invoices from Stripe webhook events", async () => {
+    it("expires trials and persists invoices from Razorpay webhook events", async () => {
         const account = await signupAndSignin("invoice@example.test");
         await User.updateMany({ organizationId: account.body.user.organizationId }, { $set: {
-                "subscription.stripeCustomerId": "cus_invoice",
+                "subscription.razorpaySubscriptionId": "sub_invoice",
                 "subscription.trialEndsAt": new Date(Date.now() - 1000),
             } });
         assert.ok(await expireTrials() >= 1);
         const event = {
-            id: "evt_invoice_paid",
-            type: "invoice.paid",
-            data: {
-                object: {
-                    id: "in_test",
-                    customer: "cus_invoice",
-                    number: "PULSE-1",
-                    currency: "usd",
-                    amount_due: 1600,
-                    amount_paid: 1600,
-                    status: "paid",
-                    hosted_invoice_url: "https://invoice.example.test/1",
-                    invoice_pdf: "https://invoice.example.test/1.pdf",
-                    period_start: 1790000000,
-                    period_end: 1792592000,
-                    created: 1790000000,
-                },
+            event: "subscription.charged",
+            payload: {
+                subscription: { entity: {
+                    id: "sub_invoice",
+                    status: "active",
+                    current_end: 1792592000,
+                    notes: { organizationId: account.body.user.organizationId, plan: "Team" },
+                } },
+                payment: { entity: {
+                    id: "pay_test",
+                    invoice_id: "PULSE-1",
+                    currency: "INR",
+                    amount: 160000,
+                    status: "captured",
+                    created_at: 1790000000,
+                } },
             },
         };
-        await processStripeEvent(event);
-        const invoice = await Invoice.findOne({ stripeInvoiceId: "in_test" }).lean();
-        assert.equal(invoice?.amountPaid, 1600);
+        await processRazorpayEvent(event, "evt_invoice_paid");
+        const invoice = await Invoice.findOne({ providerInvoiceId: "pay_test" }).lean();
+        assert.equal(invoice?.amountPaid, 160000);
         assert.equal(invoice?.number, "PULSE-1");
         assert.ok(await User.exists({ _id: account.body.user.id, "subscription.status": "active" }));
     });
-    it("verifies Stripe signatures against the unparsed webhook payload", async () => {
-        const oldStripeKey = process.env.STRIPE_SECRET_KEY;
-        const oldWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-        const secret = "whsec_webhook_test_secret";
-        process.env.STRIPE_SECRET_KEY = "sk_test_webhook";
-        process.env.STRIPE_WEBHOOK_SECRET = secret;
+    it("verifies Razorpay signatures against the unparsed webhook payload", async () => {
+        const oldWebhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+        const secret = "razorpay_webhook_test_secret";
+        process.env.RAZORPAY_WEBHOOK_SECRET = secret;
         try {
             const payload = JSON.stringify({
-                id: "evt_raw_body_test",
-                type: "customer.updated",
-                data: { object: {} },
+                event: "payment.authorized",
+                payload: {},
             });
-            const stripe = new Stripe("sk_test_webhook");
-            const signature = stripe.webhooks.generateTestHeaderString({ payload, secret });
+            const signature = createHmac("sha256", secret).update(payload).digest("hex");
             const response = await request(app)
-                .post("/api/v1/billing/webhook")
+                .post("/api/v1/webhooks/razorpay")
                 .set("Content-Type", "application/json")
-                .set("Stripe-Signature", signature)
+                .set("X-Razorpay-Signature", signature)
                 .send(payload)
                 .expect(200);
             assert.equal(response.body.received, true);
             await request(app)
-                .post("/api/v1/billing/webhook")
+                .post("/api/v1/webhooks/razorpay")
                 .set("Content-Type", "application/json")
-                .set("Stripe-Signature", "t=1,v1=invalid")
+                .set("X-Razorpay-Signature", "invalid")
                 .send(payload)
                 .expect(400);
         }
         finally {
-            if (oldStripeKey === undefined)
-                delete process.env.STRIPE_SECRET_KEY;
-            else
-                process.env.STRIPE_SECRET_KEY = oldStripeKey;
             if (oldWebhookSecret === undefined)
-                delete process.env.STRIPE_WEBHOOK_SECRET;
+                delete process.env.RAZORPAY_WEBHOOK_SECRET;
             else
-                process.env.STRIPE_WEBHOOK_SECRET = oldWebhookSecret;
+                process.env.RAZORPAY_WEBHOOK_SECRET = oldWebhookSecret;
         }
     });
     it("does not allow report exports during a trial", async () => {
@@ -663,27 +739,26 @@ describe("PULSE API", () => {
         const employeeSession = await createTestSession({ email: "platform-employee@example.test", password: "correct-horse-battery" });
         const employeeId = invitedEmployee.body.user.id;
 
-        const admin = request.agent(app);
-        await admin.get("/api/v1/operations/overview").expect(401);
-        await request(app).post("/api/v1/operations/auth/signin")
-            .send({ username: "other", email: "admin@gmail.com", password: process.env.OPS_ADMIN_PASSWORD }).expect(401);
-        await request(app).post("/api/v1/operations/auth/signin")
-            .send({ username: "admin", email: "Admin@gmail.com", password: process.env.OPS_ADMIN_PASSWORD }).expect(401);
-        await admin.post("/api/v1/operations/auth/signin")
-            .send({ username: "admin", email: "admin@gmail.com", password: process.env.OPS_ADMIN_PASSWORD }).expect(200);
-        await admin.get("/api/v1/operations/auth/me").expect(200);
-
-        const businessList = await admin.get("/api/v1/operations/businesses").expect(200);
+        await request(app).get("/api/v1/operations/overview").expect(401);
+        await request(app).post("/api/v1/operations/auth/signin").send({}).expect(401);
+        const adminToken = jwt.sign({ typ: "operations_admin" }, process.env.JWT_ADMIN_SECRET, {
+            subject: "admin@gmail.com",
+            issuer: "calmwork-operations",
+            audience: "calmwork-admin",
+            expiresIn: "8h",
+        });
+        const asAdmin = (method, path) => request(app)[method](path).set("Cookie", `calmwork_operations=${adminToken}`);
+        const businessList = await asAdmin("get", "/api/v1/operations/businesses").expect(200);
         assert.ok(businessList.body.businesses.some((business) => business.name === "Platform Owner's workspace"));
-        const team = await admin.post("/api/v1/operations/teams")
+        const team = await asAdmin("post", "/api/v1/operations/teams")
             .send({ organizationId: owner.body.user.organizationId, name: "Operations" }).expect(201);
-        const assigned = await admin.patch(`/api/v1/operations/users/${employeeId}/team`)
+        const assigned = await asAdmin("patch", `/api/v1/operations/users/${employeeId}/team`)
             .send({ teamId: team.body.team._id }).expect(200);
         assert.equal(assigned.body.user.teamId._id, team.body.team._id);
-        await admin.delete(`/api/v1/operations/teams/${team.body.team._id}`).expect(400);
-        const emptyTeam = await admin.post("/api/v1/operations/teams")
+        await asAdmin("delete", `/api/v1/operations/teams/${team.body.team._id}`).expect(400);
+        const emptyTeam = await asAdmin("post", "/api/v1/operations/teams")
             .send({ organizationId: owner.body.user.organizationId, name: "Archive me" }).expect(201);
-        await admin.delete(`/api/v1/operations/teams/${emptyTeam.body.team._id}`).expect(200);
+        await asAdmin("delete", `/api/v1/operations/teams/${emptyTeam.body.team._id}`).expect(200);
 
         const startedAt = new Date();
         await Attendance.create({
@@ -706,24 +781,24 @@ describe("PULSE API", () => {
             status: "stopped",
         });
         const date = startedAt.toISOString().slice(0, 10);
-        const activity = await admin.get(`/api/v1/operations/activity?date=${date}`).expect(200);
+        const activity = await asAdmin("get", `/api/v1/operations/activity?date=${date}`).expect(200);
         assert.equal(activity.body.businesses[0].activeSeconds, 60);
         assert.equal(activity.body.businesses[0].task, undefined);
-        const attendance = await admin.get(`/api/v1/operations/attendance?date=${date}`).expect(200);
+        const attendance = await asAdmin("get", `/api/v1/operations/attendance?date=${date}`).expect(200);
         assert.equal(attendance.body.records[0].email, "platform-employee@example.test");
-        const csv = await admin.get(`/api/v1/operations/attendance/export?date=${date}`).expect(200);
+        const csv = await asAdmin("get", `/api/v1/operations/attendance/export?date=${date}`).expect(200);
         assert.match(csv.text, /platform-employee@example\.test/);
 
-        const disabled = await admin.patch(`/api/v1/operations/users/${employeeId}`)
+        const disabled = await asAdmin("patch", `/api/v1/operations/users/${employeeId}`)
             .send({ isActive: false }).expect(200);
         assert.equal(disabled.body.user.isActive, false);
         await request(app).get("/api/v1/workspace/teams")
             .set("Authorization", `Bearer ${employeeSession.accessToken}`).expect(401);
         const business = businessList.body.businesses.find((item) => item._id === owner.body.user.organizationId);
-        await admin.patch(`/api/v1/operations/businesses/${business._id}`).send({ isActive: false }).expect(200);
+        await asAdmin("patch", `/api/v1/operations/businesses/${business._id}`).send({ isActive: false }).expect(200);
         await request(app).get("/api/v1/workspace/teams")
             .set("Authorization", `Bearer ${owner.body.accessToken}`).expect(401);
-        await admin.post("/api/v1/operations/auth/logout").expect(204);
+        await asAdmin("post", "/api/v1/operations/auth/logout").expect(204);
     });
 
     it("reserves the platform administrator email from business signup", async () => {
@@ -733,27 +808,10 @@ describe("PULSE API", () => {
             password: "correct-horse-battery",
         }).expect(409);
     });
-    it("keeps non-admin API routes available when the operations password is not configured", async () => {
-        const previousPassword = process.env.OPS_ADMIN_PASSWORD;
-        try {
-            for (const password of [undefined, "too-short"]) {
-                if (password === undefined)
-                    delete process.env.OPS_ADMIN_PASSWORD;
-                else
-                    process.env.OPS_ADMIN_PASSWORD = password;
-                await request(app).get("/health").expect(200);
-                await request(app).post("/api/v1/operations/auth/signin")
-                    .send({ username: "admin", email: "admin@gmail.com", password: "any-password" })
-                    .expect(503)
-                    .expect((res) => assert.equal(res.body.error.code, "ADMIN_UNAVAILABLE"));
-            }
-        }
-        finally {
-            if (previousPassword === undefined)
-                delete process.env.OPS_ADMIN_PASSWORD;
-            else
-                process.env.OPS_ADMIN_PASSWORD = previousPassword;
-        }
+    it("rejects password sign-in attempts and keeps unauthenticated admin access closed", async () => {
+        await request(app).get("/health").expect(200);
+        await request(app).post("/api/v1/auth/signin").send({ email: "person@example.test", password: "password" }).expect(401);
+        await request(app).post("/api/v1/operations/auth/signin").send({}).expect(401);
     });
 
     it("gives business admins a scoped console for members, invitations, teams, settings and audit history", async () => {
@@ -878,7 +936,7 @@ describe("PULSE API", () => {
             .send({ isActive: false }).expect(200);
         assert.equal(lastAdmin.body.member.isActive, false);
         await request(app).patch(`/api/v1/admin/members/${teammate.id}`).set(auth)
-            .send({ teamId: new mongoose.Types.ObjectId().toString() }).expect(400);
+            .send({ teamId: new mongoose.Types.ObjectId().toString() }).expect(404);
     });
 
     it("lets business admins triage wellbeing alerts and review generated reports", async () => {

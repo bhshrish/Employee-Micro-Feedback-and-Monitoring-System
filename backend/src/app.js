@@ -38,7 +38,7 @@ function createApp({ ensureDatabaseConnected } = {}) {
             callback(new Error("Origin is not allowed by CORS"));
         },
         methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-        allowedHeaders: ["Content-Type", "Authorization", "X-Request-ID", "Stripe-Signature"],
+        allowedHeaders: ["Content-Type", "Authorization", "X-Request-ID", "X-Razorpay-Signature"],
     }));
     app.use((0, pino_http_1.default)({
         logger: logger_1.logger,
@@ -80,8 +80,7 @@ function createApp({ ensureDatabaseConnected } = {}) {
                 .then(() => next(), next);
         });
     }
-    app.use("/api/v1/billing/webhook", express_1.default.raw({ type: "application/json", limit: "1mb" }), billing_controller_1.webhook);
-    app.use("/api/v1/webhooks/stripe", express_1.default.raw({ type: "application/json", limit: "1mb" }), billing_controller_1.webhook);
+    app.use("/api/v1/webhooks/razorpay", express_1.default.raw({ type: "application/json", limit: "1mb" }), billing_controller_1.webhook);
     app.use(express_1.default.json({ limit: "64kb", strict: true }));
     app.use((0, cookie_parser_1.default)());
     app.use(validate_1.sanitizeBody);
@@ -106,11 +105,16 @@ function createApp({ ensureDatabaseConnected } = {}) {
                 const body = args[0];
                 if (req.path.startsWith("/health/"))
                     return Reflect.apply(target, thisArg, args);
-                if (body && typeof body === "object" && !Array.isArray(body) && !("error" in body) && !("data" in body)) {
-                    args[0] = { ...body, data: body };
+                if (body && typeof body === "object" && !Array.isArray(body)) {
+                    if (body.error) {
+                        args[0] = { ...body, success: false, data: body.data ?? null };
+                    }
+                    else {
+                        args[0] = { success: true, data: body.data ?? body, error: body.error ?? null, ...body };
+                    }
                 }
                 else if (Array.isArray(body)) {
-                    args[0] = { data: body };
+                    args[0] = { success: true, data: body, error: null };
                 }
                 return Reflect.apply(target, thisArg, args);
             },
@@ -125,16 +129,6 @@ function createApp({ ensureDatabaseConnected } = {}) {
         legacyHeaders: false,
         handler: (req, res) => res.status(429).json({
             error: { code: "RATE_LIMITED", message: "Too many authentication attempts", requestId: req.requestId },
-        }),
-    }));
-    app.use("/api/v1/operations/auth/signin", (0, express_rate_limit_1.default)({
-        windowMs: 15 * 60_000,
-        limit: 5,
-        skip: () => (0, env_1.getConfig)().NODE_ENV === "test",
-        standardHeaders: "draft-7",
-        legacyHeaders: false,
-        handler: (req, res) => res.status(429).json({
-            error: { code: "RATE_LIMITED", message: "Too many admin sign-in attempts", requestId: req.requestId },
         }),
     }));
     app.use("/api/v1", routes_1.default);

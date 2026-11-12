@@ -7,6 +7,7 @@ const userSchema = new mongoose_1.Schema({
     teamId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Team", default: null },
     name: { type: String, required: true, trim: true, minlength: 2, maxlength: 100 },
     email: { type: String, required: true, trim: true, unique: true, index: true },
+    phone: { type: String, trim: true, default: undefined },
     passwordHash: { type: String, required: true, select: false },
     role: { type: String, enum: ["employee", "manager", "admin"], default: "employee", required: true },
     isActive: { type: Boolean, default: true, index: true },
@@ -14,6 +15,8 @@ const userSchema = new mongoose_1.Schema({
         plan: { type: String, enum: ["Starter", "Team", "Business"], default: "Team" },
         status: { type: String, enum: ["trialing", "trial_expired", "active", "canceled"], default: "trialing" },
         trialEndsAt: { type: Date, required: true },
+        razorpaySubscriptionId: { type: String, default: null },
+        razorpayPlanId: { type: String, default: null, select: false },
         stripeCustomerId: { type: String, default: null, select: false },
         stripeSubscriptionId: { type: String, default: null },
         cancelAtPeriodEnd: { type: Boolean, default: false },
@@ -29,4 +32,5 @@ const userSchema = new mongoose_1.Schema({
     },
 }, { timestamps: true, minimize: false });
 userSchema.index({ organizationId: 1, teamId: 1 });
+userSchema.index({ phone: 1 }, { unique: true, sparse: true });
 exports.User = mongoose_1.models.User || (0, mongoose_1.model)("User", userSchema);

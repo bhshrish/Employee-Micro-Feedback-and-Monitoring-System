@@ -52,6 +52,15 @@ export function formatDateTime(value) {
     return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }
 
+export function formatTime(value) {
+    return value ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "—";
+}
+
+export function formatDuration(seconds = 0) {
+    const total = Math.max(0, Math.floor(seconds));
+    return `${Math.floor(total / 3600)}h ${Math.floor((total % 3600) / 60)}m`;
+}
+
 export function formatAction(action) {
     if (!action)
         return "Update";

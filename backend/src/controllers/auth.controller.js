@@ -36,24 +36,37 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateProfile = exports.me = exports.logoutEverywhere = exports.logout = exports.refresh = exports.acceptInvitation = exports.signin = exports.signup = exports.forgotPassword = exports.resetPassword = void 0;
 const env_1 = require("../config/env");
 const auth = __importStar(require("../services/auth.service"));
+const otp = require("../services/otp.service");
 const async_handler_1 = require("../utils/async-handler");
 const errors_1 = require("../utils/errors");
 const cookieName = "calmwork_refresh";
-function cookieOptions() {
+const accessCookieName = "calmwork_access";
+function cookieOptions(path = "/api/v1/auth") {
     const config = (0, env_1.getConfig)();
     return {
         httpOnly: true,
         secure: config.COOKIE_SECURE || config.NODE_ENV === "production",
         sameSite: config.NODE_ENV === "production" ? "none" : "lax",
-        path: "/api/v1/auth",
+        path,
         ...(config.COOKIE_DOMAIN ? { domain: config.COOKIE_DOMAIN } : {}),
         maxAge: config.REFRESH_TOKEN_DAYS * 86_400_000,
     };
 }
-function setSession(res, result, statusCode = 200) {
-    res.cookie(cookieName, result.refreshToken, cookieOptions());
+function setSession(res, result, statusCode = 200, exposeAccessToken = true) {
+    res.cookie(cookieName, result.refreshToken, cookieOptions("/api/v1/auth"));
+    res.cookie(accessCookieName, result.accessToken, {
+        ...cookieOptions("/api/v1"),
+        maxAge: undefined,
+    });
     res.setHeader("Cache-Control", "no-store");
-    res.status(statusCode).json({ user: result.user, accessToken: result.accessToken, tokenType: "Bearer" });
+    res.status(statusCode).json({
+        user: result.user,
+        ...(exposeAccessToken ? { accessToken: result.accessToken, tokenType: "Bearer" } : {}),
+    });
+}
+function clearSessionCookies(res) {
+    res.clearCookie(cookieName, { ...cookieOptions("/api/v1/auth"), maxAge: undefined });
+    res.clearCookie(accessCookieName, { ...cookieOptions("/api/v1"), maxAge: undefined });
 }
 exports.signup = (0, async_handler_1.asyncHandler)(async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
@@ -69,18 +82,18 @@ exports.refresh = (0, async_handler_1.asyncHandler)(async (req, res) => {
     const raw = req.cookies?.[cookieName];
     if (!raw)
         throw (0, errors_1.unauthorized)("Refresh cookie is required");
-    setSession(res, await auth.rotateRefreshToken(raw));
+    setSession(res, await auth.rotateRefreshToken(raw), 200, false);
 });
 exports.logout = (0, async_handler_1.asyncHandler)(async (req, res) => {
     await auth.revokeRefreshToken(req.cookies?.[cookieName]);
-    res.clearCookie(cookieName, { ...cookieOptions(), maxAge: undefined });
+    clearSessionCookies(res);
     res.status(204).end();
 });
 exports.logoutEverywhere = (0, async_handler_1.asyncHandler)(async (req, res) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
     await auth.revokeAllRefreshTokens(req.auth.userId);
-    res.clearCookie(cookieName, { ...cookieOptions(), maxAge: undefined });
+    clearSessionCookies(res);
     res.status(204).end();
 });
 exports.me = (0, async_handler_1.asyncHandler)(async (req, res) => {
@@ -95,6 +108,8 @@ exports.updateProfile = (0, async_handler_1.asyncHandler)(async (req, res) => {
     const update = {};
     if (req.body.name !== undefined)
         update.name = req.body.name;
+    if (req.body.phone !== undefined)
+        update.phone = req.body.phone;
     if (req.body.settings?.idleThresholdMinutes !== undefined)
         update["settings.idleThresholdMinutes"] = req.body.settings.idleThresholdMinutes;
     for (const [key, value] of Object.entries(req.body.settings?.notifications ?? {})) {
@@ -112,4 +127,13 @@ exports.forgotPassword = (0, async_handler_1.asyncHandler)(async (req, res) => {
 exports.resetPassword = (0, async_handler_1.asyncHandler)(async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     res.status(200).json(await auth.resetPassword(req.body));
+});
+exports.requestOtp = (0, async_handler_1.asyncHandler)(async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.status(200).json(await otp.requestOtp(req.body));
+});
+exports.verifyOtp = (0, async_handler_1.asyncHandler)(async (req, res) => {
+    const result = await otp.verifyOtp(req.body);
+    res.setHeader("Cache-Control", "no-store");
+    setSession(res, result, 200, false);
 });

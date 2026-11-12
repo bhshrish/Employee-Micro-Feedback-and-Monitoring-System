@@ -4,7 +4,8 @@ exports.Invoice = void 0;
 const mongoose_1 = require("mongoose");
 const invoiceSchema = new mongoose_1.Schema({
     organizationId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
-    stripeInvoiceId: { type: String, required: true },
+    providerInvoiceId: { type: String, required: true },
+    stripeInvoiceId: { type: String, default: null },
     number: { type: String, default: null },
     currency: { type: String, required: true },
     amountDue: { type: Number, required: true },
@@ -16,5 +17,6 @@ const invoiceSchema = new mongoose_1.Schema({
     periodEnd: { type: Date, default: null },
     issuedAt: { type: Date, required: true },
 }, { timestamps: true });
+invoiceSchema.index({ organizationId: 1, providerInvoiceId: 1 }, { unique: true });
 invoiceSchema.index({ organizationId: 1, stripeInvoiceId: 1 }, { unique: true });
 exports.Invoice = mongoose_1.models.Invoice || (0, mongoose_1.model)("Invoice", invoiceSchema);

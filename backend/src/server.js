@@ -38,6 +38,7 @@ const app_1 = require("./app");
 const env_1 = require("./config/env");
 const alerts_1 = require("./jobs/alerts");
 const subscriptions_1 = require("./jobs/subscriptions");
+const reminders_1 = require("./jobs/reminders");
 const logger_1 = require("./utils/logger");
 const app = app_1.default;
 function handler(req, res) {
@@ -49,10 +50,12 @@ async function main() {
     await ensureDatabaseConnected();
     const jobs = (0, alerts_1.startAlertJobs)();
     const trialJob = (0, subscriptions_1.startTrialExpirationJob)();
+    const reminderJob = (0, reminders_1.startReminderJob)();
     const server = app.listen(config.PORT, () => logger_1.logger.info({ port: config.PORT }, "CalmWork API listening"));
     const shutdown = () => {
         jobs.stop();
         trialJob.stop();
+        reminderJob.stop();
         server.close(() => {
             void Promise.resolve().then(() => __importStar(require("mongoose"))).then(({ default: mongoose }) => mongoose.disconnect()).finally(() => process.exit(0));
         });

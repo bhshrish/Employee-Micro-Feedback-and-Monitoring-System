@@ -1,49 +1,64 @@
 "use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendPasswordResetEmail = sendPasswordResetEmail;
-const env_1 = require("../config/env");
-function buildResetUrl(token) {
-    const config = (0, env_1.getConfig)();
-    return `${config.FRONTEND_URL.replace(/\/$/, "")}/reset-password?token=${encodeURIComponent(token)}`;
+const nodemailer = require("nodemailer");
+const { getConfig } = require("../config/env");
+const { AppError } = require("../utils/errors");
+const { logger } = require("../utils/logger");
+
+function getTransporter(config) {
+    if (!config.SMTP_HOST || !config.SMTP_USER || !config.SMTP_PASS || !config.SMTP_FROM) {
+        if (config.NODE_ENV !== "production")
+            return null;
+        throw new AppError(503, "Email delivery is not configured.", "EMAIL_DELIVERY_UNAVAILABLE");
+    }
+
+    // MANUAL SETUP REQUIRED: configure SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, and SMTP_FROM using your email provider's SMTP settings.
+    return nodemailer.createTransport({
+        host: config.SMTP_HOST,
+        port: config.SMTP_PORT || 587,
+        secure: config.SMTP_PORT === 465,
+        auth: { user: config.SMTP_USER, pass: config.SMTP_PASS },
+    });
 }
-function formatEmail({ to, resetUrl }) {
-    const config = (0, env_1.getConfig)();
-    const fromName = config.SMTP_FROM_NAME || "CalmWork";
-    const from = config.SMTP_FROM || "noreply@localhost";
-    return `From: ${fromName} <${from}>\r
-To: ${to}\r
-Subject: Reset your CalmWork password\r
-Content-Type: text/plain; charset=utf-8\r
-\r
-You requested a password reset for your CalmWork account.
 
-Tap the link below to set a new password. This link expires in ${config.PASSWORD_RESET_TTL_MINUTES} minutes:
-
-${resetUrl}
-
-If you didn't request this, you can safely ignore this email. Your password will not change.
-
-— CalmWork
-`;
-}
-async function sendPasswordResetEmail(input) {
-    const config = (0, env_1.getConfig)();
-    const resetUrl = buildResetUrl(input.token);
-    const email = formatEmail({ to: input.to, resetUrl });
-    const smtpConfigured = Boolean(config.SMTP_HOST && config.SMTP_USER && config.SMTP_PASS && config.SMTP_FROM);
-    if (config.NODE_ENV === "production" && !smtpConfigured) {
-        // In production without SMTP configured, surface the link in logs so it is not lost.
-        // Wire an SMTP transporter here (e.g. nodemailer) to deliver real emails.
-        console.error(`[CalmWork] SMTP not configured. Password reset link for ${input.to}:\n${resetUrl}`);
+async function deliver({ to, subject, text }) {
+    const config = getConfig();
+    const transporter = getTransporter(config);
+    if (!transporter) {
+        logger.info({ to, subject, text }, "Development email preview");
         return;
     }
-    if (smtpConfigured) {
-        // SMTP env vars are present but no SMTP client library is a dependency of this project.
-        // Log the link for now; connect an SMTP transporter here to deliver in production.
-        console.log(`[CalmWork] SMTP configured but no transporter wired. Password reset link for ${input.to}:\n${resetUrl}`);
-        return;
-    }
-    // Development / test: log the reset link so it can be copied and opened directly.
-    console.log(`[CalmWork] Password reset link for ${input.to}:\n${resetUrl}`);
-    return email;
+    await transporter.sendMail({
+        from: { name: config.SMTP_FROM_NAME || "CalmWork", address: config.SMTP_FROM },
+        to,
+        subject,
+        text,
+    });
 }
+
+async function sendOtpEmail({ to, code, expiresInMinutes }) {
+    await deliver({
+        to,
+        subject: "Your CalmWork verification code",
+        text: `Your CalmWork verification code is ${code}.\n\nIt expires in ${expiresInMinutes} minutes. If you did not request this code, you can ignore this email.\n`,
+    });
+}
+
+async function sendCalendarReminder({ to, name, title, startsAt, description }) {
+    await deliver({
+        to,
+        subject: `Reminder: ${title}`,
+        text: `Hello ${name},\n\nThis is a reminder for "${title}" scheduled for ${new Date(startsAt).toLocaleString()}.\n${description ? `\n${description}\n` : ""}\n— CalmWork\n`,
+    });
+}
+
+async function sendPasswordResetEmail({ to, token }) {
+    const config = getConfig();
+    const resetUrl = `${config.FRONTEND_URL.replace(/\/$/, "")}/reset-password?token=${encodeURIComponent(token)}`;
+    await deliver({
+        to,
+        subject: "Reset your CalmWork password",
+        text: `You requested a password reset for your CalmWork account.\n\nUse the link below to set a new password. It expires in ${config.PASSWORD_RESET_TTL_MINUTES} minutes:\n\n${resetUrl}\n\nIf you did not request this, you can ignore this email.\n`,
+    });
+}
+
+module.exports = { sendOtpEmail, sendCalendarReminder, sendPasswordResetEmail };

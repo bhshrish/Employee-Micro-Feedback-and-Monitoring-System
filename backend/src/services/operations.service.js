@@ -1,7 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.adminEmail = void 0;
-exports.verifyAdminCredentials = verifyAdminCredentials;
 exports.operationsOverview = operationsOverview;
 exports.listBusinesses = listBusinesses;
 exports.setBusinessActive = setBusinessActive;
@@ -14,7 +13,6 @@ exports.assignUserTeam = assignUserTeam;
 exports.activitySummary = activitySummary;
 exports.attendanceDashboard = attendanceDashboard;
 exports.attendanceCsv = attendanceCsv;
-const node_crypto_1 = require("node:crypto");
 const mongoose_1 = require("mongoose");
 const env_1 = require("../config/env");
 const errors_1 = require("../utils/errors");
@@ -24,27 +22,7 @@ const Team_1 = require("../models/Team");
 const TeamActivity_1 = require("../models/TeamActivity");
 const Attendance_1 = require("../models/Attendance");
 const RefreshToken_1 = require("../models/RefreshToken");
-exports.adminEmail = "admin@gmail.com";
-const adminUsername = "admin";
-
-function fixedTimeEqual(left, right) {
-    const leftHash = (0, node_crypto_1.createHash)("sha256").update(left).digest();
-    const rightHash = (0, node_crypto_1.createHash)("sha256").update(right).digest();
-    return (0, node_crypto_1.timingSafeEqual)(leftHash, rightHash);
-}
-
-function verifyAdminCredentials(username, email, password) {
-    const expected = (0, env_1.getConfig)().OPS_ADMIN_PASSWORD;
-    if (!expected || expected.length < 12)
-        throw new errors_1.AppError(503, "Operations admin access is not configured with a password of at least 12 characters.", "ADMIN_UNAVAILABLE");
-    const validUsername = fixedTimeEqual(username, adminUsername);
-    const validEmail = fixedTimeEqual(email, exports.adminEmail);
-    const validPassword = fixedTimeEqual(password, expected);
-    const valid = validUsername & validEmail & validPassword;
-    if (!valid)
-        throw (0, errors_1.unauthorized)("Admin username, email, or password is incorrect");
-}
-
+exports.adminEmail = (0, env_1.getConfig)().OPS_ADMIN_EMAIL;
 async function operationsOverview() {
     const start = new Date();
     start.setUTCHours(0, 0, 0, 0);

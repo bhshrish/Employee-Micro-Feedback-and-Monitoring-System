@@ -1,105 +1,160 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.createCheckout = createCheckout;
-exports.cancelSubscription = cancelSubscription;
-exports.invoices = invoices;
-exports.plans = plans;
-exports.subscription = subscription;
-exports.createPortalSession = createPortalSession;
-exports.processStripeEvent = processStripeEvent;
-exports.verifyStripeSignature = verifyStripeSignature;
-const stripe_1 = __importDefault(require("stripe"));
-const env_1 = require("../config/env");
-const ProcessedWebhook_1 = require("../models/ProcessedWebhook");
-const User_1 = require("../models/User");
-const Organization_1 = require("../models/Organization");
-const Invoice_1 = require("../models/Invoice");
-const errors_1 = require("../utils/errors");
+const { createHmac, createHash, timingSafeEqual } = require("node:crypto");
+const { getConfig } = require("../config/env");
+const { ProcessedWebhook } = require("../models/ProcessedWebhook");
+const { User } = require("../models/User");
+const { Organization } = require("../models/Organization");
+const { Invoice } = require("../models/Invoice");
+const { AppError, badRequest, conflict, forbidden, notFound } = require("../utils/errors");
+
+const PLAN_NAMES = ["Starter", "Team", "Business"];
+const CYCLES = ["monthly", "yearly"];
+
 async function billingOwner(userId) {
-    const member = await User_1.User.findById(userId).select("organizationId");
+    const member = await User.findById(userId).select("organizationId");
     if (!member)
-        throw (0, errors_1.notFound)();
-    const organization = await Organization_1.Organization.findById(member.organizationId).select("ownerId");
+        throw notFound();
+    const organization = await Organization.findById(member.organizationId).select("ownerId");
     const owner = organization
-        ? await User_1.User.findOne({ _id: organization.ownerId, organizationId: member.organizationId }).select("email organizationId subscription")
+        ? await User.findOne({ _id: organization.ownerId, organizationId: member.organizationId }).select("email organizationId subscription")
         : null;
     if (!owner)
-        throw (0, errors_1.notFound)("Workspace billing account not found");
+        throw notFound("Workspace billing account not found");
     return owner;
 }
+
 async function updateWorkspaceSubscription(organizationId, updates) {
-    const result = await User_1.User.updateMany({ organizationId }, { $set: updates });
+    const result = await User.updateMany({ organizationId }, { $set: updates });
     if (!result.matchedCount)
         throw new Error("Workspace billing account was not found");
 }
-function stripeClient() {
-    const key = (0, env_1.getConfig)().STRIPE_SECRET_KEY;
-    if (!key)
-        throw new Error("Billing provider is not configured");
-    return new stripe_1.default(key);
+
+function planId(plan, cycle) {
+    // MANUAL SETUP REQUIRED: create every recurring plan in Razorpay and set its ID in backend/.env.
+    const id = getConfig()[`RAZORPAY_PLAN_${plan.toUpperCase()}_${cycle.toUpperCase()}`];
+    if (!id)
+        throw new AppError(503, "Selected plan is not configured for Razorpay.", "BILLING_NOT_CONFIGURED");
+    return id;
 }
-function stripePrice(plan, cycle) {
-    const key = `STRIPE_PRICE_${plan.toUpperCase()}_${cycle.toUpperCase()}`;
-    const price = (0, env_1.getConfig)()[key];
-    if (typeof price !== "string" || !price)
-        throw new Error("Selected plan is not configured for checkout");
-    return price;
+
+function razorpayCredentials() {
+    const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } = getConfig();
+    if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET)
+        throw new AppError(503, "Razorpay billing is not configured.", "BILLING_NOT_CONFIGURED");
+    return { keyId: RAZORPAY_KEY_ID, keySecret: RAZORPAY_KEY_SECRET };
 }
+
+async function razorpayRequest(path, { method = "GET", body } = {}) {
+    const { keyId, keySecret } = razorpayCredentials();
+    let response;
+    try {
+        response = await fetch(`https://api.razorpay.com/v1${path}`, {
+            method,
+            headers: {
+                Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString("base64")}`,
+                ...(body ? { "Content-Type": "application/json" } : {}),
+            },
+            ...(body ? { body: JSON.stringify(body) } : {}),
+            signal: globalThis.AbortSignal.timeout(10_000),
+        });
+    }
+    catch {
+        throw new AppError(502, "Could not reach Razorpay. Please try again.", "BILLING_PROVIDER_UNAVAILABLE");
+    }
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        const message = payload.error?.description || "Razorpay could not complete the billing request.";
+        throw new AppError(response.status >= 500 ? 502 : 400, message, "BILLING_PROVIDER_ERROR");
+    }
+    return payload;
+}
+
 async function createCheckout(userId, plan, cycle) {
+    if (!PLAN_NAMES.includes(plan) || !CYCLES.includes(cycle))
+        throw badRequest("Selected plan or billing cycle is invalid");
     const user = await billingOwner(userId);
-    const params = {
-        mode: "subscription",
-        line_items: [{ price: stripePrice(plan, cycle), quantity: 1 }],
-        success_url: `${(0, env_1.getConfig)().FRONTEND_URL}/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${(0, env_1.getConfig)().FRONTEND_URL}/checkout?checkout=cancelled`,
-        client_reference_id: user._id.toString(),
-        metadata: { userId: user._id.toString(), organizationId: user.organizationId.toString(), plan, cycle },
-        subscription_data: { metadata: { userId: user._id.toString(), organizationId: user.organizationId.toString(), plan, cycle } },
-        ...(user.subscription.stripeCustomerId ? { customer: user.subscription.stripeCustomerId } : { customer_email: user.email }),
-    };
-    const session = await stripeClient().checkout.sessions.create(params, { idempotencyKey: `checkout:${user._id}:${plan}:${cycle}:${Math.floor(Date.now() / 60_000)}` });
-    return { checkoutUrl: session.url, sessionId: session.id };
+    if (user.subscription.status === "active" && !user.subscription.cancelAtPeriodEnd)
+        throw conflict("This workspace already has an active subscription", "SUBSCRIPTION_ACTIVE");
+    const razorpayPlanId = planId(plan, cycle);
+    const totalCount = cycle === "monthly" ? 120 : 10;
+    const subscription = await razorpayRequest("/subscriptions", {
+        method: "POST",
+        body: {
+            plan_id: razorpayPlanId,
+            total_count: totalCount,
+            quantity: 1,
+            customer_notify: 1,
+            notes: {
+                userId: user._id.toString(),
+                organizationId: user.organizationId.toString(),
+                plan,
+                cycle,
+            },
+        },
+    });
+    if (!subscription.short_url || !subscription.id)
+        throw new AppError(502, "Razorpay did not return a checkout link.", "BILLING_PROVIDER_ERROR");
+    await updateWorkspaceSubscription(user.organizationId, {
+        "subscription.plan": plan,
+        "subscription.razorpaySubscriptionId": subscription.id,
+        "subscription.razorpayPlanId": razorpayPlanId,
+        "subscription.cancelAtPeriodEnd": false,
+    });
+    return { checkoutUrl: subscription.short_url, subscriptionId: subscription.id };
 }
+
 async function cancelSubscription(userId) {
     const user = await billingOwner(userId);
-    const subscriptionId = user.subscription.stripeSubscriptionId;
+    const subscriptionId = user.subscription.razorpaySubscriptionId;
     if (!subscriptionId)
-        throw (0, errors_1.badRequest)("No active subscription to cancel");
-    const subscription = await stripeClient().subscriptions.update(subscriptionId, { cancel_at_period_end: true });
-    const currentPeriodEnd = new Date(subscription.current_period_end * 1000);
+        throw badRequest("No active subscription to cancel");
+    const subscription = await razorpayRequest(`/subscriptions/${encodeURIComponent(subscriptionId)}/cancel`, {
+        method: "POST",
+        body: { cancel_at_cycle_end: 1 },
+    });
+    const currentPeriodEnd = subscription.current_end ? new Date(subscription.current_end * 1000) : user.subscription.currentPeriodEnd;
     await updateWorkspaceSubscription(user.organizationId, {
         "subscription.currentPeriodEnd": currentPeriodEnd,
-        "subscription.cancelAtPeriodEnd": subscription.cancel_at_period_end,
+        "subscription.cancelAtPeriodEnd": true,
     });
-    return { status: subscription.status, cancelAtPeriodEnd: subscription.cancel_at_period_end, currentPeriodEnd };
+    return { status: subscription.status, cancelAtPeriodEnd: true, currentPeriodEnd };
 }
+
 async function invoices(userId) {
     const user = await billingOwner(userId);
-    return Invoice_1.Invoice.find({ organizationId: user.organizationId })
+    const records = await Invoice.find({ organizationId: user.organizationId })
         .select("-organizationId -__v")
         .sort({ issuedAt: -1 })
         .limit(50)
         .lean();
+    return records.map((invoice) => ({
+        id: invoice.number || invoice.providerInvoiceId || invoice.stripeInvoiceId,
+        date: new Date(invoice.issuedAt).toLocaleDateString(),
+        amount: new Intl.NumberFormat(undefined, { style: "currency", currency: invoice.currency.toUpperCase() })
+            .format((invoice.amountPaid || invoice.amountDue) / 100),
+        status: invoice.status,
+        hostedInvoiceUrl: invoice.hostedInvoiceUrl,
+        invoicePdfUrl: invoice.invoicePdfUrl,
+    }));
 }
+
 function plans() {
-    const config = (0, env_1.getConfig)();
-    return ["Starter", "Team", "Business"].map((plan) => ({
-        name: plan,
-        monthlyPrice: plan === "Starter" ? 8 : plan === "Team" ? 16 : 28,
+    const config = getConfig();
+    return PLAN_NAMES.map((name) => ({
+        name,
+        monthlyPrice: name === "Starter" ? 8 : name === "Team" ? 16 : 28,
         cycles: {
-            monthly: { available: Boolean(config[`STRIPE_PRICE_${plan.toUpperCase()}_MONTHLY`]) },
-            yearly: { available: Boolean(config[`STRIPE_PRICE_${plan.toUpperCase()}_YEARLY`]) },
+            monthly: { available: Boolean(config[`RAZORPAY_PLAN_${name.toUpperCase()}_MONTHLY`]) },
+            yearly: { available: Boolean(config[`RAZORPAY_PLAN_${name.toUpperCase()}_YEARLY`]) },
         },
-        features: plan === "Starter"
+        features: name === "Starter"
             ? ["Personal activity tracking", "Weekly pulse"]
-            : plan === "Team"
+            : name === "Team"
                 ? ["Personal activity tracking", "Anonymous team scorecards", "Burnout-risk alerts", "CSV & PDF reports"]
                 : ["Everything in Team", "Advanced analytics", "Unlimited teams"],
     }));
 }
+
 async function subscription(userId) {
     const user = await billingOwner(userId);
     const value = user.subscription.toObject();
@@ -115,139 +170,111 @@ async function subscription(userId) {
         cancelAtPeriodEnd: value.cancelAtPeriodEnd,
     };
 }
-async function createPortalSession(userId) {
-    const user = await billingOwner(userId);
-    if (!user.subscription.stripeCustomerId)
-        throw (0, errors_1.badRequest)("No billing customer is configured");
-    const session = await stripeClient().billingPortal.sessions.create({
-        customer: user.subscription.stripeCustomerId,
-        return_url: `${(0, env_1.getConfig)().FRONTEND_URL}/billing`,
-    });
-    return { portalUrl: session.url };
-}
-async function processStripeEvent(event) {
+
+function verifyRazorpaySignature(payload, signature) {
+    const secret = getConfig().RAZORPAY_WEBHOOK_SECRET;
+    if (!secret)
+        throw forbidden("Razorpay webhook is not configured");
+    if (!signature || !Buffer.isBuffer(payload))
+        throw badRequest("Missing Razorpay signature or raw request body");
+    const expected = createHmac("sha256", secret).update(payload).digest();
+    let actual;
     try {
-        await ProcessedWebhook_1.ProcessedWebhook.create({ eventId: event.id, eventType: event.type });
+        actual = Buffer.from(signature, "hex");
     }
-    catch (error) {
-        if (error && typeof error === "object" && "code" in error && error.code === 11000) {
-            const previous = await ProcessedWebhook_1.ProcessedWebhook.findOne({ eventId: event.id });
-            if (previous?.status === "processed")
-                return { duplicate: true };
-            if (previous && previous.createdAt.getTime() < Date.now() - 60_000) {
-                const removed = await ProcessedWebhook_1.ProcessedWebhook.deleteOne({ _id: previous._id, status: "processing" });
-                if (removed.deletedCount)
-                    return processStripeEvent(event);
-            }
-            throw new errors_1.AppError(503, "Webhook event is being processed; retry later", "WEBHOOK_PROCESSING");
-        }
-        throw error;
+    catch {
+        throw badRequest("Invalid Razorpay signature");
     }
+    if (actual.length !== expected.length || !timingSafeEqual(actual, expected))
+        throw badRequest("Invalid Razorpay signature");
     try {
-        if (event.type === "checkout.session.completed") {
-            const session = event.data.object;
-            const userId = session.metadata?.userId ?? session.client_reference_id;
-            const plan = session.metadata?.plan;
-            if (!userId || !["Starter", "Team", "Business"].includes(plan ?? ""))
-                throw new Error("Checkout event is missing valid metadata");
-            const owner = session.metadata?.organizationId
-                ? await User_1.User.findOne({ _id: userId, organizationId: session.metadata.organizationId }).select("organizationId")
-                : await User_1.User.findById(userId).select("organizationId");
-            if (!owner)
-                throw new Error("Checkout event has no matching workspace");
-            await updateWorkspaceSubscription(owner.organizationId, {
-                "subscription.plan": plan,
-                "subscription.status": "active",
-                "subscription.stripeCustomerId": typeof session.customer === "string" ? session.customer : null,
-                "subscription.stripeSubscriptionId": typeof session.subscription === "string" ? session.subscription : null,
-            });
-        }
-        else if (event.type.startsWith("customer.subscription.")) {
-            const subscription = event.data.object;
-            const userId = subscription.metadata?.userId;
-            const organizationId = subscription.metadata?.organizationId;
-            const owner = organizationId
-                ? await User_1.User.findOne({ organizationId }).select("organizationId")
-                : userId
-                    ? await User_1.User.findById(userId).select("organizationId")
-                    : typeof subscription.customer === "string"
-                        ? await User_1.User.findOne({ "subscription.stripeCustomerId": subscription.customer }).select("organizationId")
-                        : null;
-            if (!owner)
-                throw new Error("Subscription event has no matching workspace");
-            const status = subscription.status === "active" || subscription.status === "trialing"
-                ? "active"
-                : subscription.status === "canceled" || subscription.status === "incomplete_expired" ? "canceled" : "trial_expired";
-            await updateWorkspaceSubscription(owner.organizationId, {
-                "subscription.status": status,
-                "subscription.stripeSubscriptionId": subscription.id,
-                "subscription.currentPeriodEnd": new Date(subscription.current_period_end * 1000),
-                "subscription.cancelAtPeriodEnd": subscription.cancel_at_period_end,
-            });
-        }
-        else if (event.type === "invoice.payment_failed") {
-            const invoice = event.data.object;
-            if (typeof invoice.customer === "string") {
-                const owner = await User_1.User.findOne({ "subscription.stripeCustomerId": invoice.customer }).select("organizationId");
-                if (owner) {
-                    await updateWorkspaceSubscription(owner.organizationId, { "subscription.status": "trial_expired" });
-                    await persistInvoice(owner.organizationId, invoice);
-                }
-            }
-        }
-        else if (event.type === "invoice.paid" || event.type === "invoice.payment_succeeded") {
-            const invoice = event.data.object;
-            if (typeof invoice.customer === "string") {
-                const owner = await User_1.User.findOne({ "subscription.stripeCustomerId": invoice.customer }).select("organizationId");
-                if (owner) {
-                    await persistInvoice(owner.organizationId, invoice);
-                    await updateWorkspaceSubscription(owner.organizationId, { "subscription.status": "active" });
-                }
-            }
-        }
-        else if (event.type === "customer.deleted") {
-            const customer = event.data.object;
-            await User_1.User.updateMany({ "subscription.stripeCustomerId": customer.id }, { $set: {
-                    "subscription.stripeCustomerId": null,
-                    "subscription.stripeSubscriptionId": null,
-                    "subscription.status": "canceled",
-                    "subscription.cancelAtPeriodEnd": false,
-                } });
-        }
-        await ProcessedWebhook_1.ProcessedWebhook.updateOne({ eventId: event.id, status: "processing" }, { $set: { status: "processed", processedAt: new Date() } });
-        return { duplicate: false };
+        return { event: JSON.parse(payload.toString("utf8")), eventId: createHash("sha256").update(payload).digest("hex") };
     }
-    catch (error) {
-        await ProcessedWebhook_1.ProcessedWebhook.deleteOne({ eventId: event.id, status: "processing" });
-        throw error;
+    catch {
+        throw badRequest("Invalid Razorpay webhook payload");
     }
 }
-async function persistInvoice(organizationId, invoice) {
-    await Invoice_1.Invoice.findOneAndUpdate({ organizationId, stripeInvoiceId: invoice.id }, {
+
+async function persistPayment(organizationId, payment) {
+    if (!payment?.id)
+        return;
+    await Invoice.findOneAndUpdate({ organizationId, providerInvoiceId: payment.id }, {
         $set: {
-            number: invoice.number,
-            currency: invoice.currency,
-            amountDue: invoice.amount_due,
-            amountPaid: invoice.amount_paid,
-            status: invoice.status ?? "unknown",
-            hostedInvoiceUrl: invoice.hosted_invoice_url,
-            invoicePdfUrl: invoice.invoice_pdf,
-            periodStart: invoice.period_start ? new Date(invoice.period_start * 1000) : null,
-            periodEnd: invoice.period_end ? new Date(invoice.period_end * 1000) : null,
-            issuedAt: new Date(invoice.created * 1000),
+            stripeInvoiceId: payment.id,
+            number: payment.invoice_id || payment.id,
+            currency: payment.currency || "INR",
+            amountDue: payment.amount || 0,
+            amountPaid: payment.amount || 0,
+            status: payment.status || "paid",
+            hostedInvoiceUrl: payment.invoice_url || null,
+            invoicePdfUrl: null,
+            periodStart: null,
+            periodEnd: null,
+            issuedAt: payment.created_at ? new Date(payment.created_at * 1000) : new Date(),
         },
     }, { upsert: true, new: true, setDefaultsOnInsert: true });
 }
-function verifyStripeSignature(payload, signature) {
-    const secret = (0, env_1.getConfig)().STRIPE_WEBHOOK_SECRET;
-    if (!secret)
-        throw (0, errors_1.forbidden)("Billing webhook is not configured");
-    if (!signature)
-        throw (0, errors_1.badRequest)("Missing Stripe signature");
+
+async function processRazorpayEvent(event, eventId) {
     try {
-        return stripeClient().webhooks.constructEvent(payload, signature, secret);
+        await ProcessedWebhook.create({ eventId, eventType: event.event });
     }
-    catch {
-        throw (0, errors_1.badRequest)("Invalid Stripe signature");
+    catch (error) {
+        if (error && typeof error === "object" && "code" in error && error.code === 11000) {
+            const previous = await ProcessedWebhook.findOne({ eventId });
+            if (previous?.status === "processed")
+                return { duplicate: true };
+            if (previous && previous.createdAt.getTime() < Date.now() - 60_000) {
+                const removed = await ProcessedWebhook.deleteOne({ _id: previous._id, status: "processing" });
+                if (removed.deletedCount)
+                    return processRazorpayEvent(event, eventId);
+            }
+            throw new AppError(503, "Webhook event is being processed; retry later", "WEBHOOK_PROCESSING");
+        }
+        throw error;
+    }
+    try {
+        const subscription = event.payload?.subscription?.entity;
+        const payment = event.payload?.payment?.entity;
+        if (subscription && ["subscription.activated", "subscription.charged", "subscription.halted", "subscription.paused", "subscription.cancelled", "subscription.completed"].includes(event.event)) {
+            const organizationId = subscription.notes?.organizationId;
+            if (!organizationId)
+                throw new Error("Razorpay subscription event is missing workspace metadata");
+            const status = event.event === "subscription.activated" || event.event === "subscription.charged"
+                ? "active"
+                : event.event === "subscription.cancelled" || event.event === "subscription.completed"
+                    ? "canceled"
+                    : "trial_expired";
+            await updateWorkspaceSubscription(organizationId, {
+                "subscription.status": status,
+                "subscription.razorpaySubscriptionId": subscription.id,
+                "subscription.plan": subscription.notes.plan,
+                "subscription.currentPeriodEnd": subscription.current_end ? new Date(subscription.current_end * 1000) : null,
+                "subscription.cancelAtPeriodEnd": event.event === "subscription.cancelled",
+            });
+            if (payment && event.event === "subscription.charged")
+                await persistPayment(organizationId, payment);
+        }
+        else if (event.event === "payment.failed" && payment?.subscription_id) {
+            const owner = await User.findOne({ "subscription.razorpaySubscriptionId": payment.subscription_id }).select("organizationId");
+            if (owner)
+                await updateWorkspaceSubscription(owner.organizationId, { "subscription.status": "trial_expired" });
+        }
+        await ProcessedWebhook.updateOne({ eventId, status: "processing" }, { $set: { status: "processed", processedAt: new Date() } });
+        return { duplicate: false };
+    }
+    catch (error) {
+        await ProcessedWebhook.deleteOne({ eventId, status: "processing" });
+        throw error;
     }
 }
+
+module.exports = {
+    createCheckout,
+    cancelSubscription,
+    invoices,
+    plans,
+    subscription,
+    processRazorpayEvent,
+    verifyRazorpaySignature,
+};

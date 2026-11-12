@@ -7,7 +7,7 @@ CalmWork is an employee feedback and burnout-monitoring application. This reposi
 - Node.js LTS (20 or newer recommended)
 - npm
 - MongoDB 7 or newer (local or hosted)
-- Stripe test-mode keys for billing and webhook testing
+- Razorpay test-mode keys and recurring plan IDs for billing and webhook testing
 
 ## Setup
 
@@ -19,13 +19,13 @@ cp backend/.env.example backend/.env
 Set the required secrets and service URLs in `backend/.env`; never commit that file. Start MongoDB, then run the API in development mode:
 
 ```bash
-docker compose -f backend/docker-compose.yml up -d
+docker compose --env-file backend/.env -f backend/docker-compose.yml up -d
 npm run api:dev
 ```
 
-The API listens on the configured `PORT` (default `4000`). Use `GET /health` for liveness and `GET /health/ready` to verify its MongoDB connection. The OpenAPI reference is served at `/api/docs`. Business signup creates a business workspace and owner account but does not sign you in. Employees join through a business invitation and then sign in separately. The platform admin is a single separate account (`admin` / `admin@gmail.com`); its password must be set as `OPS_ADMIN_PASSWORD` in the backend environment, never in the frontend or source. Email addresses and passwords are case-sensitive.
+The API listens on the configured `PORT` (default `4000`). Use `GET /health` for liveness and `GET /health/ready` to verify its MongoDB connection. The OpenAPI reference is served at `/api/docs`. Business registration and employee invitations use email one-time codes; employees can also enroll a phone number in Settings for optional SMS sign-in. Configure SMTP for email delivery and the optional SMS gateway adapter for text delivery. The platform administrator signs in at `/admin/login` with an emailed one-time code sent to `OPS_ADMIN_EMAIL`; its JWT uses the separate `JWT_ADMIN_SECRET`.
 
-The platform operations dashboard is available at `/admin`. It can review and activate/suspend businesses and users, create teams and assign employees, review daily attendance and export CSV, and review activity summaries aggregated by business. It does not expose individual task labels or typed/screen content. Configure `OPS_ADMIN_PASSWORD` in the backend deployment environment to enable admin sign-in; the password must be at least 12 characters.
+The platform operations dashboard is available at `/admin`. It can review and activate/suspend businesses and users, create teams and assign employees, review daily attendance and export CSV, and review activity summaries aggregated by business. It does not expose individual salary estimates or pulse responses.
 
 Workspace monitoring summaries are included during the seven-day free trial. After the trial, an active monthly or yearly plan is required to continue using monitoring. Report exports require an active paid plan.
 
@@ -39,20 +39,21 @@ Deploy the frontend and API as **two separate Vercel projects** from this reposi
 2. Add the production backend variables listed in [`backend/.env.example`](./backend/.env.example) to the API project's settings. Required values include:
    - `NODE_ENV=production`
    - `MONGODB_URI` for a hosted database
-   - Two distinct, randomly generated secrets of at least 32 characters for `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET`
+   - Three distinct, randomly generated secrets of at least 32 characters for `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, and `JWT_ADMIN_SECRET`
    - `FRONTEND_URL` set to the frontend's production URL
    - `CORS_ORIGINS` set to the exact frontend production origin (scheme and host, no path)
    - `COOKIE_SECURE=true`
-   - `OPS_ADMIN_PASSWORD` set in the backend environment to the platform admin password (at least 12 characters) to enable admin sign-in
+   - `OPS_ADMIN_EMAIL` and working SMTP credentials for administrator OTP sign-in
+   - Razorpay key ID, key secret, webhook secret, and the six recurring plan IDs described in [`backend/.env.example`](./backend/.env.example)
 3. Deploy the API. Its base URL is the Vercel deployment URL; confirm `GET /health` responds with `{"status":"ok"}`.
 4. Set `NEXT_PUBLIC_API_URL` in the frontend project to the API URL plus `/api/v1` (for example, `https://your-api.vercel.app/api/v1`), then deploy the frontend.
-5. Test signup/sign-in and refresh-token behavior on the deployed frontend. For Stripe, configure the production Stripe variables and point the Stripe webhook at `https://your-api.vercel.app/api/v1/billing/webhook`.
+5. Test OTP sign-in and refresh-token behavior on the deployed frontend. Configure Razorpay webhooks to call `https://your-api.vercel.app/api/v1/webhooks/razorpay` and subscribe to the subscription lifecycle and payment failure events.
 
 Add these variables to the Vercel project settings, not to source control. Production refresh cookies use `SameSite=None; Secure` so the frontend can refresh sessions when the frontend and API have different origins. Sign in again after deploying this cookie change to replace an older cookie. Browser third-party-cookie restrictions can still affect separate default `*.vercel.app` domains; custom frontend and API domains under the same registrable domain (for example, `app.example.com` and `api.example.com`) are recommended. Leave `COOKIE_DOMAIN` unset unless you have a specific domain-cookie requirement. Vercel functions are not persistent servers, so the API's in-process alert and trial-expiration jobs do not run reliably there; use an external scheduler or a persistent host if those jobs are required.
 
 ## Environment
 
-See [`backend/.env.example`](./backend/.env.example) for the complete variable list and descriptions. At minimum configure `MONGODB_URI`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, and `CORS_ORIGINS`; configure `OPS_ADMIN_PASSWORD` to enable platform admin sign-in. Stripe test-mode credentials and plan price IDs are required to enable checkout and billing. Secrets must be strong, unique values in deployed environments.
+See [`backend/.env.example`](./backend/.env.example) for the complete variable list and descriptions. At minimum configure `MONGODB_URI`, all three JWT secrets, `CORS_ORIGINS`, and SMTP delivery. Razorpay checkout additionally requires its API credentials, webhook secret, and plan IDs created in the Razorpay Dashboard. Secrets must be strong, unique values in deployed environments.
 
 ## Commands
 
@@ -70,7 +71,7 @@ See [`backend/.env.example`](./backend/.env.example) for the complete variable l
 For local MongoDB, the provided Compose service can be started with the setup command above and stopped with:
 
 ```bash
-docker compose -f backend/docker-compose.yml down
+docker compose --env-file backend/.env -f backend/docker-compose.yml down
 ```
 
 ## Architecture
@@ -83,9 +84,9 @@ Burnout analytics combine normalized stress, workload, inverse mood, participati
 
 ## API overview
 
-Versioned JSON routes are under `/api/v1`: authentication, user and team administration, time sessions, weekly pulses, manager-only aggregate analytics, alerts, Stripe billing, and subscription-gated reports. Responses use `{ "data": ... }` on success and `{ "error": { "code": ..., "message": ... } }` on failure. See the OpenAPI document at [`backend/openapi.yaml`](./backend/openapi.yaml).
+Versioned JSON routes are under `/api/v1`: OTP authentication, user and team administration, time sessions, weekly pulses, manager-only aggregate analytics, alerts, Razorpay billing, employee tools, and subscription-gated reports. JSON responses include `success`, `data`, and `error` fields; compatibility fields are retained for existing clients. See the OpenAPI document at [`backend/openapi.yaml`](./backend/openapi.yaml).
 
-Stripe is configured in test mode. The webhook endpoint verifies Stripe signatures against the raw request body and deduplicates processed events.
+Razorpay subscription webhooks are verified against the raw request body and deduplicated before subscription state or invoice records are updated.
 
 ## Security notes
 
@@ -96,7 +97,7 @@ Stripe is configured in test mode. The webhook endpoint verifies Stripe signatur
 - API logs exclude passwords, bearer/cookie tokens, card data, and pulse comments.
 - Reports require an active paid subscription; trial access to report previews is limited.
 
-Use the test-only secrets and data in local development. Do not expose debug credentials, MongoDB, or Stripe test secrets in production.
+Use the test-only secrets and data in local development. Do not expose debug credentials, MongoDB, or Razorpay test secrets in production.
 
 ## CI
 

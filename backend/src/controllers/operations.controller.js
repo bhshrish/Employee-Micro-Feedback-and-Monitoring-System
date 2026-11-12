@@ -1,10 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.adminSignIn = exports.adminSignOut = exports.adminMe = exports.overview = exports.businesses = exports.updateBusiness = exports.users = exports.updateUser = exports.teams = exports.createTeam = exports.archiveTeam = exports.assignTeam = exports.activity = exports.attendance = exports.attendanceExport = void 0;
+exports.adminSignOut = exports.adminMe = exports.overview = exports.businesses = exports.updateBusiness = exports.users = exports.updateUser = exports.teams = exports.createTeam = exports.archiveTeam = exports.assignTeam = exports.activity = exports.attendance = exports.attendanceExport = void 0;
+const async_handler_1 = require("../utils/async-handler");
 const jsonwebtoken_1 = require("jsonwebtoken");
 const env_1 = require("../config/env");
-const async_handler_1 = require("../utils/async-handler");
 const operations = require("../services/operations.service");
+const otp = require("../services/otp.service");
 const Organization_1 = require("../models/Organization");
 const cookieName = "calmwork_operations";
 function cookieOptions() {
@@ -17,10 +18,14 @@ function cookieOptions() {
         maxAge: 8 * 60 * 60 * 1000,
     };
 }
-exports.adminSignIn = (0, async_handler_1.asyncHandler)(async (req, res) => {
-    operations.verifyAdminCredentials(req.body.username, req.body.email, req.body.password);
+exports.requestAdminOtp = (0, async_handler_1.asyncHandler)(async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.json(await otp.requestAdminOtp(req.body.email));
+});
+exports.verifyAdminOtp = (0, async_handler_1.asyncHandler)(async (req, res) => {
+    await otp.verifyOtp({ email: req.body.email, code: req.body.code, purpose: "admin" });
     const config = (0, env_1.getConfig)();
-    const token = (0, jsonwebtoken_1.sign)({ typ: "operations_admin" }, config.JWT_ACCESS_SECRET, {
+    const token = (0, jsonwebtoken_1.sign)({ typ: "operations_admin" }, config.JWT_ADMIN_SECRET, {
         subject: operations.adminEmail,
         issuer: "calmwork-operations",
         audience: "calmwork-admin",

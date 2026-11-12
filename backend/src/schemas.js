@@ -11,11 +11,6 @@ exports.signupSchema = zod_1.z.object({
     organizationName: zod_1.z.string().trim().min(2).max(120).optional(),
 }).strict();
 exports.signinSchema = zod_1.z.object({ email, password }).strict();
-exports.operationsSigninSchema = zod_1.z.object({
-    username: zod_1.z.string().min(1).max(64),
-    email,
-    password: zod_1.z.string().min(1).max(128),
-}).strict();
 exports.operationsListQuerySchema = zod_1.z.object({
     page: zod_1.z.coerce.number().int().min(1).max(1000).default(1),
     q: zod_1.z.string().trim().max(120).optional(),
@@ -89,6 +84,7 @@ exports.reportGenerateSchema = zod_1.z.object({
 exports.reportIdParamsSchema = zod_1.z.object({ reportId: zod_1.z.string().regex(/^[a-f\d]{24}$/i) }).strict();
 exports.profileSchema = zod_1.z.object({
     name: zod_1.z.string().trim().min(2).max(100).optional(),
+    phone: zod_1.z.string().trim().regex(/^\+[1-9]\d{7,14}$/).nullable().optional(),
     settings: zod_1.z.object({
         idleThresholdMinutes: zod_1.z.number().int().min(1).max(30).optional(),
         notifications: zod_1.z.object({
@@ -162,4 +158,95 @@ exports.forgotPasswordSchema = zod_1.z.object({ email }).strict();
 exports.resetPasswordSchema = zod_1.z.object({
     token: zod_1.z.string().min(32).max(128),
     password,
+}).strict();
+exports.otpRequestSchema = zod_1.z.object({
+    email: email.optional(),
+    phone: zod_1.z.string().trim().regex(/^\+[1-9]\d{7,14}$/).optional(),
+    channel: zod_1.z.enum(["email", "sms"]).default("email"),
+    purpose: zod_1.z.enum(["signin", "business_signup", "invitation"]),
+    name: zod_1.z.string().trim().min(2).max(100).optional(),
+    organizationName: zod_1.z.string().trim().min(2).max(120).optional(),
+    invitationToken: zod_1.z.string().min(32).max(128).optional(),
+}).strict().superRefine((value, context) => {
+    if (value.channel === "email" && !value.email) {
+        context.addIssue({ code: "custom", message: "Email is required for email verification" });
+    }
+    if (value.channel === "sms" && !value.phone) {
+        context.addIssue({ code: "custom", message: "Phone is required for SMS verification" });
+    }
+    if (value.purpose !== "signin" && value.channel !== "email") {
+        context.addIssue({ code: "custom", message: "Registration and invitations require email verification" });
+    }
+    if (value.purpose === "business_signup" && (!value.name || !value.organizationName)) {
+        context.addIssue({ code: "custom", message: "Name and business name are required to create a business account" });
+    }
+    if (value.purpose === "invitation" && !value.invitationToken) {
+        context.addIssue({ code: "custom", message: "An invitation token is required" });
+    }
+});
+exports.otpVerifySchema = zod_1.z.object({
+    email: email.optional(),
+    phone: zod_1.z.string().trim().regex(/^\+[1-9]\d{7,14}$/).optional(),
+    channel: zod_1.z.enum(["email", "sms"]).default("email"),
+    purpose: zod_1.z.enum(["signin", "business_signup", "invitation"]),
+    code: zod_1.z.string().regex(/^\d{6}$/),
+    name: zod_1.z.string().trim().min(2).max(100).optional(),
+}).strict().superRefine((value, context) => {
+    if (value.channel === "email" && !value.email) {
+        context.addIssue({ code: "custom", message: "Email is required for email verification" });
+    }
+    if (value.channel === "sms" && !value.phone) {
+        context.addIssue({ code: "custom", message: "Phone is required for SMS verification" });
+    }
+    if (value.purpose !== "signin" && value.channel !== "email") {
+        context.addIssue({ code: "custom", message: "Registration and invitations require email verification" });
+    }
+    if (value.purpose === "invitation" && !value.name) {
+        context.addIssue({ code: "custom", message: "Name is required to accept an invitation" });
+    }
+});
+exports.adminOtpRequestSchema = zod_1.z.object({ email }).strict();
+exports.adminOtpVerifySchema = zod_1.z.object({ email, code: zod_1.z.string().regex(/^\d{6}$/) }).strict();
+exports.toolIdParamsSchema = zod_1.z.object({ toolId: objectId }).strict();
+exports.plannerCreateSchema = zod_1.z.object({
+    title: zod_1.z.string().trim().min(1).max(160),
+    description: zod_1.z.string().trim().max(4000).optional(),
+    estimatedMinutes: zod_1.z.number().int().min(0).max(1440).optional(),
+    dueAt: zod_1.z.string().datetime().optional(),
+}).strict();
+exports.plannerUpdateSchema = zod_1.z.object({
+    title: zod_1.z.string().trim().min(1).max(160).optional(),
+    description: zod_1.z.string().trim().max(4000).optional(),
+    estimatedMinutes: zod_1.z.number().int().min(0).max(1440).optional(),
+    dueAt: zod_1.z.string().datetime().nullable().optional(),
+    status: zod_1.z.enum(["open", "completed"]).optional(),
+}).strict().refine((value) => Object.keys(value).length > 0, "Provide at least one field");
+exports.leaveCreateSchema = zod_1.z.object({
+    leaveType: zod_1.z.enum(["annual", "sick", "personal", "other"]),
+    startsAt: zod_1.z.string().datetime(),
+    endsAt: zod_1.z.string().datetime(),
+    reason: zod_1.z.string().trim().max(1000).optional(),
+}).strict().refine((value) => new Date(value.startsAt) < new Date(value.endsAt), "Leave end must be after its start");
+exports.leaveDecisionSchema = zod_1.z.object({ status: zod_1.z.enum(["approved", "rejected"]) }).strict();
+exports.calendarEventSchema = zod_1.z.object({
+    kind: zod_1.z.enum(["meeting", "reminder"]),
+    title: zod_1.z.string().trim().min(1).max(160),
+    description: zod_1.z.string().trim().max(1000).optional(),
+    startsAt: zod_1.z.string().datetime(),
+    endsAt: zod_1.z.string().datetime(),
+    reminderMinutes: zod_1.z.number().int().min(0).max(10080).optional(),
+}).strict().refine((value) => new Date(value.startsAt) < new Date(value.endsAt), "Event end must be after its start");
+exports.signatureCreateSchema = zod_1.z.object({
+    employeeId: objectId,
+    title: zod_1.z.string().trim().min(1).max(160),
+    documentText: zod_1.z.string().trim().min(1).max(4000),
+}).strict();
+exports.signatureSignSchema = zod_1.z.object({
+    signedName: zod_1.z.string().trim().min(2).max(100),
+    confirmation: zod_1.z.literal(true),
+}).strict();
+exports.salaryCheckSchema = zod_1.z.object({
+    grossMonthly: zod_1.z.number().min(0).max(100000000),
+    deductionsMonthly: zod_1.z.number().min(0).max(100000000).default(0),
+    estimatedTaxRate: zod_1.z.number().min(0).max(60).default(0),
 }).strict();
