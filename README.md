@@ -23,7 +23,7 @@ docker compose --env-file backend/.env -f backend/docker-compose.yml up -d
 npm run api:dev
 ```
 
-The API listens on the configured `PORT` (default `4000`). Use `GET /health` for liveness and `GET /health/ready` to verify its MongoDB connection. The OpenAPI reference is served at `/api/docs`. Business registration and employee invitations use email one-time codes; employees can also enroll a phone number in Settings for optional SMS sign-in. Configure SMTP for email delivery and the optional SMS gateway adapter for text delivery. The platform administrator signs in at `/admin/login` with an emailed one-time code sent to `OPS_ADMIN_EMAIL`; its JWT uses the separate `JWT_ADMIN_SECRET`.
+The API listens on the configured `PORT` (default `4000`). Use `GET /health` for liveness and `GET /health/ready` to verify its MongoDB connection. The OpenAPI reference is served at `/api/docs`. Business owners sign up with their name, business name, email, and password; employees create password accounts through business invitations. Users can request an email password-reset link from the login page. Configure SMTP for password-reset delivery. The platform administrator signs in at `/admin/login` with an emailed one-time code sent to `OPS_ADMIN_EMAIL`; its JWT uses the separate `JWT_ADMIN_SECRET`.
 
 The platform operations dashboard is available at `/admin`. It can review and activate/suspend businesses and users, create teams and assign employees, review daily attendance and export CSV, and review activity summaries aggregated by business. It does not expose individual salary estimates or pulse responses.
 
@@ -84,7 +84,7 @@ Burnout analytics combine normalized stress, workload, inverse mood, participati
 
 ## API overview
 
-Versioned JSON routes are under `/api/v1`: OTP authentication, user and team administration, time sessions, weekly pulses, manager-only aggregate analytics, alerts, Razorpay billing, employee tools, and subscription-gated reports. JSON responses include `success`, `data`, and `error` fields; compatibility fields are retained for existing clients. See the OpenAPI document at [`backend/openapi.yaml`](./backend/openapi.yaml).
+Versioned JSON routes are under `/api/v1`: email/password authentication and recovery, administrator OTP authentication, user and team administration, time sessions, weekly pulses, manager-only aggregate analytics, alerts, Razorpay billing, employee tools, and subscription-gated reports. JSON responses include `success`, `data`, and `error` fields; compatibility fields are retained for existing clients. See the OpenAPI document at [`backend/openapi.yaml`](./backend/openapi.yaml).
 
 Razorpay subscription webhooks are verified against the raw request body and deduplicated before subscription state or invoice records are updated.
 

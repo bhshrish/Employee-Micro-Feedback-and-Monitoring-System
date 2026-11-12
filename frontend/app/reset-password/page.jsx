@@ -1,2 +1,5 @@
-import { redirect } from "next/navigation";
-export default function ResetPasswordPage() { redirect("/login"); }
+import { PasswordRecoveryForm } from "@/components/PasswordRecoveryForm";
+
+export default function ResetPasswordPage() {
+    return <PasswordRecoveryForm mode="reset" />;
+}

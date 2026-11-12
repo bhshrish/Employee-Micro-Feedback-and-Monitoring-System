@@ -24,7 +24,7 @@ Run `npm run migrate:legacy` once when upgrading a database created by a legacy 
 
 From the repository root, `docker compose --env-file backend/.env -f backend/docker-compose.yml up --build` runs the API and MongoDB using the local-only values in `backend/.env`.
 
-Employee and business authentication use six-digit email or optional SMS OTPs (five-minute expiry, five attempts, and a 60-second resend cooldown). Business signup and employee invitations are verified with email OTP. Configure SMTP for delivery and, if SMS is enabled, configure the SMS adapter endpoint and token. Platform administrators use `/admin/login`, the configured `OPS_ADMIN_EMAIL`, and a separate `JWT_ADMIN_SECRET`; admin sessions are stored in a separate HTTP-only cookie.
+Business owners create accounts with a name, business name, email, and password. Employees establish password accounts through invitation links. Sign-in uses email and password; password reset links are delivered by SMTP and are single-use and time-limited. Platform administrators continue to use `/admin/login`, the configured `OPS_ADMIN_EMAIL`, and an emailed OTP; admin sessions are stored in a separate HTTP-only cookie.
 
 ## Security and privacy
 
@@ -51,7 +51,7 @@ Razorpay subscriptions are optional for local startup. Configure a Razorpay key 
 
 The weekly cron job scores eligible aggregated pulse data and creates at most one alert per team/week. A reminder job runs every minute on a persistent server, claiming due calendar reminders and emailing the event owner through the configured SMTP provider.
 
-Workspace owners/admins can create members using `POST /api/v1/workspace/invitations`; the API returns a one-time, seven-day acceptance token. The token is hashed at rest. The People page creates a shareable acceptance link, and an invitee uses the link with email OTP to join.
+Workspace owners/admins can create members using `POST /api/v1/workspace/invitations`; the API returns a one-time, seven-day acceptance token. The token is hashed at rest. The People page creates a shareable acceptance link, and an invitee uses the link to set their name and password and join.
 
 The `/api/v1/tools` routes provide tenant-scoped planner, calendar, leave, signature acknowledgment, and employee-only salary estimate workflows. Salary input is ephemeral and is not stored. Electronic signatures in this workflow are acknowledgments with an integrity hash, not a third-party qualified digital-signature service.
 
