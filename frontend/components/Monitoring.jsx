@@ -68,7 +68,7 @@ function MonitoringContent() {
       <div className="app-page-heading">
         <div>
           <p className="section-label">{canViewTeamSummary ? "Workspace oversight" : "Your work session"}</p>
-          <h1>Monitoring</h1>
+          <h1><span aria-hidden="true">⏱️ </span>Monitoring</h1>
           <p>{canViewTeamSummary ? "Start or pause your own work tracking, and review privacy-safe workspace or team summaries." : "Choose when to track your own work session and whether to count keypresses locally."}</p>
         </div>
         {canViewTeamSummary && <div className="monitoring-controls">

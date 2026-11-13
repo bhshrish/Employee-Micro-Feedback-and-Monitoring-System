@@ -199,13 +199,6 @@ export function AuthForm() {
                             {type[0].toUpperCase() + type.slice(1)}
                         </button>)}
                 </div>
-                {accountType === "business" && <div className="auth-mode-switch" role="group" aria-label="Business account action">
-                    <button className={formMode === "signin" ? "active" : ""} onClick={() => switchFormMode("signin")}>Sign in</button>
-                    <button className={formMode === "signup" ? "active" : ""} onClick={() => switchFormMode("signup")}>Create business</button>
-                </div>}
-                {accountType === "employee" && <button className="auth-text-switch" type="button" onClick={() => switchFormMode(joining ? "signin" : "join")}>
-                    {joining ? "Back to employee sign in" : "Have an employee invitation? Join your business"}
-                </button>}
                 <h2>{joining ? "Join your business." : signingUp ? "Create your business workspace." : accountType === "business" ? "Business sign in." : "Employee sign in."}</h2>
                 <p>{otpRequested
                     ? `Enter the 6-digit code sent to ${channel === "email" ? email : phone}.`
@@ -245,6 +238,22 @@ export function AuthForm() {
                     </div>}
                 </form>
                 {!signingUp && !joining && !useCode && <p className="auth-forgot-link"><Link href="/forgot-password">Forgot password?</Link></p>}
+                {!useCode && <p className="auth-account-switch">
+                    {signingUp || joining
+                        ? "Already have an account?"
+                        : accountType === "business"
+                            ? "New to CalmWork?"
+                            : "Have an employee invitation?"}
+                    <button type="button" onClick={() => switchFormMode(
+                        signingUp || joining ? "signin" : accountType === "business" ? "signup" : "join"
+                    )}>
+                        {signingUp || joining
+                            ? "Sign in"
+                            : accountType === "business"
+                                ? "Create account"
+                                : "Join and create account"}
+                    </button>
+                </p>}
                 <p className="auth-text-switch"><Link href="/admin/login">Platform administrator sign in</Link></p>
                 <div className="auth-privacy"><Icon name="shield"/><p>By continuing, you agree to the <Link href="/privacy">privacy policy</Link>. Work activity is summarized without recording screens or typed text.</p></div>
             </div>
