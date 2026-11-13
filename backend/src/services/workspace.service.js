@@ -33,7 +33,7 @@ async function archiveTeam(organizationId, teamId) {
     return team;
 }
 async function createInvitation(organizationId, inviterId, email, teamId) {
-    if (email === "admin@gmail.com")
+    if (email.trim().toLowerCase() === env_1.getConfig().OPS_ADMIN_EMAIL.toLowerCase())
         throw (0, errors_1.badRequest)("This email is reserved for the platform administrator");
     if (!mongoose_1.Types.ObjectId.isValid(teamId))
         throw (0, errors_1.notFound)("Team not found");

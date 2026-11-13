@@ -131,6 +131,16 @@ function createApp({ ensureDatabaseConnected } = {}) {
             error: { code: "RATE_LIMITED", message: "Too many authentication attempts", requestId: req.requestId },
         }),
     }));
+    app.use("/api/v1/operations/auth/login", (0, express_rate_limit_1.default)({
+        windowMs: 15 * 60_000,
+        limit: 10,
+        skip: () => (0, env_1.getConfig)().NODE_ENV === "test",
+        standardHeaders: "draft-7",
+        legacyHeaders: false,
+        handler: (req, res) => res.status(429).json({
+            error: { code: "RATE_LIMITED", message: "Too many administrator sign-in attempts", requestId: req.requestId },
+        }),
+    }));
     app.use("/api/v1", routes_1.default);
     app.get("/health", (_req, res) => res.json({ status: "ok" }));
     app.get("/health/live", (_req, res) => res.json({ status: "ok" }));

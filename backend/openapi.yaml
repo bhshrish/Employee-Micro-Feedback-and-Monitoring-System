@@ -4,7 +4,7 @@ info:
   version: 1.0.0
   description: |
     Multi-tenant API for password authentication and password recovery,
-    administrator OTP authentication, privacy-first activity tracking,
+    single-platform-administrator password authentication, privacy-first activity tracking,
     anonymous weekly pulse, team-level wellbeing signals, employee tools, reports,
     and Razorpay subscription billing. JSON responses use success, data, and error
     fields; compatibility properties may also appear at the top level.
@@ -1124,6 +1124,25 @@ paths:
               properties: { email: { type: string, format: email } }
       responses:
         "200": { description: OTP request accepted without disclosing whether the email is configured. }
+  /operations/auth/login:
+    post:
+      tags: [Operations]
+      summary: Sign in the single configured platform administrator with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8, maxLength: 128 }
+      responses:
+        "200": { description: Separate HTTP-only operations administrator session }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { description: Administrator sign-in rate limit exceeded }
   /operations/auth/otp/verify:
     post:
       tags: [Operations]
