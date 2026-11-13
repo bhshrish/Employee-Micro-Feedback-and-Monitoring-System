@@ -223,7 +223,8 @@ async function createPasswordResetToken(userId) {
     return raw;
 }
 async function forgotPassword(input) {
-    const user = await User_1.User.findOne({ email: input.email.trim().toLowerCase() });
+    const escapedEmail = input.email.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const user = await User_1.User.findOne({ email: new RegExp(`^${escapedEmail}$`, "i") });
     if (user) {
         const raw = await createPasswordResetToken(user._id);
         await (0, email_1.sendPasswordResetEmail)({ to: user.email, token: raw });
