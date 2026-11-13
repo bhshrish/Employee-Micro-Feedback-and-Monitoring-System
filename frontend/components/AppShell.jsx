@@ -53,7 +53,7 @@ function AppFrame({ children }) {
         return true;
     });
     return <div className="app-layout">
-    <aside className="app-sidebar"><Logo /><nav aria-label="Workspace">{visibleNav.map((item) => <Link key={item.href} href={item.href} className={pathname === item.href ? "active" : ""}><Icon name={item.icon}/><span>{item.label}</span></Link>)}</nav><div className="sidebar-note"><Icon name="shield"/><p>Individual activity stays private. Managers see team aggregates only.</p></div></aside>
+    <aside className="app-sidebar"><Logo /><nav aria-label="Workspace">{visibleNav.map((item) => <Link key={item.href} href={item.href} className={pathname === item.href ? "active" : ""}><Icon name={item.icon}/><span>{item.href === "/monitoring" && <span aria-hidden="true">⏱️ </span>}{item.label}</span></Link>)}</nav><div className="sidebar-note"><Icon name="shield"/><p>Individual activity stays private. Managers see team aggregates only.</p></div></aside>
     <div className="app-column"><header className="app-header"><div className="app-header-inner"><Link href="/dashboard" className={`tracker-pill ${timerStatus === "running" ? "running" : ""}`}><span className="live-dot"/><span>{timerStatus === "running" ? formatDuration(elapsedSeconds) : timerStatus === "paused" ? "Paused" : "Start tracking"}</span><small>{task}</small></Link><div className="user-area"><span className="plan-label">{status === "active" ? selection.plan : status === "trialing" ? "Free trial" : "CalmWork"}</span><button className="avatar" onClick={() => setMenu(!menu)} aria-expanded={menu} aria-label="Open user menu">{initials}</button>{menu && <div className="user-menu"><strong>{user?.name}</strong><span>{user?.email}</span><Link href="/settings" onClick={() => setMenu(false)}>Profile & settings</Link><button onClick={async () => { try {
         await signOut();
         router.push("/");
@@ -63,7 +63,7 @@ function AppFrame({ children }) {
     } }}><Icon name="logout" size={18}/>Sign out</button></div>}</div></div>{status === "trialing" && <div className="trial-banner"><span><strong>{trialDaysLeft} {trialDaysLeft === 1 ? "day" : "days"} left</strong> in your free trial.</span><Link href="/checkout">Upgrade <Icon name="arrow" size={17}/></Link></div>}</header>
       <main className="app-main">{children}</main>
     </div>
-    <nav className="mobile-app-nav" aria-label="Mobile workspace">{visibleNav.map((item) => <Link key={item.href} href={item.href} className={pathname === item.href ? "active" : ""}><Icon name={item.icon} size={21}/><span>{item.label === "Team pulse" ? "Team" : item.label === "Monitoring" ? "Monitor" : item.label}</span></Link>)}</nav>
+    <nav className="mobile-app-nav" aria-label="Mobile workspace">{visibleNav.map((item) => <Link key={item.href} href={item.href} className={pathname === item.href ? "active" : ""}><Icon name={item.icon} size={21}/><span>{item.href === "/monitoring" && <span aria-hidden="true">⏱️ </span>}{item.label === "Team pulse" ? "Team" : item.label === "Monitoring" ? "Monitor" : item.label}</span></Link>)}</nav>
     <IdleModal />
   </div>;
 }
