@@ -75,6 +75,7 @@ authRoutes.get("/me", auth_1.authenticate, authController.me);
 authRoutes.patch("/me", auth_1.authenticate, (0, validate_1.validateBody)(schemas_1.profileSchema), authController.updateProfile);
 api.use("/auth", authRoutes);
 const operationsRoutes = (0, express_1.Router)();
+operationsRoutes.post("/auth/login", (0, validate_1.validateBody)(schemas_1.adminPasswordSigninSchema), operationsController.signInAdminWithPassword);
 operationsRoutes.post("/auth/otp/request", (0, validate_1.validateBody)(schemas_1.adminOtpRequestSchema), operationsController.requestAdminOtp);
 operationsRoutes.post("/auth/otp/verify", (0, validate_1.validateBody)(schemas_1.adminOtpVerifySchema), operationsController.verifyAdminOtp);
 operationsRoutes.post("/auth/logout", auth_1.requireOperationsAdmin, operationsController.adminSignOut);

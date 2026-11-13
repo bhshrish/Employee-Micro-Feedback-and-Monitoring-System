@@ -6,6 +6,7 @@ const jsonwebtoken_1 = require("jsonwebtoken");
 const env_1 = require("../config/env");
 const operations = require("../services/operations.service");
 const otp = require("../services/otp.service");
+const operationsAuth = require("../services/operations-auth.service");
 const Organization_1 = require("../models/Organization");
 const cookieName = "calmwork_operations";
 function cookieOptions() {
@@ -18,28 +19,41 @@ function cookieOptions() {
         maxAge: 8 * 60 * 60 * 1000,
     };
 }
-exports.requestAdminOtp = (0, async_handler_1.asyncHandler)(async (req, res) => {
-    res.setHeader("Cache-Control", "no-store");
-    res.json(await otp.requestAdminOtp(req.body.email));
-});
-exports.verifyAdminOtp = (0, async_handler_1.asyncHandler)(async (req, res) => {
-    await otp.verifyOtp({ email: req.body.email, code: req.body.code, purpose: "admin" });
+function setOperationsAdminSession(res, admin) {
     const config = (0, env_1.getConfig)();
-    const token = (0, jsonwebtoken_1.sign)({ typ: "operations_admin" }, config.JWT_ADMIN_SECRET, {
-        subject: operations.adminEmail,
+    const token = (0, jsonwebtoken_1.sign)({
+        typ: "operations_admin",
+        passwordChangedAt: admin.passwordChangedAt.getTime(),
+    }, config.JWT_ADMIN_SECRET, {
+        subject: admin.email,
         issuer: "calmwork-operations",
         audience: "calmwork-admin",
         expiresIn: "8h",
     });
     res.cookie(cookieName, token, cookieOptions());
     res.setHeader("Cache-Control", "no-store");
-    res.json({ admin: { username: "admin", email: operations.adminEmail } });
+    res.json({ admin: { name: admin.name, username: "admin", email: admin.email } });
+}
+exports.signInAdminWithPassword = (0, async_handler_1.asyncHandler)(async (req, res) => {
+    const admin = await operationsAuth.signInOperationsAdmin(req.body);
+    setOperationsAdminSession(res, admin);
+});
+exports.requestAdminOtp = (0, async_handler_1.asyncHandler)(async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.json(await otp.requestAdminOtp(req.body.email));
+});
+exports.verifyAdminOtp = (0, async_handler_1.asyncHandler)(async (req, res) => {
+    await otp.verifyOtp({ email: req.body.email, code: req.body.code, purpose: "admin" });
+    const admin = await operationsAuth.getOperationsAdmin();
+    setOperationsAdminSession(res, admin);
 });
 exports.adminSignOut = (_req, res) => {
     res.clearCookie(cookieName, { ...cookieOptions(), maxAge: undefined });
     res.status(204).end();
 };
-exports.adminMe = (_req, res) => res.json({ admin: { username: "admin", email: operations.adminEmail } });
+exports.adminMe = (0, async_handler_1.asyncHandler)(async (_req, res) => {
+    res.json({ admin: await operationsAuth.getOperationsAdminProfile() });
+});
 exports.overview = (0, async_handler_1.asyncHandler)(async (_req, res) => res.json({ overview: await operations.operationsOverview() }));
 exports.businesses = (0, async_handler_1.asyncHandler)(async (req, res) => {
     const query = req.validatedQuery;

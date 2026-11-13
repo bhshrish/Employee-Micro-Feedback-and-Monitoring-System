@@ -101,6 +101,9 @@ export async function requestAdminOtp(email) {
 export async function verifyAdminOtp(email, code) {
     return request("/operations/auth/otp/verify", { method: "POST", body: JSON.stringify({ email, code }) }, false);
 }
+export async function loginOperationsAdmin(email, password) {
+    return request("/operations/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }, false);
+}
 export async function getOperationsAdmin() {
     return request("/operations/auth/me", {}, false);
 }

@@ -16,6 +16,8 @@ const schema = zod_1.z.object({
     COOKIE_DOMAIN: zod_1.z.string().optional(),
     CORS_ORIGINS: zod_1.z.string().default("http://localhost:3000"),
     OPS_ADMIN_EMAIL: zod_1.z.string().email().default("admin@gmail.com"),
+    OPS_ADMIN_NAME: zod_1.z.string().trim().min(2).max(100).default("Platform Administrator"),
+    OPS_ADMIN_INITIAL_PASSWORD: zod_1.z.preprocess((value) => value === "" ? undefined : value, zod_1.z.string().min(12).optional()),
     MIN_PULSE_GROUP_SIZE: zod_1.z.coerce.number().int().min(5).default(5),
     PASSWORD_RESET_TTL_MINUTES: zod_1.z.coerce.number().int().min(5).max(10080).default(60),
     SMTP_HOST: zod_1.z.string().optional(),
