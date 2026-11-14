@@ -51,7 +51,7 @@ Razorpay subscriptions are optional for local startup. Configure a Razorpay key 
 
 The weekly cron job scores eligible aggregated pulse data and creates at most one alert per team/week. A reminder job runs every minute on a persistent server, claiming due calendar reminders and emailing the event owner through the configured SMTP provider.
 
-Workspace owners/admins can create members using `POST /api/v1/workspace/invitations`; the API returns a one-time, seven-day acceptance token. The token is hashed at rest. The People page creates a shareable acceptance link, and an invitee uses the link to set their name and password and join.
+Workspace owners/admins can create members using `POST /api/v1/workspace/invitations`; the API returns a one-time, seven-day acceptance token. The token is hashed at rest. The People page creates a shareable acceptance link, and an invitee uses the link with email OTP to join.
 
 The `/api/v1/tools` routes provide tenant-scoped planner, calendar, leave, signature acknowledgment, and employee-only salary estimate workflows. Salary input is ephemeral and is not stored. Electronic signatures in this workflow are acknowledgments with an integrity hash, not a third-party qualified digital-signature service.
 
