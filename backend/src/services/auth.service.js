@@ -22,9 +22,11 @@ const Organization_1 = require("../models/Organization");
 const Invitation_1 = require("../models/Invitation");
 const RefreshToken_1 = require("../models/RefreshToken");
 const PasswordResetToken_1 = require("../models/PasswordResetToken");
+const OperationsAdmin_1 = require("../models/OperationsAdmin");
 const Team_1 = require("../models/Team");
 const User_1 = require("../models/User");
 const email_1 = require("./email.service");
+const operationsAuth = require("./operations-auth.service");
 const errors_1 = require("../utils/errors");
 const BCRYPT_ROUNDS = 12;
 function hashRefreshToken(token) {
@@ -80,7 +82,7 @@ function publicUser(user) {
     };
 }
 async function signup(input) {
-    if (input.email === "admin@gmail.com")
+    if (input.email.trim().toLowerCase() === (0, env_1.getConfig)().OPS_ADMIN_EMAIL.toLowerCase())
         throw (0, errors_1.conflict)("This email is reserved for the platform administrator", "EMAIL_RESERVED");
     if (await User_1.User.exists({ email: input.email }))
         throw (0, errors_1.conflict)("An account with this email already exists", "EMAIL_IN_USE");
@@ -111,6 +113,8 @@ async function signup(input) {
     return publicUser(user);
 }
 async function signin(input) {
+    if (input.email.trim().toLowerCase() === (0, env_1.getConfig)().OPS_ADMIN_EMAIL.toLowerCase())
+        throw (0, errors_1.unauthorized)("Email or password is incorrect");
     const user = await User_1.User.findOne({ email: input.email }).select("+passwordHash");
     if (!user || !user.isActive || !(await bcryptjs_1.default.compare(input.password, user.passwordHash)))
         throw (0, errors_1.unauthorized)("Email or password is incorrect");
@@ -119,7 +123,7 @@ async function signin(input) {
     return createSessionForUser(user);
 }
 async function acceptInvitation(input) {
-    if (input.email === "admin@gmail.com")
+    if (input.email.trim().toLowerCase() === (0, env_1.getConfig)().OPS_ADMIN_EMAIL.toLowerCase())
         throw (0, errors_1.conflict)("This email is reserved for the platform administrator", "EMAIL_RESERVED");
     const tokenHash = hashRefreshToken(input.token);
     const now = new Date();
@@ -210,23 +214,33 @@ const RESET_TOKEN_LENGTH = 48;
 function hashResetToken(token) {
     return (0, node_crypto_1.createHmac)("sha256", (0, env_1.getConfig)().JWT_REFRESH_SECRET).update(token).digest("hex");
 }
-async function createPasswordResetToken(userId) {
+async function createPasswordResetToken(target) {
     const config = (0, env_1.getConfig)();
     const raw = (0, node_crypto_1.randomBytes)(RESET_TOKEN_LENGTH).toString("base64url");
     const tokenHash = hashResetToken(raw);
     const expiresAt = new Date(Date.now() + config.PASSWORD_RESET_TTL_MINUTES * 60 * 1000);
     await PasswordResetToken_1.PasswordResetToken.create({
-        userId,
+        ...target,
         tokenHash,
         expiresAt,
     });
     return raw;
 }
 async function forgotPassword(input) {
-    const user = await User_1.User.findOne({ email: input.email.trim().toLowerCase() });
-    if (user) {
-        const raw = await createPasswordResetToken(user._id);
-        await (0, email_1.sendPasswordResetEmail)({ to: user.email, token: raw });
+    const escapedEmail = input.email.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const normalizedEmail = input.email.trim().toLowerCase();
+    const adminEmail = (0, env_1.getConfig)().OPS_ADMIN_EMAIL.toLowerCase();
+    if (normalizedEmail === adminEmail) {
+        const admin = await operationsAuth.getOperationsAdmin();
+        const raw = await createPasswordResetToken({ adminEmail: admin.email });
+        await (0, email_1.sendPasswordResetEmail)({ to: admin.email, token: raw });
+    }
+    else {
+        const user = await User_1.User.findOne({ email: new RegExp(`^${escapedEmail}$`, "i") });
+        if (user) {
+            const raw = await createPasswordResetToken({ userId: user._id });
+            await (0, email_1.sendPasswordResetEmail)({ to: user.email, token: raw });
+        }
     }
     // Always succeed without revealing whether the email exists.
     return { message: "If an account exists for this email, a password reset link has been sent." };
@@ -234,23 +248,45 @@ async function forgotPassword(input) {
 async function resetPassword(input) {
     const tokenHash = hashResetToken(input.token);
     const now = new Date();
-    const record = await PasswordResetToken_1.PasswordResetToken.findOne({
+    const record = await PasswordResetToken_1.PasswordResetToken.findOneAndUpdate({
         tokenHash,
         usedAt: null,
         revokedAt: null,
         expiresAt: { $gt: now },
-    }).select("+tokenHash");
+    }, { $set: { usedAt: now } }, { new: true }).select("+tokenHash");
     if (!record)
         throw (0, errors_1.unauthorized)("Reset token is invalid or expired");
-    const user = await User_1.User.findOne({ _id: record.userId, isActive: true }).select("+passwordHash");
-    if (!user) {
-        await PasswordResetToken_1.PasswordResetToken.updateOne({ _id: record._id }, { revokedAt: now });
-        throw (0, errors_1.unauthorized)("Reset token is invalid or expired");
+    if (record.adminEmail) {
+        const admin = await OperationsAdmin_1.OperationsAdmin.findById("platform-admin").select("+passwordHash");
+        if (!admin || admin.email !== record.adminEmail) {
+            await PasswordResetToken_1.PasswordResetToken.updateOne({ _id: record._id }, { revokedAt: now });
+            throw (0, errors_1.unauthorized)("Reset token is invalid or expired");
+        }
+        admin.passwordHash = await bcryptjs_1.default.hash(input.password, BCRYPT_ROUNDS);
+        admin.passwordChangedAt = new Date(Math.max(now.getTime(), admin.passwordChangedAt.getTime() + 1));
+        await admin.save();
+        await PasswordResetToken_1.PasswordResetToken.updateMany({
+            adminEmail: record.adminEmail,
+            _id: { $ne: record._id },
+            usedAt: null,
+            revokedAt: null,
+        }, { revokedAt: now });
     }
-    user.passwordHash = await bcryptjs_1.default.hash(input.password, BCRYPT_ROUNDS);
-    await user.save();
-    await PasswordResetToken_1.PasswordResetToken.updateOne({ _id: record._id }, { usedAt: now });
-    await PasswordResetToken_1.PasswordResetToken.updateMany({ userId: record.userId, revokedAt: null }, { revokedAt: now });
-    await RefreshToken_1.RefreshToken.updateMany({ userId: record.userId, revokedAt: null }, { revokedAt: now });
+    else {
+        const user = await User_1.User.findOne({ _id: record.userId, isActive: true }).select("+passwordHash");
+        if (!user) {
+            await PasswordResetToken_1.PasswordResetToken.updateOne({ _id: record._id }, { revokedAt: now });
+            throw (0, errors_1.unauthorized)("Reset token is invalid or expired");
+        }
+        user.passwordHash = await bcryptjs_1.default.hash(input.password, BCRYPT_ROUNDS);
+        await user.save();
+        await PasswordResetToken_1.PasswordResetToken.updateMany({
+            userId: record.userId,
+            _id: { $ne: record._id },
+            usedAt: null,
+            revokedAt: null,
+        }, { revokedAt: now });
+        await RefreshToken_1.RefreshToken.updateMany({ userId: record.userId, revokedAt: null }, { revokedAt: now });
+    }
     return { message: "Your password has been reset. You can sign in with your new password." };
 }

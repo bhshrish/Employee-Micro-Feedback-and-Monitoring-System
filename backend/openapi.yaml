@@ -3,7 +3,8 @@ info:
   title: CalmWork API
   version: 1.0.0
   description: |
-    Multi-tenant API for OTP authentication, privacy-first activity tracking,
+    Multi-tenant API for password authentication and password recovery,
+    single-platform-administrator password authentication, privacy-first activity tracking,
     anonymous weekly pulse, team-level wellbeing signals, employee tools, reports,
     and Razorpay subscription billing. JSON responses use success, data, and error
     fields; compatibility properties may also appear at the top level.
@@ -61,6 +62,80 @@ paths:
         "200": { description: Code requested; response does not disclose account existence }
         "400": { $ref: "#/components/responses/BadRequest" }
         "429": { description: Resend cooldown or rate limit }
+  /auth/signup:
+    post:
+      tags: [Authentication]
+      summary: Create a business workspace owner account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name, email, password, organizationName]
+              properties:
+                name: { type: string, minLength: 2, maxLength: 100 }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8, maxLength: 128 }
+                organizationName: { type: string, minLength: 2, maxLength: 120 }
+      responses:
+        "201": { description: Workspace owner account created }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "409": { description: Email is already registered }
+  /auth/signin:
+    post:
+      tags: [Authentication]
+      summary: Sign in with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8, maxLength: 128 }
+      responses:
+        "200": { $ref: "#/components/responses/AuthSession" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /auth/forgot-password:
+    post:
+      tags: [Authentication]
+      summary: Send a password reset link without revealing account existence
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        "200": { description: Generic reset request acknowledgement }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /auth/reset-password:
+    post:
+      tags: [Authentication]
+      summary: Set a new password with a valid emailed reset token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [token, password]
+              properties:
+                token: { type: string, minLength: 32, maxLength: 128 }
+                password: { type: string, minLength: 8, maxLength: 128 }
+      responses:
+        "200": { description: Password changed; existing sessions are revoked }
+        "401": { $ref: "#/components/responses/Unauthorized" }
   /auth/otp/verify:
     post:
       tags: [Authentication]
@@ -1049,6 +1124,25 @@ paths:
               properties: { email: { type: string, format: email } }
       responses:
         "200": { description: OTP request accepted without disclosing whether the email is configured. }
+  /operations/auth/login:
+    post:
+      tags: [Operations]
+      summary: Sign in the single configured platform administrator with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8, maxLength: 128 }
+      responses:
+        "200": { description: Separate HTTP-only operations administrator session }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { description: Administrator sign-in rate limit exceeded }
   /operations/auth/otp/verify:
     post:
       tags: [Operations]

@@ -19,7 +19,6 @@ const { weekStart } = require("../utils/week");
 const PAGE_SIZE = 25;
 const INVITATION_DAYS = 7;
 const MAX_PAGE = 1000;
-const RESERVED_EMAIL = "admin@gmail.com";
 
 function normalizePage(page) {
     const parsed = Number(page);
@@ -220,7 +219,7 @@ async function issueInvitation({ organizationId, inviterId, email, teamId, role 
     const normalized = normalizeEmail(email);
     if (!normalized)
         throw badRequest("A work email is required");
-    if (normalized === RESERVED_EMAIL)
+    if (normalized === getConfig().OPS_ADMIN_EMAIL.toLowerCase())
         throw badRequest("This email is reserved for the platform administrator");
     const team = await resolveTeam(organizationId, teamId);
     if (await User.exists({ email: normalized }))

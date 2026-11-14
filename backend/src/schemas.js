@@ -11,6 +11,7 @@ exports.signupSchema = zod_1.z.object({
     organizationName: zod_1.z.string().trim().min(2).max(120).optional(),
 }).strict();
 exports.signinSchema = zod_1.z.object({ email, password }).strict();
+exports.adminPasswordSigninSchema = zod_1.z.object({ email, password }).strict();
 exports.operationsListQuerySchema = zod_1.z.object({
     page: zod_1.z.coerce.number().int().min(1).max(1000).default(1),
     q: zod_1.z.string().trim().max(120).optional(),

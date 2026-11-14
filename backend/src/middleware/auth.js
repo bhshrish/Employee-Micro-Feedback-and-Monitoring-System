@@ -11,6 +11,7 @@ const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const mongoose_1 = require("mongoose");
 const env_1 = require("../config/env");
 const User_1 = require("../models/User");
+const OperationsAdmin_1 = require("../models/OperationsAdmin");
 const errors_1 = require("../utils/errors");
 async function requireOperationsAdmin(req, _res, next) {
     try {
@@ -21,7 +22,12 @@ async function requireOperationsAdmin(req, _res, next) {
             issuer: "calmwork-operations",
             audience: "calmwork-admin",
         });
-        if (payload.typ !== "operations_admin" || payload.sub !== (0, env_1.getConfig)().OPS_ADMIN_EMAIL)
+        const admin = await OperationsAdmin_1.OperationsAdmin.findById("platform-admin").select("email passwordChangedAt");
+        if (payload.typ !== "operations_admin" ||
+            payload.sub !== (0, env_1.getConfig)().OPS_ADMIN_EMAIL.toLowerCase() ||
+            !admin ||
+            admin.email !== payload.sub ||
+            admin.passwordChangedAt.getTime() !== payload.passwordChangedAt)
             throw (0, errors_1.unauthorized)();
         next();
     }

@@ -60,12 +60,12 @@ const api = (0, express_1.Router)();
 const teamFeature = (0, auth_1.requirePlan)("Team", "Business");
 const activeWorkspace = auth_1.requireEntitlement;
 const authRoutes = (0, express_1.Router)();
-if (process.env.NODE_ENV === "test") {
     authRoutes.post("/signup", (0, validate_1.validateBody)(schemas_1.signupSchema), authController.signup);
     authRoutes.post("/signin", (0, validate_1.validateBody)(schemas_1.signinSchema), authController.signin);
     authRoutes.post("/login", (0, validate_1.validateBody)(schemas_1.signinSchema), authController.signin);
     authRoutes.post("/accept-invitation", (0, validate_1.validateBody)(schemas_1.invitationAcceptSchema), authController.acceptInvitation);
-}
+authRoutes.post("/forgot-password", (0, validate_1.validateBody)(schemas_1.forgotPasswordSchema), authController.forgotPassword);
+authRoutes.post("/reset-password", (0, validate_1.validateBody)(schemas_1.resetPasswordSchema), authController.resetPassword);
 authRoutes.post("/otp/request", (0, validate_1.validateBody)(schemas_1.otpRequestSchema), authController.requestOtp);
 authRoutes.post("/otp/verify", (0, validate_1.validateBody)(schemas_1.otpVerifySchema), authController.verifyOtp);
 authRoutes.post("/refresh", authController.refresh);
@@ -75,6 +75,7 @@ authRoutes.get("/me", auth_1.authenticate, authController.me);
 authRoutes.patch("/me", auth_1.authenticate, (0, validate_1.validateBody)(schemas_1.profileSchema), authController.updateProfile);
 api.use("/auth", authRoutes);
 const operationsRoutes = (0, express_1.Router)();
+operationsRoutes.post("/auth/login", (0, validate_1.validateBody)(schemas_1.adminPasswordSigninSchema), operationsController.signInAdminWithPassword);
 operationsRoutes.post("/auth/otp/request", (0, validate_1.validateBody)(schemas_1.adminOtpRequestSchema), operationsController.requestAdminOtp);
 operationsRoutes.post("/auth/otp/verify", (0, validate_1.validateBody)(schemas_1.adminOtpVerifySchema), operationsController.verifyAdminOtp);
 operationsRoutes.post("/auth/logout", auth_1.requireOperationsAdmin, operationsController.adminSignOut);
