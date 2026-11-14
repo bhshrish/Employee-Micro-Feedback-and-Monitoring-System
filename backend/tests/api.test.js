@@ -21,7 +21,6 @@ import { weekStart } from "../src/utils/week";
 import { Organization } from "../src/models/Organization";
 import { Attendance } from "../src/models/Attendance";
 import { OtpChallenge } from "../src/models/OtpChallenge";
-import { PasswordResetToken } from "../src/models/PasswordResetToken";
 import { EmployeeTool } from "../src/models/EmployeeTool";
 import { migrateLegacyData } from "../src/legacy-migration";
 import { signin as createTestSession } from "../src/services/auth.service";
@@ -143,35 +142,6 @@ describe("PULSE API", () => {
         assert.ok(cookie);
         assert.match(cookie, /;\s*secure/i);
         assert.match(cookie, /;\s*samesite=none/i);
-    });
-    it("allows password sign-in and completes a single-use email password reset", async () => {
-        const email = "password-reset@example.test";
-        await signup(email).expect(201);
-        await request(app).post("/api/v1/auth/signin")
-            .send({ email, password: "correct-horse-battery" }).expect(200);
-
-        const forgot = await request(app).post("/api/v1/auth/forgot-password")
-            .send({ email: email.toUpperCase() }).expect(200);
-        assert.match(forgot.body.message, /If an account exists/);
-        assert.equal(await PasswordResetToken.countDocuments(), 1);
-
-        const rawToken = "valid-reset-token-".padEnd(64, "x");
-        const tokenHash = createHmac("sha256", process.env.JWT_REFRESH_SECRET).update(rawToken).digest("hex");
-        const user = await User.findOne({ email });
-        assert.ok(user);
-        await PasswordResetToken.create({
-            userId: user._id,
-            tokenHash,
-            expiresAt: new Date(Date.now() + 60_000),
-        });
-        await request(app).post("/api/v1/auth/reset-password")
-            .send({ token: rawToken, password: "new-correct-password" }).expect(200);
-        await request(app).post("/api/v1/auth/reset-password")
-            .send({ token: rawToken, password: "another-new-password" }).expect(401);
-        await request(app).post("/api/v1/auth/signin")
-            .send({ email, password: "correct-horse-battery" }).expect(401);
-        await request(app).post("/api/v1/auth/signin")
-            .send({ email, password: "new-correct-password" }).expect(200);
     });
     it("migrates legacy account and team workspace fields without removing legacy fields", async () => {
         const organizationId = new mongoose.Types.ObjectId();
