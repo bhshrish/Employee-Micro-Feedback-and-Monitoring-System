@@ -29,7 +29,7 @@ The platform operations dashboard is available at `/admin`. It can review and ac
 
 Workspace monitoring summaries are included during the seven-day free trial. After the trial, an active monthly or yearly plan is required to continue using monitoring. Report exports require an active paid plan.
 
-Keep the API running, then start the frontend in a second terminal with `npm run dev` (or `npm --workspace frontend run dev`). The login page connects to `http://localhost:4000/api/v1` by default, so login and signup will not work until MongoDB and the API are available. Set `NEXT_PUBLIC_API_URL` when the API is hosted elsewhere, and include the frontend origin in the API's `CORS_ORIGINS`.
+Keep the API running, then start the frontend in a second terminal with `npm run dev` (or `npm --workspace frontend run dev`). The login page connects to `http://localhost:4000/api/v1` by default, so login and signup will not work until MongoDB and the API are available. If the API startup log reports another port (for example, `5000`), set `NEXT_PUBLIC_API_URL` to that API URL plus `/api/v1` (for example, `http://localhost:5000/api/v1`) before starting the frontend. `CORS_ORIGINS` must include the frontend's browser origin (for local development, `http://localhost:3000`); comma-separate it from any deployed frontend origin you also need to allow. Configure SMTP to deliver password-reset emails; without SMTP configured in development, reset links are written to the API log for local testing.
 
 ## Deploy both apps to Vercel
 

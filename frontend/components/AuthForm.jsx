@@ -28,6 +28,24 @@ export function AuthForm() {
     const router = useRouter();
     const signingUp = accountType === "business" && formMode === "signup";
     const joining = accountType === "employee" && formMode === "join";
+    const submitLabel = otpRequested
+        ? "Verify and continue"
+        : useCode
+            ? channel === "email" ? "Email me a code" : "Text me a code"
+            : signingUp
+                ? "Create account"
+                : joining
+                    ? "Join workspace"
+                    : "Sign in";
+    const loadingLabel = otpRequested
+        ? "Verifying…"
+        : useCode
+            ? "Sending code…"
+            : signingUp
+                ? "Creating account…"
+                : joining
+                    ? "Joining workspace…"
+                    : "Signing in…";
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -227,9 +245,9 @@ export function AuthForm() {
                     {!useCode && <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete={signingUp || joining ? "new-password" : "current-password"} minLength={8} maxLength={128} placeholder="At least 8 characters"/><FieldError>{errors.password}</FieldError></label>}
                     {otpRequested && <label>6-digit verification code<input inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="000000"/><FieldError>{errors.code}</FieldError></label>}
                     <FieldError>{errors.form}</FieldError>
-                    <button className="button button-full" disabled={loading}>{loading
-                        ? <><span className="spinner"/>{otpRequested ? "Verifying…" : "Sending code…"}</>
-                        : <>{otpRequested ? "Verify and continue" : "Email me a code"}<Icon name="arrow"/></>}</button>
+                    <button type="submit" className="button button-full" disabled={loading}>{loading
+                        ? <><span className="spinner"/>{loadingLabel}</>
+                        : <>{submitLabel}<Icon name="arrow"/></>}</button>
                     {otpRequested && <div className="auth-mode-switch">
                         <button type="button" disabled={resendIn > 0 || loading} onClick={() => { setOtpRequested(false); setCode(""); setErrors({}); }}>
                             {resendIn > 0 ? `Request another code in ${resendIn}s` : "Request another code"}
