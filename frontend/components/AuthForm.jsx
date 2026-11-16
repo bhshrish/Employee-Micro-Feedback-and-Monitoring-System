@@ -28,6 +28,7 @@ export function AuthForm() {
     const router = useRouter();
     const signingUp = accountType === "business" && formMode === "signup";
     const joining = accountType === "employee" && formMode === "join";
+    const purpose = signingUp ? "business_signup" : joining ? "invitation" : "signin";
     const submitLabel = otpRequested
         ? "Verify and continue"
         : useCode
@@ -72,109 +73,70 @@ export function AuthForm() {
         return () => window.clearTimeout(timer);
     }, [resendIn]);
 
-    const chooseAccountType = (type) => {
-        setAccountType(type);
-        setFormMode("signin");
-        setUseCode(false);
+    const resetCodeState = () => {
         setOtpRequested(false);
         setCode("");
         setResendIn(0);
         setErrors({});
+    };
+
+    const chooseAccountType = (type) => {
+        setAccountType(type);
+        setFormMode("signin");
+        setChannel("email");
+        resetCodeState();
         if (type !== "employee")
             setEmail("");
     };
 
     const switchFormMode = (mode) => {
         setFormMode(mode);
-        setUseCode(false);
-        setOtpRequested(false);
-        setCode("");
-        setResendIn(0);
-        setErrors({});
-        setPassword("");
-    };
-
-    const switchAuthMethod = (codeSignIn) => {
-        setUseCode(codeSignIn);
-        setOtpRequested(false);
-        setCode("");
-        setResendIn(0);
-        setErrors({});
+        setChannel("email");
+        resetCodeState();
     };
 
     const submit = async (event) => {
         event.preventDefault();
         const next = {};
-        if ((!useCode || channel === "email") && !/^\S+@\S+\.\S+$/.test(email))
+        if (channel === "email" && !/^\S+@\S+\.\S+$/.test(email))
             next.email = "Enter a valid work email.";
-        if (useCode && channel === "sms" && !/^\+[1-9]\d{7,14}$/.test(phone))
+        if (channel === "sms" && !/^\+[1-9]\d{7,14}$/.test(phone))
             next.phone = "Enter a phone number in international format, including + and country code.";
-        if (!useCode && password.length < 8)
-            next.password = "Password must be at least 8 characters.";
-        if (useCode && otpRequested && !/^\d{6}$/.test(code))
-            next.code = "Enter the 6-digit code.";
-        if ((signingUp || joining) && name.trim().length < 2)
+        if (!otpRequested && (signingUp || joining) && name.trim().length < 2)
             next.name = "Enter your name.";
-        if (signingUp && businessName.trim().length < 2)
+        if (!otpRequested && signingUp && businessName.trim().length < 2)
             next.businessName = "Enter your business name.";
-        if (joining && inviteToken.trim().length < 32)
+        if (!otpRequested && joining && inviteToken.trim().length < 32)
             next.inviteToken = "Use the invitation link provided by your business.";
+        if (otpRequested && !/^\d{6}$/.test(code))
+            next.code = "Enter the 6-digit code from your email.";
         setErrors(next);
         if (Object.keys(next).length)
             return;
 
         setLoading(true);
         try {
-            if (useCode && !otpRequested) {
+            if (!otpRequested) {
                 await requestOtp({
                     channel,
-                    ...(channel === "email" ? { email: email.trim() } : { phone: phone.trim() }),
-                    purpose: "signin",
+                    ...(channel === "email" ? { email } : { phone }),
+                    purpose,
+                    ...(signingUp ? { name: name.trim(), organizationName: businessName.trim() } : {}),
+                    ...(joining ? { invitationToken: inviteToken.trim() } : {}),
                 });
                 setOtpRequested(true);
                 setResendIn(60);
                 setErrors({ form: "If the account can sign in, a verification code has been sent." });
                 return;
             }
-            if (useCode) {
-                const user = await verifyOtp({
-                    channel,
-                    ...(channel === "email" ? { email: email.trim() } : { phone: phone.trim() }),
-                    purpose: "signin",
-                    code,
-                });
-                const roleMatches = accountType === "business"
-                    ? user.role === "admin"
-                    : user.role === "employee" || user.role === "manager";
-                if (!roleMatches) {
-                    await signOut();
-                    setErrors({ form: accountType === "business"
-                        ? "This account belongs to an employee. Choose Employee sign in."
-                        : "This account belongs to a business. Choose Business sign in." });
-                    return;
-                }
-                signIn(user);
-                router.push("/dashboard");
-                return;
-            }
-            if (signingUp) {
-                await signup({
-                    name: name.trim(),
-                    email: email.trim(),
-                    password,
-                    organizationName: businessName.trim(),
-                });
-            }
-            else if (joining) {
-                await acceptInvitation({
-                    token: inviteToken.trim(),
-                    name: name.trim(),
-                    email: email.trim(),
-                    password,
-                });
-            }
 
-            const user = await signInWithPassword({ email: email.trim(), password });
+            const user = await verifyOtp({
+                channel,
+                ...(channel === "email" ? { email } : { phone }),
+                purpose,
+                code,
+                ...(joining ? { name: name.trim() } : {}),
+            });
             const roleMatches = accountType === "business"
                 ? user.role === "admin"
                 : user.role === "employee" || user.role === "manager";
@@ -252,7 +214,7 @@ export function AuthForm() {
                         <button type="button" disabled={resendIn > 0 || loading} onClick={() => { setOtpRequested(false); setCode(""); setErrors({}); }}>
                             {resendIn > 0 ? `Request another code in ${resendIn}s` : "Request another code"}
                         </button>
-                        <button type="button" disabled={loading} onClick={() => { setOtpRequested(false); setCode(""); setResendIn(0); setErrors({}); }}>Change address</button>
+                        <button type="button" disabled={loading} onClick={resetCodeState}>Change address</button>
                     </div>}
                 </form>
                 {!signingUp && !joining && !useCode && <p className="auth-forgot-link"><Link href="/forgot-password">Forgot password?</Link></p>}
