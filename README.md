@@ -1,6 +1,8 @@
 # CalmWork
 
-CalmWork is an employee feedback and burnout-monitoring application. This repository contains a Next.js frontend in [`frontend/`](./frontend/) and a separately deployable Express REST API in [`backend/`](./backend/). Both applications are JavaScript; the API is the source of truth for authentication, organization-scoped data, time sessions, anonymous pulses, analytics, billing, and reports.
+CalmWork is an employee feedback and burnout-monitoring application. This repository contains a TypeScript Next.js app in [`frontend/`](./frontend/) and a TypeScript Express API in [`backend/`](./backend/).
+
+The API migration is staged: Next.js currently handles health checks and user authentication, while organization-scoped data, operations administration, time sessions, anonymous pulses, analytics, billing, and reports remain on Express. `NEXT_PUBLIC_API_URL` must continue to point at Express for these unported endpoints.
 
 ## Requirements
 
@@ -14,9 +16,10 @@ CalmWork is an employee feedback and burnout-monitoring application. This reposi
 ```bash
 npm ci
 cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
 ```
 
-Set the required secrets and service URLs in `backend/.env`; never commit that file. Start MongoDB, then run the API in development mode:
+Set the required secrets and service URLs in both environment files; never commit them. Native Next.js authentication requires `MONGODB_URI`, the same three unique JWT secrets as the API, `FRONTEND_URL`, `CORS_ORIGINS`, and the configured admin email in the frontend server environment. Configure SMTP there for email codes and password-reset links; configure SMS credentials there if SMS sign-in is enabled. Set `NEXT_PUBLIC_API_URL` to the Express API URL for endpoints not yet migrated. Start MongoDB, then run the API in development mode:
 
 ```bash
 docker compose --env-file backend/.env -f backend/docker-compose.yml up -d
@@ -29,7 +32,7 @@ The platform operations dashboard is available at `/admin`. It can review and ac
 
 Workspace monitoring summaries are included during the seven-day free trial. After the trial, an active monthly or yearly plan is required to continue using monitoring. Report exports require an active paid plan.
 
-Keep the API running, then start the frontend in a second terminal with `npm run dev` (or `npm --workspace frontend run dev`). The login page connects to `http://localhost:4000/api/v1` by default, so login and signup will not work until MongoDB and the API are available. If the API startup log reports another port (for example, `5000`), set `NEXT_PUBLIC_API_URL` to that API URL plus `/api/v1` (for example, `http://localhost:5000/api/v1`) before starting the frontend. `CORS_ORIGINS` must include the frontend's browser origin (for local development, `http://localhost:3000`); comma-separate it from any deployed frontend origin you also need to allow. Configure SMTP to deliver password-reset emails; without SMTP configured in development, reset links are written to the API log for local testing.
+Keep the API running, then start the frontend in a second terminal with `npm run dev` (or `npm --workspace frontend run dev`). Native Next.js auth routes and the remaining Express routes both need MongoDB and their respective server environments configured. If the API startup log reports another port (for example, `5000`), set `NEXT_PUBLIC_API_URL` to that API URL plus `/api/v1` (for example, `http://localhost:5000/api/v1`) before starting the frontend. `CORS_ORIGINS` must include the frontend's browser origin (for local development, `http://localhost:3000`); comma-separate it from any deployed frontend origin you also need to allow. Configure SMTP to deliver password-reset emails; without SMTP configured in development, reset links are written to the API log for local testing.
 
 ## Deploy both apps to Vercel
 
@@ -47,14 +50,14 @@ Deploy the frontend and API as **two separate Vercel projects** from this reposi
    - Working SMTP credentials for administrator and user password resets and email codes
    - Razorpay key ID, key secret, webhook secret, and the six recurring plan IDs described in [`backend/.env.example`](./backend/.env.example)
 3. Deploy the API. Its base URL is the Vercel deployment URL; confirm `GET /health` responds with `{"status":"ok"}`.
-4. Set `NEXT_PUBLIC_API_URL` in the frontend project to the API URL plus `/api/v1` (for example, `https://your-api.vercel.app/api/v1`), then deploy the frontend.
+4. In the frontend project, set `NEXT_PUBLIC_API_URL` to the API URL plus `/api/v1`; configure `MONGODB_URI`, the same three JWT secrets, `FRONTEND_URL`, `CORS_ORIGINS`, and `OPS_ADMIN_EMAIL`. Configure SMTP (and SMS credentials if SMS sign-in is enabled) in the frontend project as well as the API project. Deploy the frontend.
 5. Test OTP sign-in and refresh-token behavior on the deployed frontend. Configure Razorpay webhooks to call `https://your-api.vercel.app/api/v1/webhooks/razorpay` and subscribe to the subscription lifecycle and payment failure events.
 
 Add these variables to the Vercel project settings, not to source control. Production refresh cookies use `SameSite=None; Secure` so the frontend can refresh sessions when the frontend and API have different origins. Sign in again after deploying this cookie change to replace an older cookie. Browser third-party-cookie restrictions can still affect separate default `*.vercel.app` domains; custom frontend and API domains under the same registrable domain (for example, `app.example.com` and `api.example.com`) are recommended. Leave `COOKIE_DOMAIN` unset unless you have a specific domain-cookie requirement. Vercel functions are not persistent servers, so the API's in-process alert and trial-expiration jobs do not run reliably there; use an external scheduler or a persistent host if those jobs are required.
 
 ## Environment
 
-See [`backend/.env.example`](./backend/.env.example) for the complete variable list and descriptions. At minimum configure `MONGODB_URI`, all three JWT secrets, `CORS_ORIGINS`, and SMTP delivery. Razorpay checkout additionally requires its API credentials, webhook secret, and plan IDs created in the Razorpay Dashboard. Secrets must be strong, unique values in deployed environments.
+See [`backend/.env.example`](./backend/.env.example) for the complete API variable list and descriptions and [`frontend/.env.example`](./frontend/.env.example) for the Next.js variables. Configure `MONGODB_URI`, all three JWT secrets, `FRONTEND_URL`, `CORS_ORIGINS`, and `OPS_ADMIN_EMAIL` in both server environments. SMTP and optional SMS delivery settings are also required in the frontend environment for native auth; Razorpay settings remain backend-only. Secrets must be strong, unique values in deployed environments.
 
 ## Commands
 
@@ -62,8 +65,9 @@ See [`backend/.env.example`](./backend/.env.example) for the complete variable l
 | --- | --- |
 | `npm run api:dev` | Run the backend with the development watcher |
 | `npm run start:api` | Start the compiled backend |
-| `npm run build:api` | Lint/check the JavaScript backend |
+| `npm run build:api` | Type-check the TypeScript API |
 | `npm run build:web` | Build the Next.js frontend |
+| `npm --workspace frontend run typecheck` | Type-check the TypeScript frontend |
 | `npm run build` | Build backend and frontend |
 | `npm run lint` | Lint the backend |
 | `npm test` | Run backend unit and integration tests |
@@ -86,6 +90,10 @@ Burnout analytics combine normalized stress, workload, inverse mood, participati
 ## API overview
 
 Versioned JSON routes are under `/api/v1`: email/password and email/SMS-code authentication, password recovery, single-platform-administrator password authentication, user and team administration, time sessions, weekly pulses, manager-only aggregate analytics, alerts, Razorpay billing, employee tools, and subscription-gated reports. JSON responses include `success`, `data`, and `error` fields; compatibility fields are retained for existing clients. See the OpenAPI document at [`backend/openapi.yaml`](./backend/openapi.yaml).
+
+The Next.js app currently implements `GET /api/v1/health`, `/api/v1/health/live`, and `/api/v1/health/ready`, plus native `/api/v1/auth/*` routes for signup, sign-in, invitation acceptance, OTP, password recovery, token refresh/revocation, and the current-user profile. Readiness connects to MongoDB and returns `503` while the database is unavailable. Operations authentication and other business API routes remain on Express.
+
+Native Next.js authentication does not yet have parity with the Express authentication rate limiter. Configure platform-level rate limiting for `/api/v1/auth/*` before exposing these routes to production traffic.
 
 Razorpay subscription webhooks are verified against the raw request body and deduplicated before subscription state or invoice records are updated.
 
