@@ -13,7 +13,6 @@
     "build:api": "npm --prefix backend run build",
     "build:web": "npm --workspace frontend run build",
     "lint": "npm --prefix backend run lint",
-    "typecheck": "npm --workspace frontend run typecheck",
     "test": "npm --prefix backend test",
     "seed": "npm --prefix backend run seed",
     "start": "npm --workspace frontend run start",
