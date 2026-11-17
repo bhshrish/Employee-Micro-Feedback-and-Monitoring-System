@@ -15,7 +15,8 @@ const OperationsAdmin_1 = require("../models/OperationsAdmin");
 const errors_1 = require("../utils/errors");
 async function requireOperationsAdmin(req, _res, next) {
     try {
-        const token = req.cookies?.calmwork_operations;
+        const header = req.get("authorization");
+        const token = req.cookies?.calmwork_operations || (header?.startsWith("Bearer ") ? header.slice(7) : null);
         if (!token)
             throw (0, errors_1.unauthorized)();
         const payload = jsonwebtoken_1.default.verify(token, (0, env_1.getConfig)().JWT_ADMIN_SECRET, {

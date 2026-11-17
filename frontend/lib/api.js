@@ -1,6 +1,28 @@
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1").replace(/\/$/, "");
 let refreshRequest = null;
 let dashboardRequest = null;
+let currentAccessToken = typeof window !== "undefined" ? localStorage.getItem("calmwork:access-token") : null;
+let currentAdminToken = typeof window !== "undefined" ? localStorage.getItem("calmwork:admin-token") : null;
+
+export function setAccessToken(token) {
+    currentAccessToken = token || null;
+    if (typeof window !== "undefined") {
+        if (token)
+            localStorage.setItem("calmwork:access-token", token);
+        else
+            localStorage.removeItem("calmwork:access-token");
+    }
+}
+
+export function setAdminToken(token) {
+    currentAdminToken = token || null;
+    if (typeof window !== "undefined") {
+        if (token)
+            localStorage.setItem("calmwork:admin-token", token);
+        else
+            localStorage.removeItem("calmwork:admin-token");
+    }
+}
 function isAuthPath(path) {
     return path.startsWith("/auth/otp/") ||
         ["/auth/refresh", "/auth/signin", "/auth/login", "/auth/signup", "/auth/accept-invitation", "/auth/forgot-password", "/auth/reset-password"].includes(path) ||
@@ -30,10 +52,14 @@ async function refreshAccessToken() {
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
             if (response.status === 401) {
+                setAccessToken(null);
                 localStorage.removeItem("calmwork:auth");
                 window.dispatchEvent(new Event("calmwork:session-expired"));
             }
             throw apiError(response.status, payload.error?.code || "AUTH_REQUIRED", payload.error?.message || "Your session has expired. Please sign in again.");
+        }
+        if (payload.accessToken) {
+            setAccessToken(payload.accessToken);
         }
         return true;
     })();
@@ -50,6 +76,13 @@ async function request(path, init = {}, canRefresh = true) {
     const headers = new Headers(init.headers);
     if (init.body && !headers.has("Content-Type"))
         headers.set("Content-Type", "application/json");
+    if (!headers.has("Authorization")) {
+        if (path.startsWith("/operations") && currentAdminToken) {
+            headers.set("Authorization", `Bearer ${currentAdminToken}`);
+        } else if (currentAccessToken) {
+            headers.set("Authorization", `Bearer ${currentAccessToken}`);
+        }
+    }
     const response = await fetchApi(`${API_BASE}${path}`, { ...init, headers, credentials: "include" });
     if (response.status === 401 && canRefresh && !isAuthPath(path)) {
         await refreshAccessToken();
@@ -75,6 +108,8 @@ export async function verifyOtp(input) {
         method: "POST",
         body: JSON.stringify(input),
     }, false);
+    if (result.accessToken)
+        setAccessToken(result.accessToken);
     localStorage.setItem("calmwork:auth", "true");
     return result.user;
 }
@@ -83,6 +118,8 @@ export async function signup(input) {
 }
 export async function signInWithPassword(input) {
     const result = await request("/auth/signin", { method: "POST", body: JSON.stringify(input) }, false);
+    if (result.accessToken)
+        setAccessToken(result.accessToken);
     localStorage.setItem("calmwork:auth", "true");
     return result.user;
 }
@@ -99,16 +136,27 @@ export async function requestAdminOtp(email) {
     return request("/operations/auth/otp/request", { method: "POST", body: JSON.stringify({ email }) }, false);
 }
 export async function verifyAdminOtp(email, code) {
-    return request("/operations/auth/otp/verify", { method: "POST", body: JSON.stringify({ email, code }) }, false);
+    const result = await request("/operations/auth/otp/verify", { method: "POST", body: JSON.stringify({ email, code }) }, false);
+    if (result?.token)
+        setAdminToken(result.token);
+    return result;
 }
 export async function loginOperationsAdmin(email, password) {
-    return request("/operations/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }, false);
+    const result = await request("/operations/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }, false);
+    if (result?.token)
+        setAdminToken(result.token);
+    return result;
 }
 export async function getOperationsAdmin() {
     return request("/operations/auth/me", {}, false);
 }
 export async function signOutOperationsAdmin() {
-    return request("/operations/auth/logout", { method: "POST" }, false);
+    try {
+        return await request("/operations/auth/logout", { method: "POST" }, false);
+    }
+    finally {
+        setAdminToken(null);
+    }
 }
 export async function getOperationsOverview() {
     return request("/operations/overview", {}, false);
@@ -258,12 +306,12 @@ export async function restoreSession() {
     if (localStorage.getItem("calmwork:auth") !== "true")
         return null;
     try {
-        await refreshAccessToken();
         const result = await request("/auth/me");
         return result.user;
     }
     catch (error) {
         if (error instanceof Error && "status" in error && error.status === 401) {
+            setAccessToken(null);
             localStorage.removeItem("calmwork:auth");
             return null;
         }
@@ -278,6 +326,7 @@ export async function signOut(everywhere = false) {
             await request("/auth/logout", { method: "POST" });
     }
     finally {
+        setAccessToken(null);
         localStorage.removeItem("calmwork:auth");
     }
 }

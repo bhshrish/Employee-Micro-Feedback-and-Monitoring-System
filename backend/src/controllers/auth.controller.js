@@ -43,10 +43,11 @@ const cookieName = "calmwork_refresh";
 const accessCookieName = "calmwork_access";
 function cookieOptions(path = "/api/v1/auth") {
     const config = (0, env_1.getConfig)();
+    const isSecure = Boolean(config.COOKIE_SECURE);
     return {
         httpOnly: true,
-        secure: config.COOKIE_SECURE || config.NODE_ENV === "production",
-        sameSite: config.NODE_ENV === "production" ? "none" : "lax",
+        secure: isSecure,
+        sameSite: isSecure ? "none" : "lax",
         path,
         ...(config.COOKIE_DOMAIN ? { domain: config.COOKIE_DOMAIN } : {}),
         maxAge: config.REFRESH_TOKEN_DAYS * 86_400_000,
@@ -82,7 +83,7 @@ exports.refresh = (0, async_handler_1.asyncHandler)(async (req, res) => {
     const raw = req.cookies?.[cookieName];
     if (!raw)
         throw (0, errors_1.unauthorized)("Refresh cookie is required");
-    setSession(res, await auth.rotateRefreshToken(raw), 200, false);
+    setSession(res, await auth.rotateRefreshToken(raw), 200, true);
 });
 exports.logout = (0, async_handler_1.asyncHandler)(async (req, res) => {
     await auth.revokeRefreshToken(req.cookies?.[cookieName]);

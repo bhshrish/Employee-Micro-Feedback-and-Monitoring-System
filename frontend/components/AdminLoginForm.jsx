@@ -19,7 +19,7 @@ export function AdminLoginForm() {
         setLoading(true);
         setError("");
         try {
-            await loginOperationsAdmin(email, password);
+            await loginOperationsAdmin(email.trim().toLowerCase(), password);
             router.push("/admin");
         }
         catch (cause) {

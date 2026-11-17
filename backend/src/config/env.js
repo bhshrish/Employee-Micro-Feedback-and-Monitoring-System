@@ -12,7 +12,11 @@ const schema = zod_1.z.object({
     JWT_ADMIN_SECRET: zod_1.z.string().min(32),
     ACCESS_TOKEN_TTL: zod_1.z.string().default("15m"),
     REFRESH_TOKEN_DAYS: zod_1.z.coerce.number().int().min(1).max(30).default(7),
-    COOKIE_SECURE: zod_1.z.string().default("false").transform((v) => v === "true"),
+    COOKIE_SECURE: zod_1.z.preprocess((v) => {
+        if (v === "true" || v === true) return true;
+        if (v === "false" || v === false) return false;
+        return undefined;
+    }, zod_1.z.boolean().optional()),
     COOKIE_DOMAIN: zod_1.z.string().optional(),
     CORS_ORIGINS: zod_1.z.string().default("https://employee-micro-feedback-and-monitor-omega.vercel.app"),
     OPS_ADMIN_EMAIL: zod_1.z.string().email().default("admin@gmail.com"),
@@ -23,7 +27,11 @@ const schema = zod_1.z.object({
     SMTP_HOST: zod_1.z.string().optional(),
     SMTP_PORT: zod_1.z.coerce.number().int().min(1).max(65535).optional(),
     SMTP_USER: zod_1.z.string().optional(),
-    SMTP_PASS: zod_1.z.string().optional(),
+    SMTP_PASS: zod_1.z.preprocess((v) => {
+        if (typeof v === "string" && v.trim()) return v.trim();
+        if (typeof process.env.SMTP_PASSWORD === "string" && process.env.SMTP_PASSWORD.trim()) return process.env.SMTP_PASSWORD.trim();
+        return undefined;
+    }, zod_1.z.string().optional()),
     SMTP_FROM: zod_1.z.string().email().optional(),
     SMTP_FROM_NAME: zod_1.z.string().default("CalmWork"),
     SMS_API_URL: zod_1.z.string().url().optional(),
@@ -65,6 +73,9 @@ function getConfig() {
         if (/^mongodb(?:\+srv)?:\/\/(?:localhost|127\.0\.0\.1)(?::|\/)/i.test(config.MONGODB_URI)) {
             throw new Error("MONGODB_URI must not point to localhost in production");
         }
+    }
+    if (config.COOKIE_SECURE === undefined) {
+        config.COOKIE_SECURE = config.NODE_ENV === "production";
     }
     return config;
 }

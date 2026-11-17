@@ -24,7 +24,7 @@ export function AuthForm() {
     const [inviteToken, setInviteToken] = useState("");
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
-    const { signIn, signOut, selectPlan } = useSubscription();
+    const { signIn, signOut, selectPlan, authenticated, hydrated } = useSubscription();
     const router = useRouter();
     const signingUp = accountType === "business" && formMode === "signup";
     const joining = accountType === "employee" && formMode === "join";
@@ -49,6 +49,12 @@ export function AuthForm() {
                 : joining
                     ? "Joining workspace…"
                     : "Signing in…";
+
+    useEffect(() => {
+        if (hydrated && authenticated) {
+            router.replace("/dashboard");
+        }
+    }, [hydrated, authenticated, router]);
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -109,12 +115,14 @@ export function AuthForm() {
     const submit = async (event) => {
         event.preventDefault();
         const next = {};
-        if (channel === "email" && !/^\S+@\S+\.\S+$/.test(email))
+        const trimmedEmail = email.trim();
+        const trimmedPhone = phone.trim();
+
+        if (channel === "email" && !/^\S+@\S+\.\S+$/.test(trimmedEmail))
             next.email = "Enter a valid work email.";
-        if (channel === "sms" && !/^\+[1-9]\d{7,14}$/.test(phone))
+        if (channel === "sms" && !/^\+[1-9]\d{7,14}$/.test(trimmedPhone))
             next.phone = "Enter a phone number in international format, including + and country code.";
-        // FIX: errors.password was displayed but never set
-        if (passwordSignIn && password.length < 8)
+        if (!useCode && (!password || password.length < 8))
             next.password = "Password must be at least 8 characters.";
         if (!otpRequested && (signingUp || joining) && name.trim().length < 2)
             next.name = "Enter your name.";
@@ -130,10 +138,34 @@ export function AuthForm() {
 
         setLoading(true);
         try {
-            // FIX: password sign-in used to fall through to requestOtp(); now it actually logs in.
-            // NOTE: adjust the argument shape if your lib/api.ts signInWithPassword expects something different.
+            if (signingUp) {
+                await signup({
+                    name: name.trim(),
+                    email: trimmedEmail,
+                    password,
+                    organizationName: businessName.trim() || undefined,
+                });
+                const user = await signInWithPassword({ email: trimmedEmail, password });
+                signIn(user);
+                router.push("/dashboard");
+                return;
+            }
+
+            if (joining) {
+                await acceptInvitation({
+                    token: inviteToken.trim(),
+                    email: trimmedEmail,
+                    name: name.trim(),
+                    password,
+                });
+                const user = await signInWithPassword({ email: trimmedEmail, password });
+                signIn(user);
+                router.push("/dashboard");
+                return;
+            }
+
             if (passwordSignIn) {
-                const user = await signInWithPassword({ email, password });
+                const user = await signInWithPassword({ email: trimmedEmail, password });
                 const roleMatches = accountType === "business"
                     ? user.role === "admin"
                     : user.role === "employee" || user.role === "manager";
@@ -152,10 +184,8 @@ export function AuthForm() {
             if (!otpRequested) {
                 await requestOtp({
                     channel,
-                    ...(channel === "email" ? { email } : { phone }),
-                    purpose,
-                    ...(signingUp ? { name: name.trim(), organizationName: businessName.trim() } : {}),
-                    ...(joining ? { invitationToken: inviteToken.trim() } : {}),
+                    ...(channel === "email" ? { email: trimmedEmail } : { phone: trimmedPhone }),
+                    purpose: "signin",
                 });
                 setOtpRequested(true);
                 setResendIn(60);
@@ -165,10 +195,9 @@ export function AuthForm() {
 
             const user = await verifyOtp({
                 channel,
-                ...(channel === "email" ? { email } : { phone }),
-                purpose,
+                ...(channel === "email" ? { email: trimmedEmail } : { phone: trimmedPhone }),
+                purpose: "signin",
                 code,
-                ...(joining ? { name: name.trim() } : {}),
             });
             const roleMatches = accountType === "business"
                 ? user.role === "admin"

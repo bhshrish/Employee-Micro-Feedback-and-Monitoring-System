@@ -11,10 +11,11 @@ const Organization_1 = require("../models/Organization");
 const cookieName = "calmwork_operations";
 function cookieOptions() {
     const config = (0, env_1.getConfig)();
+    const isSecure = Boolean(config.COOKIE_SECURE);
     return {
         httpOnly: true,
-        secure: config.COOKIE_SECURE || config.NODE_ENV === "production",
-        sameSite: config.NODE_ENV === "production" ? "none" : "lax",
+        secure: isSecure,
+        sameSite: isSecure ? "none" : "lax",
         path: "/api/v1/operations",
         maxAge: 8 * 60 * 60 * 1000,
     };
@@ -32,7 +33,7 @@ function setOperationsAdminSession(res, admin) {
     });
     res.cookie(cookieName, token, cookieOptions());
     res.setHeader("Cache-Control", "no-store");
-    res.json({ admin: { name: admin.name, username: "admin", email: admin.email } });
+    res.json({ admin: { name: admin.name, username: "admin", email: admin.email }, token });
 }
 exports.signInAdminWithPassword = (0, async_handler_1.asyncHandler)(async (req, res) => {
     const admin = await operationsAuth.signInOperationsAdmin(req.body);

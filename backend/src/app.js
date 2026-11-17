@@ -27,7 +27,11 @@ function createApp({ ensureDatabaseConnected } = {}) {
     if (config.NODE_ENV === "production")
         app.set("trust proxy", 1);
     app.use((0, helmet_1.default)());
-    const allowedOrigins = config.CORS_ORIGINS.split(",").map((item) => item.trim().replace(/\/+$/, ""));
+    const allowedOrigins = config.CORS_ORIGINS.split(",").map((item) => item.trim().replace(/\/+$/, "")).filter(Boolean);
+    if (!allowedOrigins.includes("http://localhost:3000"))
+        allowedOrigins.push("http://localhost:3000");
+    if (!allowedOrigins.includes("http://127.0.0.1:3000"))
+        allowedOrigins.push("http://127.0.0.1:3000");
     app.use((0, cors_1.default)({
         credentials: true,
         origin(origin, callback) {
