@@ -29,6 +29,8 @@ export function AuthForm() {
     const signingUp = accountType === "business" && formMode === "signup";
     const joining = accountType === "employee" && formMode === "join";
     const purpose = signingUp ? "business_signup" : joining ? "invitation" : "signin";
+    // FIX: true only for the plain "email + password" sign-in (no OTP involved)
+    const passwordSignIn = !useCode && !signingUp && !joining;
     const submitLabel = otpRequested
         ? "Verify and continue"
         : useCode
@@ -95,6 +97,15 @@ export function AuthForm() {
         resetCodeState();
     };
 
+    // FIX: this function was called by the Password / "Use a code" buttons but was never defined,
+    // which made the buttons crash with "switchAuthMethod is not defined".
+    const switchAuthMethod = (value) => {
+        setUseCode(value);
+        setChannel("email");
+        setPassword("");
+        resetCodeState();
+    };
+
     const submit = async (event) => {
         event.preventDefault();
         const next = {};
@@ -102,6 +113,9 @@ export function AuthForm() {
             next.email = "Enter a valid work email.";
         if (channel === "sms" && !/^\+[1-9]\d{7,14}$/.test(phone))
             next.phone = "Enter a phone number in international format, including + and country code.";
+        // FIX: errors.password was displayed but never set
+        if (passwordSignIn && password.length < 8)
+            next.password = "Password must be at least 8 characters.";
         if (!otpRequested && (signingUp || joining) && name.trim().length < 2)
             next.name = "Enter your name.";
         if (!otpRequested && signingUp && businessName.trim().length < 2)
@@ -116,6 +130,25 @@ export function AuthForm() {
 
         setLoading(true);
         try {
+            // FIX: password sign-in used to fall through to requestOtp(); now it actually logs in.
+            // NOTE: adjust the argument shape if your lib/api.ts signInWithPassword expects something different.
+            if (passwordSignIn) {
+                const user = await signInWithPassword({ email, password });
+                const roleMatches = accountType === "business"
+                    ? user.role === "admin"
+                    : user.role === "employee" || user.role === "manager";
+                if (!roleMatches) {
+                    await signOut();
+                    setErrors({ form: accountType === "business"
+                        ? "This account belongs to an employee. Choose Employee sign in."
+                        : "This account belongs to a business. Choose Business sign in." });
+                    return;
+                }
+                signIn(user);
+                router.push("/dashboard");
+                return;
+            }
+
             if (!otpRequested) {
                 await requestOtp({
                     channel,
@@ -173,7 +206,7 @@ export function AuthForm() {
             <div className="auth-form">
                 <div className="tabs access-type-tabs" role="tablist" aria-label="Account type">
                     {["employee", "business"].map((type) =>
-                        <button key={type} role="tab" aria-selected={accountType === type}
+                        <button key={type} type="button" role="tab" aria-selected={accountType === type}
                             className={accountType === type ? "active" : ""}
                             onClick={() => chooseAccountType(type)}>
                             {type[0].toUpperCase() + type.slice(1)}
