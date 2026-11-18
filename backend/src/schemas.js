@@ -42,7 +42,10 @@ exports.pulseSchema = zod_1.z.object({
     mood: zod_1.z.number().int().min(1).max(5),
     stress: zod_1.z.number().int().min(1).max(5),
     workload: zod_1.z.number().int().min(1).max(5),
-    comment: zod_1.z.string().max(300).optional(),
+    exhaustion: zod_1.z.number().int().min(1).max(5),
+    recovery: zod_1.z.number().int().min(1).max(5),
+    control: zod_1.z.number().int().min(1).max(5),
+    support: zod_1.z.number().int().min(1).max(5),
 }).strict();
 exports.createTeamSchema = zod_1.z.object({ name: zod_1.z.string().trim().min(2).max(80) }).strict();
 exports.updateMemberSchema = zod_1.z.object({

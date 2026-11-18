@@ -10,7 +10,7 @@ import { Icon } from "./Icon";
 import { FieldError, KpiCard, Skeleton } from "./UI";
 
 function burnoutSignal(team) {
-    return Math.round(((team.stress + team.workload + (6 - team.mood)) / 15) * 100);
+    return team.burnoutScore ?? Math.round(((team.stress + team.workload + (6 - team.mood)) / 15) * 100);
 }
 
 function riskLabel(score) {
@@ -115,14 +115,18 @@ function MonitorContent() {
                                 <span className={`risk-${team.riskScore >= 65 ? "high" : team.riskScore >= 40 ? "elevated" : "lower"}`} style={{ width: `${team.riskScore}%` }}/>
                             </div>
                             <div className="monitoring-team-metrics">
+                                {team.exhaustion !== undefined && <span>Exhaustion <strong>{team.exhaustion.toFixed(1)}/5</strong></span>}
                                 <span>Stress <strong>{team.stress.toFixed(1)}/5</strong></span>
                                 <span>Workload <strong>{team.workload.toFixed(1)}/5</strong></span>
                                 <span>Mood <strong>{team.mood.toFixed(1)}/5</strong></span>
+                                {team.recovery !== undefined && <span>Recovery <strong>{team.recovery.toFixed(1)}/5</strong></span>}
+                                {team.control !== undefined && <span>Control <strong>{team.control.toFixed(1)}/5</strong></span>}
+                                {team.support !== undefined && <span>Support <strong>{team.support.toFixed(1)}/5</strong></span>}
                                 <span>Participation <strong>{team.participation}%</strong></span>
                             </div>
                         </li>)}
                     </ul> : <div className="monitoring-empty"><Icon name="chart" size={24}/><h3>No team results yet</h3><p>Results will appear after at least {data.minimumGroupSize} employees in a team submit this week’s check-in.</p></div>}
-                    <p className="monitoring-note">Signal combines group-average stress, workload, and inverse mood ratings. It is an early-support indicator, not a diagnosis or employee performance score.</p>
+                    <p className="monitoring-note">Signal averages the seven check-in measures, reversing positive wellbeing factors. It is an early-support indicator, not a diagnosis or employee performance score.</p>
                 </section>
 
                 <section className="data-card monitoring-heatmap-card">

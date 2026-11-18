@@ -41,14 +41,17 @@ const errors_1 = require("../utils/errors");
 exports.submit = (0, async_handler_1.asyncHandler)(async (req, res) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
-    const { mood, stress, workload } = req.body;
-    const result = await pulse.submitPulse(req.auth, { mood, stress, workload });
+    const result = await pulse.submitPulse(req.auth, req.body);
     res.status(201).json({ ...result, data: result });
 });
 exports.submissionStatus = (0, async_handler_1.asyncHandler)(async (req, res) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
-    const result = { submittedThisWeek: await pulse.hasSubmitted(req.auth.userId) };
+    const receipt = await pulse.hasSubmitted(req.auth.userId);
+    const result = {
+        submittedThisWeek: Boolean(receipt),
+        burnoutMetrics: receipt?.burnoutMetrics ?? null,
+    };
     res.json({ ...result, data: result });
 });
 exports.teamScores = (0, async_handler_1.asyncHandler)(async (req, res) => {

@@ -30,6 +30,15 @@ import { signin as createTestSession } from "../src/services/auth.service";
 import { hashCode } from "../src/services/otp.service";
 const app = createApp();
 let mongo;
+const pulseAnswers = {
+    mood: 4,
+    stress: 2,
+    workload: 3,
+    exhaustion: 2,
+    recovery: 4,
+    control: 4,
+    support: 5,
+};
 function signup(email, name = "Test User") {
     return request(app).post("/api/v1/auth/signup").send({
         name,
@@ -397,7 +406,7 @@ describe("PULSE API", () => {
         const auth = { Authorization: `Bearer ${account.body.accessToken}` };
         await request(app).get("/api/v1/sessions?page=1&limit=10").set(auth).expect(200);
         await request(app).post("/api/v1/pulses").set(auth)
-            .send({ mood: 4, stress: 3, workload: 3 }).expect(201);
+            .send(pulseAnswers).expect(201);
         await request(app).get("/api/v1/pulses/status").set(auth).expect(200)
             .expect((res) => assert.equal(res.body.submittedThisWeek, true));
         const user = await User.findById(account.body.user.id).lean();
@@ -517,12 +526,33 @@ describe("PULSE API", () => {
     });
     it("stores pulse ratings without user identity or free-text comments and hides small groups", async () => {
         const account = await signupAndSignin("pulse@example.test");
-        const result = await request(app)
+        await request(app)
             .post("/api/v1/pulse")
             .set("Authorization", `Bearer ${account.body.accessToken}`)
-            .send({ mood: 4, stress: 2, workload: 3, comment: "private and intentionally discarded" })
+            .send({ mood: 4, stress: 2, workload: 3 })
+            .expect(400);
+        const submission = await request(app)
+            .post("/api/v1/pulse")
+            .set("Authorization", "Bearer " + account.body.accessToken)
+            .send(pulseAnswers)
             .expect(201);
-        assert.equal(result.body.submitted, true);
+        assert.equal(submission.body.submitted, true);
+        assert.equal(submission.body.burnoutMetrics.score, 25);
+        assert.deepEqual(submission.body.burnoutMetrics.components, {
+            mood: 25,
+            stress: 25,
+            exhaustion: 25,
+            workload: 50,
+            recovery: 25,
+            control: 25,
+            support: 0,
+        });
+        const status = await request(app)
+            .get("/api/v1/pulse/me")
+            .set("Authorization", "Bearer " + account.body.accessToken)
+            .expect(200);
+        assert.equal(status.body.submittedThisWeek, true);
+        assert.equal(status.body.burnoutMetrics.score, 25);
         const response = await PulseResponse.findOne().lean();
         assert.ok(response);
         assert.equal(typeof response._id, "string");
@@ -530,6 +560,7 @@ describe("PULSE API", () => {
         assert.equal(Object.hasOwn(response, "userId"), false);
         assert.equal(Object.hasOwn(response, "comment"), false);
         assert.equal(Object.hasOwn(response, "createdAt"), false);
+        assert.equal(response.burnoutScore, 25);
         const receipt = await PulseReceipt.findOne().lean();
         assert.ok(receipt);
         assert.equal(Object.hasOwn(receipt, "mood"), false);
@@ -538,10 +569,27 @@ describe("PULSE API", () => {
             .set("Authorization", `Bearer ${account.body.accessToken}`)
             .expect(200)
             .expect((res) => assert.deepEqual(res.body.teams, []));
+        await PulseResponse.insertMany(Array.from({ length: 4 }, () => ({
+            organizationId: response.organizationId,
+            teamId: response.teamId,
+            weekStart: response.weekStart,
+            ...pulseAnswers,
+            burnoutScore: 25,
+        })));
+        await request(app)
+            .get("/api/v1/pulse/teams")
+            .set("Authorization", "Bearer " + account.body.accessToken)
+            .expect(200)
+            .expect((res) => {
+                assert.equal(res.body.teams.length, 1);
+                assert.equal(res.body.teams[0].burnoutScore, 25);
+                assert.equal(res.body.teams[0].exhaustion, 2);
+                assert.equal(Object.hasOwn(res.body.teams[0], "userIds"), false);
+            });
         await request(app)
             .post("/api/v1/pulse")
             .set("Authorization", `Bearer ${account.body.accessToken}`)
-            .send({ mood: 4, stress: 2, workload: 3 })
+            .send(pulseAnswers)
             .expect(409);
     });
     it("returns team aggregates only after at least five responses", async () => {
@@ -727,12 +775,18 @@ describe("PULSE API", () => {
             mood: 3,
             stress: 3,
             workload: 3,
+            exhaustion: 3,
+            recovery: 3,
+            control: 3,
+            support: 3,
+            burnoutScore: 60,
         })));
         const preview = await request(app)
             .get("/api/v1/reports/preview?period=today&metrics=Burnout%20risk")
             .set("Authorization", `Bearer ${account.body.accessToken}`)
             .expect(200);
         assert.equal(preview.body.pulseParticipationResponses, 5);
+        assert.equal(preview.body.averageBurnoutScore, 60);
     });
     it("charges once for a report and scopes payment-backed downloads to the buyer workspace", async () => {
         const account = await signupAndSignin("report-download@example.test");

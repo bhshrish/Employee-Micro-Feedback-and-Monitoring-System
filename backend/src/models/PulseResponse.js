@@ -11,6 +11,11 @@ const pulseResponseSchema = new mongoose_1.Schema({
     mood: { type: Number, required: true, min: 1, max: 5 },
     stress: { type: Number, required: true, min: 1, max: 5 },
     workload: { type: Number, required: true, min: 1, max: 5 },
+    exhaustion: { type: Number, min: 1, max: 5 },
+    recovery: { type: Number, min: 1, max: 5 },
+    control: { type: Number, min: 1, max: 5 },
+    support: { type: Number, min: 1, max: 5 },
+    burnoutScore: { type: Number, min: 0, max: 100 },
 }, { versionKey: false, timestamps: false });
 pulseResponseSchema.index({ organizationId: 1, teamId: 1, weekStart: 1 });
 exports.PulseResponse = mongoose_1.models.PulseResponse || (0, mongoose_1.model)("PulseResponse", pulseResponseSchema);

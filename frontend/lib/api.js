@@ -483,6 +483,11 @@ export async function getTeamData() {
             mood: team.mood,
             stress: team.stress,
             workload: team.workload,
+            burnoutScore: team.burnoutScore,
+            exhaustion: team.exhaustion,
+            recovery: team.recovery,
+            control: team.control,
+            support: team.support,
             participation: team.participation,
             responses: team.responses,
             trend: team.trend.map((week) => week.mood),
@@ -505,8 +510,7 @@ export async function submitPulse(payload) {
     return request("/pulse", { method: "POST", body: JSON.stringify(payload) });
 }
 export async function getPulseStatus() {
-    const result = await request("/pulse/me");
-    return result.submittedThisWeek;
+    return request("/pulse/me");
 }
 export async function getReportSummary(period, metrics) {
     const periodKey = period.toLowerCase().replace("last ", "").replace(" days", "d").replace(" day", "d").replace("quarter", "quarter");
