@@ -5,7 +5,17 @@ import { describe, it } from "vitest";
 import { createApp } from "../src/app";
 import { pulseWeekRange, weekStart } from "../src/utils/week";
 import { pulseSchema, signinSchema, signupSchema } from "../src/schemas";
-import { calculateBurnoutScore } from "../src/services/burnout";
+import { calculateBurnoutScore, calculateResponseBurnoutScore } from "../src/services/burnout";
+
+const pulseAnswers = {
+    mood: 4,
+    stress: 2,
+    workload: 3,
+    exhaustion: 2,
+    recovery: 4,
+    control: 4,
+    support: 5,
+};
 
 describe("CORS", () => {
     it("allows preflight requests when a configured origin has a trailing slash", async () => {
@@ -80,8 +90,12 @@ describe("CORS", () => {
 
 describe("validation and date utilities", () => {
     it("rejects unknown fields and ratings outside the pulse range", () => {
-        assert.equal(pulseSchema.safeParse({ mood: 4, stress: 2, workload: 3, note: "extra" }).success, false);
-        assert.equal(pulseSchema.safeParse({ mood: 6, stress: 2, workload: 3 }).success, false);
+        assert.equal(pulseSchema.safeParse({ ...pulseAnswers, note: "extra" }).success, false);
+        assert.equal(pulseSchema.safeParse({ ...pulseAnswers, mood: 6 }).success, false);
+        const incomplete = { ...pulseAnswers };
+        delete incomplete.support;
+        assert.equal(pulseSchema.safeParse(incomplete).success, false);
+        assert.equal(pulseSchema.safeParse(pulseAnswers).success, true);
     });
     it("preserves email casing and enforces password length limits", () => {
         const result = signupSchema.safeParse({ name: "Alex Morgan", email: "ALEX@example.test", password: "strong-pass-123" });
@@ -122,6 +136,20 @@ describe("validation and date utilities", () => {
         assert.equal(high.severity, "high");
         assert.equal(high.components.participation, 80);
         assert.ok(high.components.weekOverWeekIncrease > 0);
+    });
+    it("scores all seven required answers and reverses positive wellbeing factors", () => {
+        const lowRisk = calculateResponseBurnoutScore({
+            mood: 5, stress: 1, workload: 1, exhaustion: 1, recovery: 5, control: 5, support: 5,
+        });
+        const highRisk = calculateResponseBurnoutScore({
+            mood: 1, stress: 5, workload: 5, exhaustion: 5, recovery: 1, control: 1, support: 1,
+        });
+        assert.equal(lowRisk.score, 0);
+        assert.equal(lowRisk.severity, "low");
+        assert.deepEqual(Object.values(lowRisk.components), [0, 0, 0, 0, 0, 0, 0]);
+        assert.equal(highRisk.score, 100);
+        assert.equal(highRisk.severity, "high");
+        assert.deepEqual(Object.values(highRisk.components), [100, 100, 100, 100, 100, 100, 100]);
     });
     it("includes aggregated operational workload without overriding employee pulse input", () => {
         const reported = calculateBurnoutScore({ stress: 2, workload: 2, mood: 4, participation: 0.8 });

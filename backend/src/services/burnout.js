@@ -3,6 +3,28 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.calculateBurnoutScore = calculateBurnoutScore;
 const clamp = (value) => Math.min(100, Math.max(0, value));
 const normalize = (value) => clamp(((value - 1) / 4) * 100);
+const severityFor = (score) => score >= 65 ? "high" : score >= 40 ? "medium" : "low";
+
+function calculateResponseBurnoutScore(answers) {
+    const components = {
+        mood: Math.round(normalize(6 - answers.mood)),
+        stress: Math.round(normalize(answers.stress)),
+        exhaustion: Math.round(normalize(answers.exhaustion)),
+        workload: Math.round(normalize(answers.workload)),
+        recovery: Math.round(normalize(6 - answers.recovery)),
+        control: Math.round(normalize(6 - answers.control)),
+        support: Math.round(normalize(6 - answers.support)),
+    };
+    const score = Math.round(Object.values(components).reduce((sum, value) => sum + value, 0) / 7);
+    return {
+        score,
+        components,
+        severity: severityFor(score),
+    };
+}
+
+exports.calculateResponseBurnoutScore = calculateResponseBurnoutScore;
+
 function calculateBurnoutScore(metrics) {
     const stressRisk = normalize(metrics.stress);
     const reportedWorkloadRisk = normalize(metrics.workload);
@@ -37,6 +59,6 @@ function calculateBurnoutScore(metrics) {
             participation: Math.round(participationRisk),
             weekOverWeekIncrease: Math.round(weekOverWeekIncrease),
         },
-        severity: score >= 65 ? "high" : score >= 40 ? "medium" : "low",
+        severity: severityFor(score),
     };
 }

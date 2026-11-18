@@ -7,6 +7,11 @@ const pulseReceiptSchema = new mongoose_1.Schema({
     teamId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Team", required: true },
     userId: { type: mongoose_1.Schema.Types.ObjectId, ref: "User", required: true },
     weekStart: { type: Date, required: true },
+    burnoutMetrics: {
+        score: { type: Number, min: 0, max: 100 },
+        severity: { type: String, enum: ["low", "medium", "high"] },
+        components: { type: mongoose_1.Schema.Types.Mixed },
+    },
     expiresAt: { type: Date, required: true, index: { expires: 0 } },
 }, { timestamps: true });
 pulseReceiptSchema.index({ userId: 1, weekStart: 1 }, { unique: true });

@@ -23,6 +23,36 @@ const errors_1 = require("../utils/errors");
 const week_1 = require("../utils/week");
 const burnout_1 = require("./burnout");
 const logger_1 = require("../utils/logger");
+function groupBurnoutScore(group, minResponses) {
+    if (group.scoredResponses >= minResponses)
+        return Math.round(group.burnoutScore);
+    return Math.round(((group.stress + group.workload + (6 - group.mood)) / 15) * 100);
+}
+function groupBurnoutComponents(group, minResponses) {
+    if (group.scoredResponses < minResponses)
+        return undefined;
+    return {
+        mood: Math.round(((6 - group.mood - 1) / 4) * 100),
+        stress: Math.round(((group.stress - 1) / 4) * 100),
+        exhaustion: Math.round(((group.exhaustion - 1) / 4) * 100),
+        workload: Math.round(((group.workload - 1) / 4) * 100),
+        recovery: Math.round(((5 - group.recovery) / 4) * 100),
+        control: Math.round(((5 - group.control) / 4) * 100),
+        support: Math.round(((5 - group.support) / 4) * 100),
+    };
+}
+const pulseAggregateFields = {
+    responses: { $sum: 1 },
+    mood: { $avg: "$mood" },
+    stress: { $avg: "$stress" },
+    workload: { $avg: "$workload" },
+    burnoutScore: { $avg: "$burnoutScore" },
+    scoredResponses: { $sum: { $cond: [{ $isNumber: "$burnoutScore" }, 1, 0] } },
+    exhaustion: { $avg: "$exhaustion" },
+    recovery: { $avg: "$recovery" },
+    control: { $avg: "$control" },
+    support: { $avg: "$support" },
+};
 async function submitPulse(scope, input) {
     if (!scope.teamId)
         throw (0, errors_1.notFound)("Assign a team before submitting the weekly pulse");
@@ -30,12 +60,14 @@ async function submitPulse(scope, input) {
         throw (0, errors_1.notFound)("Assign an active team before submitting the weekly pulse");
     }
     const week = (0, week_1.weekStart)();
+    const burnoutMetrics = (0, burnout_1.calculateResponseBurnoutScore)(input);
     try {
         await PulseReceipt_1.PulseReceipt.create({
             organizationId: scope.organizationId,
             teamId: scope.teamId,
             userId: scope.userId,
             weekStart: week,
+            burnoutMetrics,
             expiresAt: new Date(week.getTime() + 14 * 86_400_000),
         });
     }
@@ -53,6 +85,11 @@ async function submitPulse(scope, input) {
             mood: input.mood,
             stress: input.stress,
             workload: input.workload,
+            exhaustion: input.exhaustion,
+            recovery: input.recovery,
+            control: input.control,
+            support: input.support,
+            burnoutScore: burnoutMetrics.score,
         });
     }
     catch (error) {
@@ -65,10 +102,11 @@ async function submitPulse(scope, input) {
     catch (error) {
         logger_1.logger.error({ err: error }, "Failed to evaluate team wellbeing alerts after pulse submission");
     }
-    return { submitted: true, submittedAt: new Date().toISOString(), weekStart: week.toISOString() };
+    return { submitted: true, submittedAt: new Date().toISOString(), weekStart: week.toISOString(), burnoutMetrics };
 }
 async function hasSubmitted(userId) {
-    return Boolean(await PulseReceipt_1.PulseReceipt.exists({ userId, weekStart: (0, week_1.weekStart)() }));
+    return PulseReceipt_1.PulseReceipt.findOne({ userId, weekStart: (0, week_1.weekStart)() })
+        .select("burnoutMetrics").lean();
 }
 async function teamPulse(organizationId, teamId, minResponses = 5) {
     const currentWeek = (0, week_1.weekStart)();
@@ -81,7 +119,7 @@ async function teamPulse(organizationId, teamId, minResponses = 5) {
     for (const team of teams) {
         const weekly = await PulseResponse_1.PulseResponse.aggregate([
             { $match: { organizationId, teamId: team._id, weekStart: { $gte: new Date(currentWeek.getTime() - 6 * 7 * 86_400_000), $lte: currentWeek } } },
-            { $group: { _id: "$weekStart", responses: { $sum: 1 }, mood: { $avg: "$mood" }, stress: { $avg: "$stress" }, workload: { $avg: "$workload" } } },
+            { $group: { _id: "$weekStart", ...pulseAggregateFields } },
             { $sort: { _id: 1 } },
         ]);
         const latest = weekly.find((entry) => new Date(entry._id).getTime() === currentWeek.getTime());
@@ -94,6 +132,7 @@ async function teamPulse(organizationId, teamId, minResponses = 5) {
             mood: Number(entry.mood.toFixed(2)),
             stress: Number(entry.stress.toFixed(2)),
             workload: Number(entry.workload.toFixed(2)),
+            burnoutScore: groupBurnoutScore(entry, minResponses),
         }));
         result.push({
             teamId: team._id.toString(),
@@ -103,6 +142,13 @@ async function teamPulse(organizationId, teamId, minResponses = 5) {
             mood: Number(latest.mood.toFixed(1)),
             stress: Number(latest.stress.toFixed(1)),
             workload: Number(latest.workload.toFixed(1)),
+            burnoutScore: groupBurnoutScore(latest, minResponses),
+            ...(groupBurnoutComponents(latest, minResponses) ? {
+                exhaustion: Number(latest.exhaustion.toFixed(1)),
+                recovery: Number(latest.recovery.toFixed(1)),
+                control: Number(latest.control.toFixed(1)),
+                support: Number(latest.support.toFixed(1)),
+            } : {}),
             trend,
         });
     }
@@ -174,7 +220,7 @@ async function scoreTeamAlerts(organizationId, configuredMinResponses) {
     for (const team of teams) {
         const values = await PulseResponse_1.PulseResponse.aggregate([
             { $match: { organizationId, teamId: team._id, weekStart: { $gte: fourWeeksAgo, $lte: week } } },
-            { $group: { _id: "$weekStart", count: { $sum: 1 }, stress: { $avg: "$stress" }, workload: { $avg: "$workload" }, mood: { $avg: "$mood" } } },
+            { $group: { _id: "$weekStart", ...pulseAggregateFields, count: { $sum: 1 } } },
             { $sort: { _id: 1 } },
         ]);
         const current = values.find((row) => new Date(row._id).getTime() === week.getTime());
@@ -188,7 +234,7 @@ async function scoreTeamAlerts(organizationId, configuredMinResponses) {
             teamOperationalWorkload(organizationId, team._id, week),
             previous ? teamOperationalWorkload(organizationId, team._id, priorWeek) : Promise.resolve(null),
         ]);
-        const burnout = (0, burnout_1.calculateBurnoutScore)({
+        const legacyBurnout = (0, burnout_1.calculateBurnoutScore)({
             stress: current.stress,
             workload: current.workload,
             mood: current.mood,
@@ -202,13 +248,20 @@ async function scoreTeamAlerts(organizationId, configuredMinResponses) {
                 ...(previousParticipation !== undefined ? { previousParticipation } : {}),
             } : {}),
         });
+        const burnout = current.scoredResponses >= minResponses
+            ? {
+                score: Math.round(current.burnoutScore),
+                severity: current.burnoutScore >= 65 ? "high" : current.burnoutScore >= 40 ? "medium" : "low",
+                components: groupBurnoutComponents(current, minResponses),
+            }
+            : legacyBurnout;
         const recent = values.filter((row) => row.count >= minResponses).slice(-4);
         const consecutiveStressIncrease = recent.length === 4 && recent.slice(1).every((row, index) => recent[index].stress > 0 && row.stress >= recent[index].stress * 1.15);
         const candidates = [
             ...(burnout.score >= 40 ? [{
                     type: "burnout_risk",
                     title: `${team.name} wellbeing signals need attention`,
-                    detail: "Aggregated stress, workload, mood, participation, and week-over-week change crossed the support threshold.",
+                    detail: "The aggregated seven-question burnout signal crossed the support threshold.",
                 }] : []),
             ...(consecutiveStressIncrease ? [{
                     type: "stress_trend",
@@ -267,13 +320,7 @@ async function analyticsTrends(organizationId, teamId, weeks, minResponses) {
     for (const team of teams) {
         const series = await PulseResponse_1.PulseResponse.aggregate([
             { $match: { organizationId, teamId: team._id, weekStart: { $gte: start } } },
-            { $group: {
-                    _id: "$weekStart",
-                    responses: { $sum: 1 },
-                    mood: { $avg: "$mood" },
-                    stress: { $avg: "$stress" },
-                    workload: { $avg: "$workload" },
-                } },
+            { $group: { _id: "$weekStart", ...pulseAggregateFields } },
             { $match: { responses: { $gte: minResponses } } },
             { $sort: { _id: 1 } },
         ]);
@@ -287,6 +334,7 @@ async function analyticsTrends(organizationId, teamId, weeks, minResponses) {
                     mood: Number(entry.mood.toFixed(2)),
                     stress: Number(entry.stress.toFixed(2)),
                     workload: Number(entry.workload.toFixed(2)),
+                    burnoutScore: groupBurnoutScore(entry, minResponses),
                 })),
             });
         }
@@ -302,13 +350,7 @@ async function analyticsHeatmap(organizationId, teamId, weeks, minResponses) {
                 ...(teamId ? { teamId } : {}),
                 weekStart: { $gte: start },
             } },
-        { $group: {
-                _id: { teamId: "$teamId", weekStart: "$weekStart" },
-                responses: { $sum: 1 },
-                mood: { $avg: "$mood" },
-                stress: { $avg: "$stress" },
-                workload: { $avg: "$workload" },
-            } },
+        { $group: { _id: { teamId: "$teamId", weekStart: "$weekStart" }, ...pulseAggregateFields } },
         { $match: { responses: { $gte: minResponses } } },
         { $sort: { "_id.weekStart": 1 } },
     ]);
@@ -325,7 +367,7 @@ async function analyticsHeatmap(organizationId, teamId, weeks, minResponses) {
         mood: Number(entry.mood.toFixed(2)),
         stress: Number(entry.stress.toFixed(2)),
         workload: Number(entry.workload.toFixed(2)),
-        riskScore: Math.round(((entry.stress + entry.workload + (6 - entry.mood)) / 15) * 100),
+        riskScore: groupBurnoutScore(entry, minResponses),
     }));
 }
 async function organizationMinGroupSize(organizationId) {
@@ -343,7 +385,7 @@ async function analyticsTeams(organizationId, minResponses, teamId) {
     return Promise.all(teams.map(async (team) => {
         const latest = await PulseResponse_1.PulseResponse.aggregate([
             { $match: { organizationId, teamId: team._id, weekStart: currentWeek } },
-            { $group: { _id: "$weekStart", responses: { $sum: 1 }, mood: { $avg: "$mood" }, stress: { $avg: "$stress" }, workload: { $avg: "$workload" } } },
+            { $group: { _id: "$weekStart", ...pulseAggregateFields } },
         ]);
         const group = latest[0];
         if (!group || group.responses < minResponses) {
@@ -357,6 +399,13 @@ async function analyticsTeams(organizationId, minResponses, teamId) {
             mood: Number(group.mood.toFixed(1)),
             stress: Number(group.stress.toFixed(1)),
             workload: Number(group.workload.toFixed(1)),
+            burnoutScore: groupBurnoutScore(group, minResponses),
+            ...(groupBurnoutComponents(group, minResponses) ? {
+                exhaustion: Number(group.exhaustion.toFixed(1)),
+                recovery: Number(group.recovery.toFixed(1)),
+                control: Number(group.control.toFixed(1)),
+                support: Number(group.support.toFixed(1)),
+            } : {}),
         };
     }));
 }
@@ -365,7 +414,7 @@ async function analyticsTeamTrend(organizationId, teamId, weeks, minResponses) {
     start.setUTCDate(start.getUTCDate() - (weeks - 1) * 7);
     const rows = await PulseResponse_1.PulseResponse.aggregate([
         { $match: { organizationId, teamId, weekStart: { $gte: start } } },
-        { $group: { _id: "$weekStart", responses: { $sum: 1 }, mood: { $avg: "$mood" }, stress: { $avg: "$stress" }, workload: { $avg: "$workload" } } },
+        { $group: { _id: "$weekStart", ...pulseAggregateFields } },
         { $sort: { _id: 1 } },
     ]);
     if (!rows.length || rows.some((row) => row.responses < minResponses)) {
@@ -380,6 +429,7 @@ async function analyticsTeamTrend(organizationId, teamId, weeks, minResponses) {
             mood: Number(row.mood.toFixed(2)),
             stress: Number(row.stress.toFixed(2)),
             workload: Number(row.workload.toFixed(2)),
+            burnoutScore: groupBurnoutScore(row, minResponses),
         })),
     };
 }

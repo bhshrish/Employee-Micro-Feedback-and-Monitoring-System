@@ -28,12 +28,23 @@ async function reportSummary(organizationId, period, metrics, minResponses = 5, 
         ]),
         PulseResponse_1.PulseResponse.aggregate([
             { $match: { organizationId, ...(teamId ? { teamId } : {}), weekStart: { $gte: pulseRange.start, $lte: pulseRange.end } } },
-            { $group: { _id: { teamId: "$teamId", weekStart: "$weekStart" }, count: { $sum: 1 }, mood: { $avg: "$mood" }, stress: { $avg: "$stress" }, workload: { $avg: "$workload" } } },
+            { $group: {
+                _id: { teamId: "$teamId", weekStart: "$weekStart" },
+                count: { $sum: 1 },
+                mood: { $avg: "$mood" },
+                stress: { $avg: "$stress" },
+                workload: { $avg: "$workload" },
+                burnoutScore: { $avg: "$burnoutScore" },
+                scoredResponses: { $sum: { $cond: [{ $isNumber: "$burnoutScore" }, 1, 0] } },
+            } },
         ]),
     ]);
     const aggregate = activity[0] ?? { activeSeconds: 0, idleSeconds: 0, sessions: 0 };
     const visiblePulseGroups = pulse.filter((group) => group.count >= minResponses);
-    const atRisk = visiblePulseGroups.filter((group) => group.stress + group.workload + (6 - group.mood) >= 11).length;
+    const burnoutScores = visiblePulseGroups.map((group) => group.scoredResponses >= minResponses
+        ? Math.round(group.burnoutScore)
+        : Math.round(((group.stress + group.workload + (6 - group.mood)) / 15) * 100));
+    const atRisk = burnoutScores.filter((score) => score >= 40).length;
     const totalPulse = visiblePulseGroups.reduce((sum, group) => sum + group.count, 0);
     const teamCount = await User_1.User.distinct("teamId", { organizationId, teamId: { $ne: null }, ...(teamId ? { teamId } : {}) }).then((ids) => ids.length);
     const activityVisible = (aggregate.users?.length ?? 0) >= minResponses;
@@ -47,6 +58,9 @@ async function reportSummary(organizationId, period, metrics, minResponses = 5, 
         productivity: activeSeconds ? Math.round((aggregate.productiveSeconds / activeSeconds) * 100) : 0,
         pulseParticipationResponses: totalPulse,
         riskTeams: atRisk,
+        averageBurnoutScore: burnoutScores.length
+            ? Math.round(burnoutScores.reduce((sum, score) => sum + score, 0) / burnoutScores.length)
+            : null,
         teams: teamCount,
         sessions: activityVisible ? aggregate.sessions : 0,
         generatedAt: new Date().toISOString(),
@@ -61,13 +75,14 @@ async function exportReport(organizationId, period, metrics, format, minResponse
         Productivity: `${summary.productivity}%`,
         "Pulse responses (eligible groups only)": summary.pulseParticipationResponses,
         "Teams requiring support": summary.riskTeams,
+        "Average burnout score": summary.averageBurnoutScore === null ? "No eligible scores" : `${summary.averageBurnoutScore}/100`,
         "Activity sessions": summary.sessions,
     };
     const mapping = {
         "Active time": ["Active time (hours)"],
         "Idle time": ["Idle time (hours)"],
         Productivity: ["Productivity"],
-        "Burnout risk": ["Teams requiring support"],
+        "Burnout risk": ["Average burnout score", "Teams requiring support"],
     };
     for (const metric of metrics)
         for (const key of mapping[metric] ?? [])
