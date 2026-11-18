@@ -9,7 +9,7 @@ import { errorMessage } from "./adminHelpers";
 const QUICK_LINKS = [
     { key: "members", title: "Invite and organize people", text: "Add teammates, set roles, and move people between teams.", icon: "users" },
     { key: "alerts", title: "Review wellbeing alerts", text: "See where aggregated stress signals need attention.", icon: "bell" },
-    { key: "reports", title: "Check generated reports", text: "Track the pulse and activity reports your admins exported.", icon: "download" },
+    { key: "reports", title: "Check generated reports", text: "Review reports generated from wellbeing forms.", icon: "download" },
 ];
 
 function RoleSplit({ overview }) {
@@ -43,7 +43,7 @@ export function AdminOverview({ onNavigate }) {
             setOverview(await getAdminOverview());
         }
         catch (cause) {
-            setError(errorMessage(cause, "Could not load the business overview."));
+            setError(errorMessage(cause, "Could not load the workspace overview."));
         }
         finally {
             setLoading(false);
@@ -60,8 +60,8 @@ export function AdminOverview({ onNavigate }) {
         {overview && <>
             <section className="kpi-grid admin-kpis">
                 <KpiCard label="Active members" value={overview.activeMembers} note={`${overview.members} accounts in total`} icon="users"/>
-                <KpiCard label="Teams" value={overview.teams} note="Active teams in this business" icon="shield"/>
-                <KpiCard label="Pulse participation" value={`${overview.pulse.participation}%`} note={`${overview.pulse.responses} responses this week`} icon="pulse"/>
+                <KpiCard label="Teams" value={overview.teams} note="Active workspace teams" icon="shield"/>
+                <KpiCard label="Wellbeing check-ins" value={`${overview.pulse.participation}%`} note={`${overview.pulse.responses} responses this week`} icon="pulse"/>
                 <KpiCard label="Open alerts" value={overview.openAlerts} note="Wellbeing alerts awaiting review" icon="bell"/>
                 <KpiCard label="Checked in today" value={overview.attendance.checkedInToday} note={`${overview.attendance.currentlyIn} still checked in`} icon="calendar"/>
             </section>

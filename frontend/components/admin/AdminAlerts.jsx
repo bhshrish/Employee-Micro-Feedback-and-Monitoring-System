@@ -59,7 +59,7 @@ export function AdminAlerts() {
                 <div className="admin-filters"><span className="admin-chip"><Icon name="bell" size={15}/>{openCount} open</span><select aria-label="Filter alerts" value={status} onChange={(event) => setStatus(event.target.value)}>{ALERT_FILTERS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
             </div>
             {loading ? <Skeleton lines={4}/> : alerts.length === 0
-                ? <div className="empty-state"><Icon name="check" size={28}/><h3>Nothing needs attention</h3><p>There are no {status || ""} alerts for this business right now.</p></div>
+                ? <div className="empty-state"><Icon name="check" size={28}/><h3>Nothing needs attention</h3><p>There are no {status || ""} alerts for this workspace right now.</p></div>
                 : <ul className="admin-alert-list">{alerts.map((alert) => <li key={alert.id} className={`admin-alert ${alert.severity}`}>
                     <span className="admin-alert-icon"><Icon name={SEVERITY_ICONS[alert.severity] ?? "bell"} size={18}/></span>
                     <div className="admin-alert-body">

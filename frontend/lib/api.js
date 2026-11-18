@@ -73,6 +73,9 @@ async function refreshAccessToken() {
     }
 }
 async function request(path, init = {}, canRefresh = true) {
+    const responseType = init.responseType;
+    const requestInit = { ...init };
+    delete requestInit.responseType;
     const headers = new Headers(init.headers);
     if (init.body && !headers.has("Content-Type"))
         headers.set("Content-Type", "application/json");
@@ -83,13 +86,15 @@ async function request(path, init = {}, canRefresh = true) {
             headers.set("Authorization", `Bearer ${currentAccessToken}`);
         }
     }
-    const response = await fetchApi(`${API_BASE}${path}`, { ...init, headers, credentials: "include" });
+    const response = await fetchApi(`${API_BASE}${path}`, { ...requestInit, headers, credentials: "include" });
     if (response.status === 401 && canRefresh && !isAuthPath(path)) {
         await refreshAccessToken();
         return request(path, init, false);
     }
     if (response.status === 204)
         return undefined;
+    if (responseType === "blob" && response.ok)
+        return response.blob();
     const contentType = response.headers.get("content-type") || "";
     const payload = contentType.includes("application/json")
         ? await response.json()
@@ -218,6 +223,17 @@ export async function exportOperationsAttendance(date) {
     }
     return response.blob();
 }
+export async function getOperationsLeave() {
+    const result = await request("/operations/leave", {}, false);
+    return result.requests;
+}
+export async function decideOperationsLeave(toolId, status) {
+    const result = await request(`/operations/leave/${encodeURIComponent(toolId)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+    }, false);
+    return result.request;
+}
 export async function getWorkspaceTeams() {
     return request("/workspace/teams");
 }
@@ -283,25 +299,6 @@ export async function createToolCalendarEvent(input) {
     const result = await request("/tools/calendar", { method: "POST", body: JSON.stringify(input) });
     return result.event;
 }
-export async function getToolSignatures() {
-    const result = await request("/tools/signatures");
-    return result.documents;
-}
-export async function createToolSignature(input) {
-    const result = await request("/tools/signatures", { method: "POST", body: JSON.stringify(input) });
-    return result.document;
-}
-export async function signToolDocument(toolId, signedName) {
-    const result = await request(`/tools/signatures/${encodeURIComponent(toolId)}/sign`, {
-        method: "POST",
-        body: JSON.stringify({ signedName, confirmation: true }),
-    });
-    return result.document;
-}
-export async function calculateSalaryEstimate(input) {
-    const result = await request("/tools/salary/check", { method: "POST", body: JSON.stringify(input) });
-    return result.estimate;
-}
 export async function restoreSession() {
     if (localStorage.getItem("calmwork:auth") !== "true")
         return null;
@@ -332,9 +329,6 @@ export async function signOut(everywhere = false) {
 }
 export async function updateProfile(input) {
     return request("/auth/me", { method: "PATCH", body: JSON.stringify(input) });
-}
-export async function getSubscription() {
-    return request("/billing/subscription");
 }
 function hours(seconds) {
     return `${(seconds / 3600).toFixed(1)}h`;
@@ -514,44 +508,34 @@ export async function getPulseStatus() {
     const result = await request("/pulse/me");
     return result.submittedThisWeek;
 }
-export async function getInvoices() {
-    const result = await request("/billing/invoices");
-    return result.invoices.map((invoice) => ({
-        id: invoice.number || invoice.stripeInvoiceId,
-        date: new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(invoice.issuedAt)),
-        amount: new Intl.NumberFormat(undefined, { style: "currency", currency: invoice.currency.toUpperCase() }).format(invoice.amountPaid / 100),
-        status: invoice.status,
-    }));
-}
-export async function createCheckout(plan, cycle) {
-    return request("/billing/checkout", {
-        method: "POST",
-        body: JSON.stringify({ plan, cycle }),
-    });
-}
-export async function cancelSubscription() {
-    return request("/billing/cancel", { method: "POST" });
-}
 export async function getReportSummary(period, metrics) {
     const periodKey = period.toLowerCase().replace("last ", "").replace(" days", "d").replace(" day", "d").replace("quarter", "quarter");
     const response = await request(`/reports/preview?period=${encodeURIComponent(periodKey)}&metrics=${encodeURIComponent(metrics.join(","))}`);
     return response;
 }
-export async function downloadReport(period, metrics, format) {
-    const periodKey = period.toLowerCase().replace("last ", "").replace(" days", "d").replace(" day", "d");
+function reportPeriodKey(period) {
+    return period.toLowerCase().replace("last ", "").replace(" days", "d").replace(" day", "d");
+}
+export async function createReportOrder(period, metrics, format) {
+    return request("/reports/orders", {
+        method: "POST",
+        body: JSON.stringify({ period: reportPeriodKey(period), metrics, format: format.toLowerCase() }),
+    });
+}
+export async function downloadReport(period, metrics, format, payment) {
     const result = await request("/reports/generate", {
         method: "POST",
-        body: JSON.stringify({ period: periodKey, metrics, format: format.toLowerCase() }),
+        body: JSON.stringify({
+            period: reportPeriodKey(period),
+            metrics,
+            format: format.toLowerCase(),
+            ...payment,
+        }),
     });
-    const response = await fetchApi(`${API_BASE}${result.report.downloadUrl}`, {
-        credentials: "include",
-
+    const blob = await request(result.report.downloadUrl, {
+        responseType: "blob",
     });
-    if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw apiError(response.status, "REPORT_DOWNLOAD_FAILED", payload.error?.message || "Could not download the report.");
-    }
-    return { blob: await response.blob(), filename: response.headers.get("content-disposition")?.match(/filename="([^"]+)"/)?.[1] || `pulse-report.${format.toLowerCase()}` };
+    return { blob, filename: result.report.filename || `calmwork-report.${format.toLowerCase()}` };
 }
 export async function startActivity(task, category) {
     return request("/sessions/start", { method: "POST", body: JSON.stringify({ task, category }) });
@@ -581,11 +565,6 @@ export async function updateActivityTask(id, task) {
 export async function heartbeatActivity(id) {
     return request(`/sessions/${encodeURIComponent(id)}/heartbeat`, { method: "POST" });
 }
-export const plans = [
-    { name: "Starter", monthly: 8, description: "For individuals building healthier work habits.", features: ["Personal time tracking", "Idle detection", "Weekly pulse", "7-day free trial"] },
-    { name: "Team", monthly: 16, description: "For teams turning signals into better support.", features: ["Everything in Starter", "Anonymous team scorecards", "Burnout-risk alerts", "CSV & PDF reports"] },
-    { name: "Business", monthly: 28, description: "For organizations supporting every team.", features: ["Everything in Team", "Unlimited teams", "Advanced trends", "Priority support"] },
-];
 function adminQuery(params = {}) {
     const query = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {

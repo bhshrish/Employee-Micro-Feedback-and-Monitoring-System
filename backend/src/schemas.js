@@ -8,7 +8,6 @@ exports.signupSchema = zod_1.z.object({
     name: zod_1.z.string().trim().min(2).max(100),
     email,
     password,
-    organizationName: zod_1.z.string().trim().min(2).max(120).optional(),
 }).strict();
 exports.signinSchema = zod_1.z.object({ email, password }).strict();
 exports.adminPasswordSigninSchema = zod_1.z.object({ email, password }).strict();
@@ -78,9 +77,15 @@ exports.analyticsQuerySchema = zod_1.z.object({
 }).strict();
 exports.reportGenerateSchema = zod_1.z.object({
     period: zod_1.z.enum(["today", "7d", "30d", "quarter"]).default("30d"),
-    metrics: zod_1.z.array(zod_1.z.enum(["Active time", "Productivity", "Idle time", "Team pulse", "Burnout risk"])).min(1).max(5)
-        .default(["Active time", "Productivity", "Team pulse"]),
+    metrics: zod_1.z.array(zod_1.z.enum(["Active time", "Productivity", "Idle time", "Burnout risk"])).min(1).max(4)
+        .default(["Active time", "Productivity", "Burnout risk"]),
     format: zod_1.z.enum(["csv", "pdf"]).default("pdf"),
+}).strict();
+exports.reportPaymentOrderSchema = exports.reportGenerateSchema;
+exports.paidReportGenerateSchema = exports.reportGenerateSchema.extend({
+    orderId: zod_1.z.string().min(1).max(128),
+    paymentId: zod_1.z.string().min(1).max(128),
+    signature: zod_1.z.string().regex(/^[a-f\d]{64}$/i),
 }).strict();
 exports.reportIdParamsSchema = zod_1.z.object({ reportId: zod_1.z.string().regex(/^[a-f\d]{24}$/i) }).strict();
 exports.profileSchema = zod_1.z.object({
@@ -97,9 +102,9 @@ exports.profileSchema = zod_1.z.object({
 }).strict().refine((value) => Object.keys(value).length > 0, "Provide at least one field");
 exports.reportQuerySchema = zod_1.z.object({
     period: zod_1.z.enum(["today", "7d", "30d", "quarter"]).default("30d"),
-    metrics: zod_1.z.string().max(200).default("Active time,Productivity,Team pulse")
+    metrics: zod_1.z.string().max(200).default("Active time,Productivity,Burnout risk")
         .transform((value) => value.split(",").filter(Boolean))
-        .pipe(zod_1.z.array(zod_1.z.enum(["Active time", "Productivity", "Idle time", "Team pulse", "Burnout risk"])).min(1).max(5)),
+        .pipe(zod_1.z.array(zod_1.z.enum(["Active time", "Productivity", "Idle time", "Burnout risk"])).min(1).max(4)),
     format: zod_1.z.enum(["csv", "pdf"]).optional(),
 }).strict();
 exports.reportPreviewQuerySchema = exports.reportQuerySchema;
@@ -164,9 +169,8 @@ exports.otpRequestSchema = zod_1.z.object({
     email: email.optional(),
     phone: zod_1.z.string().trim().regex(/^\+[1-9]\d{7,14}$/).optional(),
     channel: zod_1.z.enum(["email", "sms"]).default("email"),
-    purpose: zod_1.z.enum(["signin", "business_signup", "invitation"]),
+    purpose: zod_1.z.enum(["signin", "invitation"]),
     name: zod_1.z.string().trim().min(2).max(100).optional(),
-    organizationName: zod_1.z.string().trim().min(2).max(120).optional(),
     invitationToken: zod_1.z.string().min(32).max(128).optional(),
 }).strict().superRefine((value, context) => {
     if (value.channel === "email" && !value.email) {
@@ -178,9 +182,6 @@ exports.otpRequestSchema = zod_1.z.object({
     if (value.purpose !== "signin" && value.channel !== "email") {
         context.addIssue({ code: "custom", message: "Registration and invitations require email verification" });
     }
-    if (value.purpose === "business_signup" && (!value.name || !value.organizationName)) {
-        context.addIssue({ code: "custom", message: "Name and business name are required to create a business account" });
-    }
     if (value.purpose === "invitation" && !value.invitationToken) {
         context.addIssue({ code: "custom", message: "An invitation token is required" });
     }
@@ -189,7 +190,7 @@ exports.otpVerifySchema = zod_1.z.object({
     email: email.optional(),
     phone: zod_1.z.string().trim().regex(/^\+[1-9]\d{7,14}$/).optional(),
     channel: zod_1.z.enum(["email", "sms"]).default("email"),
-    purpose: zod_1.z.enum(["signin", "business_signup", "invitation"]),
+    purpose: zod_1.z.enum(["signin", "invitation"]),
     code: zod_1.z.string().regex(/^\d{6}$/),
     name: zod_1.z.string().trim().min(2).max(100).optional(),
 }).strict().superRefine((value, context) => {
@@ -237,17 +238,3 @@ exports.calendarEventSchema = zod_1.z.object({
     endsAt: zod_1.z.string().datetime(),
     reminderMinutes: zod_1.z.number().int().min(0).max(10080).optional(),
 }).strict().refine((value) => new Date(value.startsAt) < new Date(value.endsAt), "Event end must be after its start");
-exports.signatureCreateSchema = zod_1.z.object({
-    employeeId: objectId,
-    title: zod_1.z.string().trim().min(1).max(160),
-    documentText: zod_1.z.string().trim().min(1).max(4000),
-}).strict();
-exports.signatureSignSchema = zod_1.z.object({
-    signedName: zod_1.z.string().trim().min(2).max(100),
-    confirmation: zod_1.z.literal(true),
-}).strict();
-exports.salaryCheckSchema = zod_1.z.object({
-    grossMonthly: zod_1.z.number().min(0).max(100000000),
-    deductionsMonthly: zod_1.z.number().min(0).max(100000000).default(0),
-    estimatedTaxRate: zod_1.z.number().min(0).max(60).default(0),
-}).strict();

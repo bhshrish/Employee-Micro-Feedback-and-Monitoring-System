@@ -86,7 +86,7 @@ export function AdminMembers() {
         </div>
         <section className="data-card admin-card admin-roster">
             <div className="card-heading admin-roster-heading">
-                <div><p className="section-label">Roster</p><h2>People</h2><p className="subtle-label">{total} {total === 1 ? "account" : "accounts"} in this business</p></div>
+                <div><p className="section-label">Roster</p><h2>People</h2><p className="subtle-label">{total} {total === 1 ? "account" : "accounts"} in this workspace</p></div>
                 <div className="admin-filters">
                     <label className="admin-search-field">Search<input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name or email"/><Icon name="users" size={16}/></label>
                     <select aria-label="Filter by role" value={role} onChange={(event) => { setRole(event.target.value); setPage(1); }}>{ROLE_FILTERS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select>

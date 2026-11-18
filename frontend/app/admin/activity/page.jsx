@@ -93,7 +93,6 @@ export function AdminActivity() {
                 <p className="section-label">Platform</p>
                 <nav style={{ display: "grid", gap: 6, marginBottom: 20 }}>
                     <a href="/admin" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: "9px", background: "transparent", textAlign: "left", fontWeight: 600, color: "var(--text)", textDecoration: "none" }}><Icon name="chart" size={16} /> Overview</a>
-                    <a href="/admin/businesses" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: "9px", background: "transparent", textAlign: "left", fontWeight: 600, color: "var(--text)", textDecoration: "none" }}><Icon name="shield" size={16} /> Businesses</a>
                     <a href="/admin/users" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: "9px", background: "transparent", textAlign: "left", fontWeight: 600, color: "var(--text)", textDecoration: "none" }}><Icon name="users" size={16} /> Users</a>
                     <a href="/admin/teams" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: "9px", background: "transparent", textAlign: "left", fontWeight: 600, color: "var(--text)", textDecoration: "none" }}><Icon name="users" size={16} /> Teams</a>
                     <a href="/admin/activity" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: "9px", background: "var(--p-soft-red)", color: "var(--p-red-dark)", fontWeight: 700, textDecoration: "none" }}><Icon name="clock" size={16} /> Activity</a>
@@ -109,7 +108,7 @@ export function AdminActivity() {
                 <header className="admin-header">
                     <div>
                         <h1 style={{ fontSize: 26, letterSpacing: "-.04em" }}>Activity</h1>
-                        <p style={{ color: "var(--muted)", fontSize: 15, margin: 4 }}>Aggregated workspace activity by business.</p>
+                        <p style={{ color: "var(--muted)", fontSize: 15, margin: 4 }}>Aggregated workspace activity.</p>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <span style={{ color: "var(--muted)", fontSize: 14 }}>{new Date().toLocaleDateString(undefined, { dateStyle: "medium" })}</span>
@@ -127,14 +126,14 @@ export function AdminActivity() {
                         </label>
                     </div>
 
-                    <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 16 }}>Aggregated by business. Individual task labels and employee activity records are not exposed.</p>
+                    <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 16 }}>Aggregated by workspace. Individual task labels and employee activity records are not exposed.</p>
 
                     {loading ? <Skeleton lines={5} /> : (
                         <section className="data-card admin-card">
                             <div className="table-scroll">
                                 <table className="data-table">
                                     <thead>
-                                        <tr><th>Business</th><th>Employees active</th><th>Sessions</th><th>Active time</th><th>Idle time</th></tr>
+                                        <tr><th>Workspace</th><th>Employees active</th><th>Sessions</th><th>Active time</th><th>Idle time</th></tr>
                                     </thead>
                                     <tbody>
                                         {(data?.businesses ?? []).map((row) => (

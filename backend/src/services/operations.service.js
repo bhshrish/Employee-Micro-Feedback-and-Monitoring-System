@@ -13,6 +13,8 @@ exports.assignUserTeam = assignUserTeam;
 exports.activitySummary = activitySummary;
 exports.attendanceDashboard = attendanceDashboard;
 exports.attendanceCsv = attendanceCsv;
+exports.leaveApplications = leaveApplications;
+exports.decideLeaveApplication = decideLeaveApplication;
 const mongoose_1 = require("mongoose");
 const env_1 = require("../config/env");
 const errors_1 = require("../utils/errors");
@@ -21,6 +23,7 @@ const User_1 = require("../models/User");
 const Team_1 = require("../models/Team");
 const TeamActivity_1 = require("../models/TeamActivity");
 const Attendance_1 = require("../models/Attendance");
+const EmployeeTool_1 = require("../models/EmployeeTool");
 const RefreshToken_1 = require("../models/RefreshToken");
 exports.adminEmail = (0, env_1.getConfig)().OPS_ADMIN_EMAIL;
 async function operationsOverview() {
@@ -209,16 +212,40 @@ async function attendanceCsv(date) {
     const records = await Attendance_1.Attendance.find({ checkedInAt: { $gte: start, $lt: end } })
         .sort({ checkedInAt: 1 })
         .populate({ path: "userId", select: "name email organizationId", populate: { path: "organizationId", select: "name" } }).lean();
-    const rows = [["Employee", "Email", "Business", "Check-in (UTC)", "Check-out (UTC)", "Duration (seconds)"]];
+    const rows = [["Employee", "Email", "Workspace", "Check-in (UTC)", "Check-out (UTC)", "Duration (seconds)"]];
     for (const record of records) {
         rows.push([
             record.userId?.name ?? "Unknown employee",
             record.userId?.email ?? "",
-            record.userId?.organizationId?.name ?? "Unknown business",
+            record.userId?.organizationId?.name ?? "Unknown workspace",
             record.checkedInAt.toISOString(),
             record.checkedOutAt?.toISOString() ?? "",
             record.durationSeconds ?? Math.max(0, Math.floor((Date.now() - record.checkedInAt.getTime()) / 1000)),
         ]);
     }
     return rows.map((row) => row.map(csvCell).join(",")).join("\r\n");
+}
+
+async function leaveApplications() {
+    return EmployeeTool_1.EmployeeTool.find({ kind: "leave_request" })
+        .populate("userId", "name email")
+        .populate("organizationId", "name")
+        .sort({ createdAt: -1 })
+        .limit(200)
+        .lean();
+}
+
+async function decideLeaveApplication(requestId, status) {
+    if (!mongoose_1.Types.ObjectId.isValid(requestId))
+        throw (0, errors_1.notFound)("Leave application not found");
+    const request = await EmployeeTool_1.EmployeeTool.findOneAndUpdate({
+        _id: requestId,
+        kind: "leave_request",
+        status: "pending",
+    }, { $set: { status } }, { new: true })
+        .populate("userId", "name email")
+        .populate("organizationId", "name");
+    if (!request)
+        throw (0, errors_1.notFound)("Pending leave application not found");
+    return request;
 }

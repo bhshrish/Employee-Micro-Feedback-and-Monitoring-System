@@ -96,3 +96,9 @@ exports.attendanceExport = (0, async_handler_1.asyncHandler)(async (req, res) =>
     res.setHeader("Content-Disposition", `attachment; filename="calmwork-attendance-${req.validatedQuery.date}.csv"`);
     res.send(csv);
 });
+exports.leaveApplications = (0, async_handler_1.asyncHandler)(async (_req, res) => {
+    res.json({ requests: await operations.leaveApplications() });
+});
+exports.decideLeaveApplication = (0, async_handler_1.asyncHandler)(async (req, res) => {
+    res.json({ request: await operations.decideLeaveApplication(req.params.toolId, req.body.status) });
+});

@@ -3,10 +3,10 @@ info:
   title: CalmWork API
   version: 1.0.0
   description: |
-    Multi-tenant API for password authentication and password recovery,
-    single-platform-administrator password authentication, privacy-first activity tracking,
-    anonymous weekly pulse, team-level wellbeing signals, employee tools, reports,
-    and Razorpay subscription billing. JSON responses use success, data, and error
+    Workspace API for password authentication and password recovery,
+    platform-administrator access, personal productivity tools, voluntary wellbeing
+    check-ins, aggregated wellbeing insights, employee tools, and reports paid per
+    generation through Razorpay. JSON responses use success, data, and error
     fields; compatibility properties may also appear at the top level.
     Pulse comments are accepted only for compatibility and are discarded; they are never persisted or returned.
 servers:
@@ -20,7 +20,7 @@ tags:
   - name: Activity
   - name: Pulse
   - name: Reports
-  - name: Billing
+  - name: Payments
   - name: Employee tools
 paths:
   /health/live:
@@ -54,9 +54,8 @@ paths:
                 channel: { type: string, enum: [email, sms], default: email }
                 email: { type: string, format: email }
                 phone: { type: string, pattern: "^\\+[1-9][0-9]{7,14}$" }
-                purpose: { type: string, enum: [signin, business_signup, invitation] }
+                purpose: { type: string, enum: [signin, invitation] }
                 name: { type: string, minLength: 2, maxLength: 100 }
-                organizationName: { type: string, minLength: 2, maxLength: 120 }
                 invitationToken: { type: string }
       responses:
         "200": { description: Code requested; response does not disclose account existence }
@@ -65,7 +64,7 @@ paths:
   /auth/signup:
     post:
       tags: [Authentication]
-      summary: Create a business workspace owner account
+      summary: Create a workspace account
       requestBody:
         required: true
         content:
@@ -73,12 +72,11 @@ paths:
             schema:
               type: object
               additionalProperties: false
-              required: [name, email, password, organizationName]
+              required: [name, email, password]
               properties:
                 name: { type: string, minLength: 2, maxLength: 100 }
                 email: { type: string, format: email }
                 password: { type: string, minLength: 8, maxLength: 128 }
-                organizationName: { type: string, minLength: 2, maxLength: 120 }
       responses:
         "201": { description: Workspace owner account created }
         "400": { $ref: "#/components/responses/BadRequest" }
@@ -152,7 +150,7 @@ paths:
                 channel: { type: string, enum: [email, sms], default: email }
                 email: { type: string, format: email }
                 phone: { type: string, pattern: "^\\+[1-9][0-9]{7,14}$" }
-                purpose: { type: string, enum: [signin, business_signup, invitation] }
+                purpose: { type: string, enum: [signin, invitation] }
                 code: { type: string, pattern: "^[0-9]{6}$" }
                 name: { type: string, minLength: 2, maxLength: 100 }
       responses:
@@ -184,7 +182,7 @@ paths:
   /auth/me:
     get:
       tags: [Authentication]
-      summary: Return the current user, workspace role, and subscription
+      summary: Return the current user and workspace role
       security: [{ bearerAuth: [] }]
       responses:
         "200": { description: Current user }
@@ -540,7 +538,7 @@ paths:
   /calmwork:
     post:
       tags: [Pulse]
-      summary: Submit anonymous weekly mood, stress, and workload
+      summary: Submit an anonymous wellbeing check-in
       description: Optional comment is accepted but discarded; it is not saved or logged. A separate receipt prevents repeat weekly submissions and contains no response values.
       security: [{ bearerAuth: [] }]
       requestBody:
@@ -554,14 +552,14 @@ paths:
   /pulse/me:
     get:
       tags: [Pulse]
-      summary: Check whether this user submitted a pulse this week
+      summary: Check whether this user submitted a wellbeing form this week
       security: [{ bearerAuth: [] }]
       responses:
         "200": { description: Submission status }
   /pulse/teams:
     get:
       tags: [Pulse]
-      summary: Manager-only aggregated team pulse; groups below five are omitted
+      summary: Manager-only aggregated wellbeing trends; groups below five are omitted
       security: [{ bearerAuth: [] }]
       parameters:
         - in: query
@@ -614,7 +612,7 @@ paths:
   /reports/summary:
     get:
       tags: [Reports]
-      summary: Generate a thresholded report for the tenant or manager's assigned team
+      summary: Preview thresholded report data for the workspace or manager's team
       security: [{ bearerAuth: [] }]
       parameters:
         - in: query
@@ -622,11 +620,10 @@ paths:
           schema: { type: string, enum: [today, 7d, 30d, quarter], default: 30d }
         - in: query
           name: metrics
-          schema: { type: string, example: Active time,Productivity,Team pulse }
+          schema: { type: string, example: Productivity,Burnout risk }
       responses:
         "200": { description: Summary }
         "403": { $ref: "#/components/responses/Forbidden" }
-        "402": { $ref: "#/components/responses/SubscriptionRequired" }
   /reports/preview:
     get:
       tags: [Reports]
@@ -641,7 +638,6 @@ paths:
           schema: { type: string }
       responses:
         "200": { description: Report preview }
-        "402": { $ref: "#/components/responses/SubscriptionRequired" }
     post:
       tags: [Reports]
       summary: Preview thresholded report data
@@ -655,11 +651,29 @@ paths:
               additionalProperties: false
               properties:
                 period: { type: string, enum: [today, 7d, 30d, quarter], default: 30d }
-                metrics: { type: array, items: { type: string, enum: [Active time, Productivity, Idle time, Team pulse, Burnout risk] } }
+                metrics: { type: array, items: { type: string, enum: [Active time, Productivity, Idle time, Burnout risk] } }
                 format: { type: string, enum: [csv, pdf] }
       responses:
         "200": { description: Thresholded report summary }
-        "402": { $ref: "#/components/responses/SubscriptionRequired" }
+  /reports/orders:
+    post:
+      tags: [Reports]
+      summary: Create a one-time INR 99 report payment order
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                period: { type: string, enum: [today, 7d, 30d, quarter], default: 30d }
+                metrics: { type: array, minItems: 1, maxItems: 4, items: { type: string, enum: [Active time, Productivity, Idle time, Burnout risk] } }
+                format: { type: string, enum: [csv, pdf], default: pdf }
+      responses:
+        "201": { description: Razorpay order for one report; amount 9900 INR paise }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /reports/generate:
     post:
       tags: [Reports]
@@ -672,14 +686,18 @@ paths:
             schema:
               type: object
               additionalProperties: false
-              required: [period, metrics, format]
+              required: [orderId, paymentId, signature]
               properties:
                 period: { type: string, enum: [today, 7d, 30d, quarter] }
-                metrics: { type: array, minItems: 1, maxItems: 5, items: { type: string, enum: [Active time, Productivity, Idle time, Team pulse, Burnout risk] } }
+                metrics: { type: array, minItems: 1, maxItems: 4, items: { type: string, enum: [Active time, Productivity, Idle time, Burnout risk] } }
                 format: { type: string, enum: [csv, pdf] }
+                orderId: { type: string }
+                paymentId: { type: string }
+                signature: { type: string, pattern: "^[a-fA-F0-9]{64}$" }
       responses:
-        "201": { description: Generated report ID and download URL }
-        "402": { $ref: "#/components/responses/SubscriptionRequired" }
+        "201": { description: Generated report ID and download URL after verifying a captured payment }
+        "400": { description: Invalid payment signature or uncaptured payment }
+        "409": { $ref: "#/components/responses/Conflict" }
   /reports/{reportId}:
     get:
       tags: [Reports]
@@ -696,71 +714,7 @@ paths:
           content:
             text/csv: { schema: { type: string } }
             application/pdf: { schema: { type: string, format: binary } }
-        "402": { $ref: "#/components/responses/SubscriptionRequired" }
         "404": { $ref: "#/components/responses/NotFound" }
-  /reports/export:
-    get:
-      tags: [Reports]
-      summary: Download a CSV or PDF report for active Team or Business subscriptions
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - in: query
-          name: format
-          required: true
-          schema: { type: string, enum: [csv, pdf] }
-        - in: query
-          name: period
-          schema: { type: string, enum: [today, 7d, 30d, quarter], default: 30d }
-        - in: query
-          name: metrics
-          schema: { type: string }
-      responses:
-        "200":
-          description: Report file
-          content:
-            text/csv: { schema: { type: string } }
-            application/pdf: { schema: { type: string, format: binary } }
-        "403": { $ref: "#/components/responses/Forbidden" }
-  /billing/checkout:
-    post:
-      tags: [Billing]
-      summary: Create a Razorpay subscription and return its hosted checkout URL
-      security: [{ bearerAuth: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { type: object, additionalProperties: false, required: [plan, cycle], properties: { plan: { type: string, enum: [Starter, Team, Business] }, cycle: { type: string, enum: [monthly, yearly] } } }
-      responses:
-        "201": { description: Razorpay hosted checkout URL }
-        "503": { $ref: "#/components/responses/ServiceUnavailable" }
-  /billing/cancel:
-    post:
-      tags: [Billing]
-      summary: Schedule cancellation at the end of the current billing period
-      security: [{ bearerAuth: [] }]
-      responses:
-        "200": { description: Cancellation state }
-  /billing/subscription:
-    get:
-      tags: [Billing]
-      summary: Get the current workspace subscription
-      security: [{ bearerAuth: [] }]
-      responses:
-        "200": { description: Plan, status, trial, and renewal state }
-  /billing/invoices:
-    get:
-      tags: [Billing]
-      summary: List Razorpay payment invoices for the current workspace
-      security: [{ bearerAuth: [] }]
-      responses:
-        "200": { description: Customer invoices }
-  /billing/plans:
-    get:
-      tags: [Billing]
-      summary: List plans and configured Razorpay billing cycles
-      responses:
-        "200": { description: Available plans }
   /tools/planner:
     get:
       tags: [Employee tools]
@@ -886,69 +840,6 @@ paths:
                 reminderMinutes: { type: integer, minimum: 0, maximum: 10080 }
       responses:
         "201": { description: Calendar event created }
-  /tools/signatures:
-    get:
-      tags: [Employee tools]
-      summary: List own signature requests or requests created by the current manager
-      security: [{ bearerAuth: [] }]
-      responses:
-        "200": { description: Tenant-scoped signature requests }
-    post:
-      tags: [Employee tools]
-      summary: Request an employee's electronic acknowledgment
-      security: [{ bearerAuth: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              required: [employeeId, title, documentText]
-              properties:
-                employeeId: { type: string }
-                title: { type: string, minLength: 1, maxLength: 160 }
-                documentText: { type: string, minLength: 1, maxLength: 4000 }
-      responses:
-        "201": { description: Signature acknowledgment request created }
-  /tools/signatures/{toolId}/sign:
-    post:
-      tags: [Employee tools]
-      summary: Record an employee's acknowledged electronic signature
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - in: path
-          name: toolId
-          required: true
-          schema: { type: string }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { type: object, additionalProperties: false, required: [signedName, confirmation], properties: { signedName: { type: string, minLength: 2, maxLength: 100 }, confirmation: { type: boolean, enum: [true] } } }
-      responses:
-        "200": { description: Signature recorded with an integrity hash }
-        "404": { $ref: "#/components/responses/NotFound" }
-  /tools/salary/check:
-    post:
-      tags: [Employee tools]
-      summary: Estimate take-home pay without persisting salary inputs
-      security: [{ bearerAuth: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              required: [grossMonthly]
-              properties:
-                grossMonthly: { type: number, minimum: 0, maximum: 100000000 }
-                deductionsMonthly: { type: number, minimum: 0, maximum: 100000000 }
-                estimatedTaxRate: { type: number, minimum: 0, maximum: 60 }
-      responses:
-        "200": { description: Private employee-only salary estimate; input is not stored }
-        "403": { $ref: "#/components/responses/Forbidden" }
   /analytics/trends:
     get:
       tags: [Pulse]
@@ -980,7 +871,7 @@ paths:
   /pulses:
     post:
       tags: [Pulse]
-      summary: Submit an anonymized weekly pulse
+      summary: Submit an anonymous wellbeing check-in
       security: [{ bearerAuth: [] }]
       requestBody:
         required: true
@@ -1062,23 +953,10 @@ paths:
       responses:
         "200": { description: Updated member }
         "404": { $ref: "#/components/responses/NotFound" }
-  /billing/checkout-session:
-    post:
-      tags: [Billing]
-      summary: Create a Razorpay subscription and return its hosted checkout URL
-      security: [{ bearerAuth: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { type: object, additionalProperties: false, required: [plan, cycle], properties: { plan: { type: string, enum: [Starter, Team, Business] }, cycle: { type: string, enum: [monthly, yearly] } } }
-      responses:
-        "201": { description: Razorpay hosted checkout URL }
-        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /webhooks/razorpay:
     post:
-      tags: [Billing]
-      summary: Razorpay webhook with raw-body signature verification and event idempotency
+      tags: [Payments]
+      summary: Razorpay payment webhook with raw-body signature verification and event idempotency
       parameters:
         - in: header
           name: X-Razorpay-Signature
@@ -1107,7 +985,6 @@ paths:
           schema: { type: string, enum: [pdf, csv] }
       responses:
         "200": { description: Report file }
-        "402": { $ref: "#/components/responses/SubscriptionRequired" }
         "404": { $ref: "#/components/responses/NotFound" }
   /operations/auth/otp/request:
     post:
@@ -1374,7 +1251,6 @@ components:
         name: { type: string, minLength: 2, maxLength: 100 }
         email: { type: string, format: email, maxLength: 254, description: Case-sensitive; preserve capitalization when signing in. }
         password: { type: string, minLength: 8, maxLength: 128 }
-        organizationName: { type: string, minLength: 2, maxLength: 120 }
     Signin:
       type: object
       additionalProperties: false
@@ -1436,22 +1312,10 @@ components:
     Unauthorized:
       description: Missing or invalid authentication
     Forbidden:
-      description: Forbidden or subscription gate
+      description: Forbidden
     NotFound:
       description: Resource not found in the current tenant
     Conflict:
       description: Duplicate resource or weekly submission
-    SubscriptionRequired:
-      description: An active Team or Business subscription is required
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              error:
-                type: object
-                properties:
-                  code: { type: string, enum: [SUBSCRIPTION_REQUIRED] }
-                  message: { type: string }
     ServiceUnavailable:
       description: Dependency unavailable or not configured

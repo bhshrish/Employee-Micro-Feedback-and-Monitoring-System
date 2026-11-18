@@ -128,7 +128,6 @@ export function AdminTeams() {
                 <p className="section-label">Platform</p>
                 <nav style={{ display: "grid", gap: 6, marginBottom: 20 }}>
                     <a href="/admin" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: "9px", background: "transparent", textAlign: "left", fontWeight: 600, color: "var(--text)", textDecoration: "none" }}><Icon name="chart" size={16} /> Overview</a>
-                    <a href="/admin/businesses" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: "9px", background: "transparent", textAlign: "left", fontWeight: 600, color: "var(--text)", textDecoration: "none" }}><Icon name="shield" size={16} /> Businesses</a>
                     <a href="/admin/users" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: "9px", background: "transparent", textAlign: "left", fontWeight: 600, color: "var(--text)", textDecoration: "none" }}><Icon name="users" size={16} /> Users</a>
                     <a href="/admin/teams" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: "9px", background: "var(--p-soft-red)", color: "var(--p-red-dark)", fontWeight: 700, textDecoration: "none" }}><Icon name="users" size={16} /> Teams</a>
                     <a href="/admin/activity" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: "9px", background: "transparent", textAlign: "left", fontWeight: 600, color: "var(--text)", textDecoration: "none" }}><Icon name="clock" size={16} /> Activity</a>
@@ -144,7 +143,7 @@ export function AdminTeams() {
                 <header className="admin-header">
                     <div>
                         <h1 style={{ fontSize: 26, letterSpacing: "-.04em" }}>Teams</h1>
-                        <p style={{ color: "var(--muted)", fontSize: 15, margin: 4 }}>Structure the business into teams.</p>
+                        <p style={{ color: "var(--muted)", fontSize: 15, margin: 4 }}>Organize users into teams.</p>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <span style={{ color: "var(--muted)", fontSize: 14 }}>{new Date().toLocaleDateString(undefined, { dateStyle: "medium" })}</span>
@@ -164,7 +163,7 @@ export function AdminTeams() {
                                     onChange={(e) => setBusinessId(e.target.value)}
                                     disabled={loading || businesses.length === 0}
                                 >
-                                    <option value="">Select business</option>
+                                    <option value="">Select workspace</option>
                                     {businesses.filter((b) => b.isActive).map((b) => (
                                         <option key={b._id} value={b._id}>{b.name}</option>
                                     ))}
@@ -191,7 +190,7 @@ export function AdminTeams() {
                             <div className="table-scroll">
                                 <table className="data-table">
                                     <thead>
-                                        <tr><th>Team</th><th>Business</th><th>Created</th><th>Action</th></tr>
+                                        <tr><th>Team</th><th>Workspace</th><th>Created</th><th>Action</th></tr>
                                     </thead>
                                     <tbody>
                                         {(data ?? []).map((team) => (

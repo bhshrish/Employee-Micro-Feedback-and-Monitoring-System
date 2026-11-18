@@ -1,10 +1,11 @@
 "use strict";
-const { createHmac, createHash, timingSafeEqual } = require("node:crypto");
+const { createHmac, createHash, randomUUID, timingSafeEqual } = require("node:crypto");
 const { getConfig } = require("../config/env");
 const { ProcessedWebhook } = require("../models/ProcessedWebhook");
 const { User } = require("../models/User");
 const { Organization } = require("../models/Organization");
 const { Invoice } = require("../models/Invoice");
+const { ReportPayment } = require("../models/ReportPayment");
 const { AppError, badRequest, conflict, forbidden, notFound } = require("../utils/errors");
 
 const PLAN_NAMES = ["Starter", "Team", "Business"];
@@ -101,6 +102,69 @@ async function createCheckout(userId, plan, cycle) {
         "subscription.cancelAtPeriodEnd": false,
     });
     return { checkoutUrl: subscription.short_url, subscriptionId: subscription.id };
+}
+
+async function createReportOrder(userId, organizationId, { period, metrics, format }) {
+    const user = await User.findOne({ _id: userId, organizationId }).select("_id");
+    if (!user)
+        throw notFound();
+    const config = getConfig();
+    if (!config.RAZORPAY_KEY_ID || !config.RAZORPAY_KEY_SECRET)
+        throw new AppError(503, "Razorpay billing is not configured.", "BILLING_NOT_CONFIGURED");
+    const receipt = `report_${randomUUID().replace(/-/g, "").slice(0, 32)}`;
+    const order = await razorpayRequest("/orders", {
+        method: "POST",
+        body: {
+            amount: 9900,
+            currency: "INR",
+            receipt,
+            notes: { userId: String(userId), organizationId: String(organizationId) },
+        },
+    });
+    if (!order.id || order.amount !== 9900 || order.currency !== "INR")
+        throw new AppError(502, "Razorpay did not return the expected report order.", "BILLING_PROVIDER_ERROR");
+    await ReportPayment.create({
+        userId,
+        organizationId,
+        orderId: order.id,
+        amount: 9900,
+        currency: "INR",
+        period,
+        metrics,
+        format,
+        status: "pending",
+    });
+    return {
+        order: { id: order.id, amount: order.amount, currency: order.currency },
+        keyId: config.RAZORPAY_KEY_ID,
+    };
+}
+
+async function verifyReportPayment(userId, organizationId, { orderId, paymentId, signature }) {
+    const { keySecret } = razorpayCredentials();
+    const expected = createHmac("sha256", keySecret).update(`${orderId}|${paymentId}`).digest();
+    const actual = Buffer.from(signature, "hex");
+    if (actual.length !== expected.length || !timingSafeEqual(actual, expected))
+        throw badRequest("Invalid report payment signature");
+    const reportPayment = await ReportPayment.findOne({
+        userId,
+        organizationId,
+        orderId,
+        $or: [{ status: "pending" }, { status: "paid", paymentId }],
+    });
+    if (!reportPayment)
+        throw notFound("Report payment order not found");
+    const payment = await razorpayRequest(`/payments/${encodeURIComponent(paymentId)}`);
+    if (payment.order_id !== orderId || payment.amount !== reportPayment.amount ||
+        payment.currency !== reportPayment.currency || payment.status !== "captured") {
+        throw badRequest("The report payment has not been captured");
+    }
+    if (reportPayment.status === "pending") {
+        reportPayment.status = "paid";
+        reportPayment.paymentId = paymentId;
+        await reportPayment.save();
+    }
+    return reportPayment;
 }
 
 async function cancelSubscription(userId) {
@@ -271,6 +335,8 @@ async function processRazorpayEvent(event, eventId) {
 
 module.exports = {
     createCheckout,
+    createReportOrder,
+    verifyReportPayment,
     cancelSubscription,
     invoices,
     plans,

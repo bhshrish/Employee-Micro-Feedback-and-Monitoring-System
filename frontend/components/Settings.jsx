@@ -70,7 +70,7 @@ function SettingsContent() {
                 <div><h2>Profile</h2><p>Your profile is tied to the account you signed in with.</p></div>
                 <div className="settings-fields">
                     <label>Full name<input value={name} onChange={(e) => setName(e.target.value)} required minLength={2}/></label>
-                    <label>Work email<input type="email" value={user?.email || ""} readOnly/></label>
+                    <label>Email<input type="email" value={user?.email || ""} readOnly/></label>
                     <label>Phone for optional SMS sign-in<input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+14155550123" autoComplete="tel"/></label>
                 </div>
             </section>
@@ -87,7 +87,7 @@ function SettingsContent() {
                 </div>
             </section>
             <section className="settings-section">
-                <div><h2>Tracking</h2><p>Choose when CalmWork asks about inactive time.</p></div>
+                <div><h2>Work sessions</h2><p>Choose when CalmWork asks about inactive time during a session you start.</p></div>
                 <div className="settings-fields">
                     <label className="slider-label">
                         <span>Idle threshold <strong>{threshold} minutes</strong></span>
@@ -100,7 +100,7 @@ function SettingsContent() {
             <section className="settings-section">
                 <div><h2>Notifications</h2><p>Preferences are saved to your account.</p></div>
                 <div className="settings-fields check-list">
-                    <label><input type="checkbox" checked={weekly} onChange={(e) => setWeekly(e.target.checked)}/><span>Weekly pulse reminder</span></label>
+                    <label><input type="checkbox" checked={weekly} onChange={(e) => setWeekly(e.target.checked)}/><span>Weekly wellbeing check-in reminder</span></label>
                     <label><input type="checkbox" checked={idle} onChange={(e) => setIdle(e.target.checked)}/><span>Idle check-in prompt</span></label>
                     <label><input type="checkbox" checked={product} onChange={(e) => setProduct(e.target.checked)}/><span>Occasional product updates</span></label>
                 </div>
@@ -110,10 +110,9 @@ function SettingsContent() {
         <section className="settings-section privacy-settings">
             <div><h2>Privacy, in plain language</h2><p>What CalmWork does—and what is planned.</p></div>
             <div className="settings-fields privacy-list">
-                <p><Icon name="check"/><span><strong>Current demo:</strong> session timing, active and idle duration, task labels, productivity tags, and voluntary pulse responses.</span></p>
-                <p><Icon name="shield"/><span><strong>Planned screen recording:</strong> not active in this demo; any future recording will require employee opt-in and include pause and stop controls. Recordings can show visible screen content.</span></p>
-                <p><Icon name="shield"/><span><strong>Optional keypress counts:</strong> when enabled, keydown event counts are stored only in this browser during active work sessions and erased when the session stops. Key values, typed characters, and text are never inspected or stored.</span></p>
-                <p><Icon name="shield"/><span><strong>Manager view:</strong> current reports show workspace or team summaries. Access and retention for any future recordings must be defined and disclosed before rollout.</span></p>
+                <p><Icon name="check"/><span><strong>Current features:</strong> self-started work sessions, task planning, productivity tags, and voluntary wellbeing check-ins.</span></p>
+                <p><Icon name="shield"/><span><strong>No monitoring:</strong> CalmWork does not record screens, keystrokes, typed text, or individual work activity for managers.</span></p>
+                <p><Icon name="shield"/><span><strong>Manager reports:</strong> reports use aggregated check-in patterns, with small groups suppressed to protect privacy.</span></p>
             </div>
         </section>
         <section className="settings-section danger-zone">

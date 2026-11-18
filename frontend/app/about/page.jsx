@@ -16,26 +16,26 @@ export default function AboutPage() {
             <section className="section about-grid">
                 <article>
                     <span>01</span>
-                    <h2>Insight with employee choice</h2>
-                    <p>CalmWork supports employee-controlled activity timing and wellbeing check-ins. Employees may optionally count keypresses locally during an active session. Screen recording is not available; any future screen recording would require explicit employee opt-in and pause and stop controls.</p>
+                    <h2>Insight without monitoring</h2>
+                    <p>CalmWork combines self-directed productivity tools with voluntary wellbeing check-ins. Work activity is not monitored or collected for manager reports.</p>
                 </article>
                 <article>
                     <span>02</span>
-                    <h2>Count activity, not content</h2>
-                    <p>Optional keypress counting stores only a count in the employee's browser. It never reads or saves key values, typed characters, or text. CalmWork does not record screens.</p>
+                    <h2>Reports from employee voice</h2>
+                    <p>Employees can share their mood, stress, and workload through a short form. Reports use aggregated check-in data and suppress small groups.</p>
                 </article>
                 <article>
                     <span>03</span>
                     <h2>Privacy people can explain</h2>
-                    <p>Current manager reports focus on workspace or team summaries. Access rules, storage, and retention for any future recordings must be clearly defined before rollout.</p>
+                    <p>Workspaces can use shared productivity features, leave applications, and reports while keeping individual check-in responses private.</p>
                 </article>
             </section>
             <section className="cta-strip">
                 <div>
-                    <p>See the product concept in action.</p>
+                    <p>One small check-in can make a difference.</p>
                     <h2>Build a healthier work rhythm.</h2>
                 </div>
-                <Link href="/login?mode=signup" className="button button-light">Start free <Icon name="arrow" /></Link>
+                <Link href="/login?mode=signup" className="button button-light">Create account <Icon name="arrow" /></Link>
             </section>
         </main>
         <MarketingFooter />

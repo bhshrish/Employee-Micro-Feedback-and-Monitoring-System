@@ -15,8 +15,9 @@ import {
     getOperationsTeams,
     getOperationsActivity,
     getOperationsAttendance,
-    setOperationsBusinessActive,
     setOperationsUserActive,
+    getOperationsLeave,
+    decideOperationsLeave,
     createOperationsTeam,
     archiveOperationsTeam,
     assignOperationsTeam,
@@ -27,11 +28,11 @@ import { errorMessage, formatDate } from "./admin/adminHelpers";
 
 const SECTIONS = [
     { key: "overview", label: "Overview", icon: "chart" },
-    { key: "businesses", label: "Businesses", icon: "shield" },
     { key: "users", label: "Users", icon: "users" },
     { key: "teams", label: "Teams", icon: "users" },
     { key: "activity", label: "Activity", icon: "clock" },
     { key: "attendance", label: "Attendance", icon: "calendar" },
+    { key: "leave", label: "Leave applications", icon: "calendar" },
     { key: "alerts", label: "Alerts", icon: "bell" },
 ];
 
@@ -60,7 +61,7 @@ export function AdminDashboard() {
     const [search, setSearch] = useState("");
     const [data, setData] = useState(null);
     const [teamName, setTeamName] = useState("");
-    const [businessId, setBusinessId] = useState("");
+    const [workspaceId, setWorkspaceId] = useState("");
     const [exporting, setExporting] = useState(false);
 
     const loadSection = useCallback(async () => {
@@ -68,8 +69,6 @@ export function AdminDashboard() {
         try {
             if (section === "overview")
                 setData(await getOperationsOverview());
-            else if (section === "businesses")
-                setData(await getOperationsBusinesses(page, search));
             else if (section === "users") {
                 const [users, teams] = await Promise.all([
                     getOperationsUsers(page, search),
@@ -78,17 +77,19 @@ export function AdminDashboard() {
                 setData({ ...users, teams: teams.teams });
             }
             else if (section === "teams") {
-                const [teams, businesses] = await Promise.all([
+                const [teams, workspaces] = await Promise.all([
                     getOperationsTeams(),
                     getOperationsBusinesses(1),
                 ]);
-                setData({ teams: teams.teams, businesses: businesses.businesses });
-                setBusinessId((value) => value || businesses.businesses[0]?._id || "");
+                setData({ teams: teams.teams, workspaces: workspaces.businesses });
+                setWorkspaceId((value) => value || workspaces.businesses[0]?._id || "");
             }
             else if (section === "activity")
                 setData(await getOperationsActivity(date));
             else if (section === "attendance")
                 setData(await getOperationsAttendance(date, page));
+            else if (section === "leave")
+                setData({ requests: await getOperationsLeave() });
         }
         catch (cause) {
             if (cause?.status === 401)
@@ -132,17 +133,6 @@ export function AdminDashboard() {
         }
     };
 
-    const toggleBusiness = async (business) => {
-        try {
-            await setOperationsBusinessActive(business._id, !business.isActive);
-            await loadSection();
-            toast(`Business ${!business.isActive ? "activated" : "suspended"}.`);
-        }
-        catch (cause) {
-            setError(cause instanceof Error ? cause.message : "Could not update business.");
-        }
-    };
-
     const toggleUser = async (user) => {
         try {
             await setOperationsUserActive(user._id, !user.isActive);
@@ -169,7 +159,7 @@ export function AdminDashboard() {
         event.preventDefault();
         setLoading(true);
         try {
-            await createOperationsTeam(businessId, teamName);
+            await createOperationsTeam(workspaceId, teamName);
             setTeamName("");
             await loadSection();
             toast("Team created.");
@@ -192,6 +182,21 @@ export function AdminDashboard() {
         }
         catch (cause) {
             setError(cause instanceof Error ? cause.message : "Could not archive team.");
+        }
+    };
+
+    const decideLeave = async (request, status) => {
+        setLoading(true);
+        try {
+            await decideOperationsLeave(request._id, status);
+            await loadSection();
+            toast(`Leave application ${status}.`);
+        }
+        catch (cause) {
+            setError(cause instanceof Error ? cause.message : "Could not update leave application.");
+        }
+        finally {
+            setLoading(false);
         }
     };
 
@@ -223,7 +228,7 @@ export function AdminDashboard() {
                 <div className="admin-auth-card">
                     <Logo inverse />
                     <h1>Platform operations</h1>
-                    <p>Sign in with the platform operations admin account to manage businesses, users, teams, and attendance across the workspace.</p>
+                    <p>Sign in with the platform operations admin account to manage users, productivity tools, attendance, and leave applications.</p>
                     <div className="admin-auth-spinner"><span className="skeleton" style={{ width: "40%", height: "14px" }} /><span className="skeleton" style={{ width: "60%", height: "14px" }} /></div>
                     <p style={{ color: "var(--muted)", fontSize: 14, margin: 0 }}>Checking operations access…</p>
                 </div>
@@ -293,7 +298,7 @@ export function AdminDashboard() {
                             {loading && !data ? <Skeleton lines={5} /> : (
                                 <>
                                     <section className="kpi-grid admin-kpis">
-                                        <KpiCard label="Businesses" value={data?.activeBusinesses ?? "—"} note={`Active of ${data?.businesses ?? "—"} workspaces`} icon="shield" />
+                                        <KpiCard label="Workspaces" value={data?.activeBusinesses ?? "—"} note={`Active of ${data?.businesses ?? "—"} workspaces`} icon="users" />
                                         <KpiCard label="Users" value={data?.activeUsers ?? "—"} note={`Active of ${data?.users ?? "—"} accounts`} icon="users" />
                                         <KpiCard label="Employees" value={data?.employees ?? "—"} note="Active employees across workspaces" icon="users" />
                                         <KpiCard label="Checked in today" value={data?.openAttendance ?? "—"} note="Employees currently in a session" icon="calendar" />
@@ -301,9 +306,6 @@ export function AdminDashboard() {
                                     <section className="data-card admin-card">
                                         <div className="card-heading"><div><p className="section-label">Quick actions</p><h2>Platform controls</h2></div></div>
                                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14, marginTop: 16 }}>
-                                            <button className="button button-outline" onClick={() => setSection("businesses")}>
-                                                <Icon name="shield" size={16} style={{ marginRight: 8 }} /> Manage businesses
-                                            </button>
                                             <button className="button button-outline" onClick={() => setSection("users")}>
                                                 <Icon name="users" size={16} style={{ marginRight: 8 }} /> Manage users
                                             </button>
@@ -313,6 +315,9 @@ export function AdminDashboard() {
                                             <button className="button button-outline" onClick={() => setSection("attendance")}>
                                                 <Icon name="calendar" size={16} style={{ marginRight: 8 }} /> Export attendance
                                             </button>
+                                            <button className="button button-outline" onClick={() => setSection("leave")}>
+                                                <Icon name="calendar" size={16} style={{ marginRight: 8 }} /> Review leave applications
+                                            </button>
                                         </div>
                                     </section>
                                 </>
@@ -320,50 +325,6 @@ export function AdminDashboard() {
                         </>
                     )}
 
-
-                    {section === "businesses" && (
-                        <>
-                            <div className="admin-heading">
-                                <div><p className="section-label">Workspaces</p><h2>Businesses</h2></div>
-                                <div className="admin-search">
-                                    <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search businesses…" className="admin-search-input" />
-                                </div>
-                            </div>
-                            {loading ? <Skeleton lines={5} /> : (
-                                <section className="data-card admin-card">
-                                    <div className="table-scroll">
-                                        <table className="data-table">
-                                            <thead>
-                                                <tr><th>Business</th><th>Owner email</th><th>Owner</th><th>Users</th><th>Status</th><th>Action</th></tr>
-                                            </thead>
-                                            <tbody>
-                                                {(data?.businesses ?? []).map((business) => (
-                                                    <tr key={business._id}>
-                                                        <td><strong>{business.name}</strong><br /><small style={{ color: "var(--muted)" }}>{business.owner?.[0]?.email ?? "—"}</small></td>
-                                                        <td><span className={`admin-status ${business.isActive ? "active" : "inactive"}`}>{business.isActive ? "Active" : "Suspended"}</span></td>
-                                                        <td>{business.owner?.[0]?.name ?? "—"}</td>
-                                                        <td>{business.users ?? "—"} users</td>
-                                                        <td>
-                                                            <button
-                                                                className="button button-outline button-small"
-                                                                onClick={() => void toggleBusiness(business)}
-                                                                disabled={loading}
-                                                            >
-                                                                {business.isActive ? "Suspend" : "Activate"}
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                                {(data?.businesses ?? []).length === 0 && (
-                                                    <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--muted)", padding: 30 }}>No businesses found.</td></tr>
-                                                )}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </section>
-                            )}
-                        </>
-                    )}
 
                     {section === "users" && (
                         <>
@@ -378,7 +339,7 @@ export function AdminDashboard() {
                                     <div className="table-scroll">
                                         <table className="data-table">
                                             <thead>
-                                                <tr><th>User</th><th>Role</th><th>Team</th><th>Business</th><th>Status</th><th>Action</th></tr>
+                                                <tr><th>User</th><th>Role</th><th>Team</th><th>Workspace</th><th>Status</th><th>Action</th></tr>
                                             </thead>
                                             <tbody>
                                                 {(data?.users ?? []).map((user) => (
@@ -438,13 +399,13 @@ export function AdminDashboard() {
                                     <label>
                                         <select
                                             required
-                                            value={businessId}
-                                            onChange={(event) => setBusinessId(event.target.value)}
-                                            disabled={loading || !(data?.businesses ?? []).length}
+                                            value={workspaceId}
+                                            onChange={(event) => setWorkspaceId(event.target.value)}
+                                            disabled={loading || !(data?.workspaces ?? []).length}
                                         >
-                                            <option value="">Select business</option>
-                                            {(data?.businesses ?? []).filter((business) => business.isActive).map((business) => (
-                                                <option key={business._id} value={business._id}>{business.name}</option>
+                                            <option value="">Select workspace</option>
+                                            {(data?.workspaces ?? []).filter((workspace) => workspace.isActive).map((workspace) => (
+                                                <option key={workspace._id} value={workspace._id}>{workspace.name}</option>
                                             ))}
                                         </select>
                                     </label>
@@ -459,7 +420,7 @@ export function AdminDashboard() {
                                             disabled={loading}
                                         />
                                     </label>
-                                    <button className="button" disabled={loading || !businessId || teamName.trim().length < 2}>
+                                    <button className="button" disabled={loading || !workspaceId || teamName.trim().length < 2}>
                                         {loading ? "Creating…" : "Create team"}
                                     </button>
                                 </form>
@@ -469,7 +430,7 @@ export function AdminDashboard() {
                                     <div className="table-scroll">
                                         <table className="data-table">
                                             <thead>
-                                                <tr><th>Team</th><th>Business</th><th>Created</th><th>Action</th></tr>
+                                                <tr><th>Team</th><th>Workspace</th><th>Created</th><th>Action</th></tr>
                                             </thead>
                                             <tbody>
                                                 {(data?.teams ?? []).map((team) => (
@@ -508,13 +469,13 @@ export function AdminDashboard() {
                                     <input type="date" value={date} onChange={(event) => setDate(event.target.value)} disabled={loading} />
                                 </label>
                             </div>
-                            <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 16 }}>Aggregated by business. Individual task labels and employee activity records are not exposed.</p>
+                            <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 16 }}>Aggregated by workspace. Individual task labels and employee activity records are not exposed.</p>
                             {loading ? <Skeleton lines={5} /> : (
                                 <section className="data-card admin-card">
                                     <div className="table-scroll">
                                         <table className="data-table">
                                             <thead>
-                                                <tr><th>Business</th><th>Employees active</th><th>Sessions</th><th>Active time</th><th>Idle time</th></tr>
+                                                <tr><th>Workspace</th><th>Employees active</th><th>Sessions</th><th>Active time</th><th>Idle time</th></tr>
                                             </thead>
                                             <tbody>
                                                 {(data?.businesses ?? []).map((row) => (
@@ -563,7 +524,7 @@ export function AdminDashboard() {
                                         <div className="table-scroll">
                                             <table className="data-table">
                                                 <thead>
-                                                    <tr><th>Employee</th><th>Business</th><th>Check-in</th><th>Check-out</th><th>Duration</th><th>Status</th></tr>
+                                                    <tr><th>Employee</th><th>Workspace</th><th>Check-in</th><th>Check-out</th><th>Duration</th><th>Status</th></tr>
                                                 </thead>
                                                 <tbody>
                                                     {(data?.records ?? []).map((record) => (
@@ -593,6 +554,37 @@ export function AdminDashboard() {
                                 </>
                             )}
                         </>
+                    )}
+
+                    {section === "leave" && (
+                        <section className="data-card admin-card">
+                            <div className="card-heading">
+                                <div><p className="section-label">Requests from all workspaces</p><h2>Leave applications</h2></div>
+                            </div>
+                            {loading ? <Skeleton lines={5} /> : (
+                                <div className="table-scroll">
+                                    <table className="data-table">
+                                        <thead>
+                                            <tr><th>Employee</th><th>Workspace</th><th>Leave type</th><th>Dates</th><th>Reason</th><th>Status</th><th>Action</th></tr>
+                                        </thead>
+                                        <tbody>
+                                            {(data?.requests ?? []).map((request) => (
+                                                <tr key={request._id}>
+                                                    <td><strong>{request.userId?.name ?? "Unknown"}</strong><br/><small>{request.userId?.email ?? ""}</small></td>
+                                                    <td>{request.organizationId?.name ?? "—"}</td>
+                                                    <td>{request.leaveType}</td>
+                                                    <td>{formatTime(request.startsAt)}<br/>to {formatTime(request.endsAt)}</td>
+                                                    <td>{request.description || "—"}</td>
+                                                    <td>{request.status}</td>
+                                                    <td>{request.status === "pending" && <div className="tool-actions"><button className="button button-small" disabled={loading} onClick={() => void decideLeave(request, "approved")}>Approve</button><button className="button button-outline button-small" disabled={loading} onClick={() => void decideLeave(request, "rejected")}>Decline</button></div>}</td>
+                                                </tr>
+                                            ))}
+                                            {(data?.requests ?? []).length === 0 && <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--muted)", padding: 30 }}>No leave applications found.</td></tr>}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </section>
                     )}
 
                     {section === "alerts" && (
