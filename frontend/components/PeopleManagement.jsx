@@ -34,9 +34,13 @@ function PeopleContent() {
     }, []);
 
     useEffect(() => {
+        if (user?.role !== "admin") {
+            setLoading(false);
+            return;
+        }
         refresh().catch((cause) => setError(cause instanceof Error ? cause.message : "Could not load workspace people."))
             .finally(() => setLoading(false));
-    }, [refresh]);
+    }, [refresh, user?.role]);
 
     const invite = async (event) => {
         event.preventDefault();
@@ -108,6 +112,9 @@ function PeopleContent() {
             setError(cause instanceof Error ? cause.message : "Could not copy invitation link.");
         }
     };
+
+    if (user?.role !== "admin")
+        return <div className="people-page"><div className="app-page-heading"><div><p className="section-label">Workspace</p><h1>Admin access required</h1><p>People and team management is available to workspace administrators.</p></div></div></div>;
 
     return <div className="people-page">
         <div className="app-page-heading">
