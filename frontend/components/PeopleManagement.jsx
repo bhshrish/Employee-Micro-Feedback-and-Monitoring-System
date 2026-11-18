@@ -34,7 +34,7 @@ function PeopleContent() {
     }, []);
 
     useEffect(() => {
-        refresh().catch((cause) => setError(cause instanceof Error ? cause.message : "Could not load business people."))
+        refresh().catch((cause) => setError(cause instanceof Error ? cause.message : "Could not load workspace people."))
             .finally(() => setLoading(false));
     }, [refresh]);
 
@@ -111,7 +111,7 @@ function PeopleContent() {
 
     return <div className="people-page">
         <div className="app-page-heading">
-            <div><p className="section-label">Business management</p><h1>People & teams</h1><p>Invite employees, organize teams, and manage roles in {user?.name}&apos;s workspace.</p></div>
+            <div><p className="section-label">Workspace</p><h1>People & teams</h1><p>Invite people, organize teams, and manage workspace access.</p></div>
         </div>
         {error && <p className="field-error" role="alert">{error}</p>}
         <div className="people-grid">
@@ -119,7 +119,7 @@ function PeopleContent() {
                 <p className="section-label">Invite employee</p>
                 <h2>Bring your team in</h2>
                 <form onSubmit={invite}>
-                    <label>Employee work email<input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} autoCapitalize="none" spellCheck={false}/></label>
+                    <label>Email address<input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} autoCapitalize="none" spellCheck={false}/></label>
                     <label>Assign to team<select required value={inviteTeam} onChange={(event) => setInviteTeam(event.target.value)}>{teams.map((team) => <option key={team._id} value={team._id}>{team.name}</option>)}</select></label>
                     <button className="button" disabled={saving || !teams.length}>{saving ? "Creating…" : "Create invitation"}<Icon name="arrow"/></button>
                 </form>
@@ -138,7 +138,7 @@ function PeopleContent() {
                 <thead><tr><th>Employee</th><th>Email</th><th>Role</th><th>Team</th></tr></thead>
                 <tbody>{members.map((member) => <tr key={member._id}>
                     <td>{member.name}</td><td>{member.email}</td>
-                    <td>{member._id === user?.id ? "Business admin" : <select value={member.role} onChange={(event) => void updateMember(member, { role: event.target.value })}><option value="employee">Employee</option><option value="manager">Manager</option></select>}</td>
+                    <td>{member._id === user?.id ? "Workspace admin" : <select value={member.role} onChange={(event) => void updateMember(member, { role: event.target.value })}><option value="employee">Employee</option><option value="manager">Manager</option></select>}</td>
                     <td><select value={member.teamId?._id ?? member.teamId ?? ""} onChange={(event) => void updateMember(member, { teamId: event.target.value || null })}><option value="">Unassigned</option>{teams.map((team) => <option value={team._id} key={team._id}>{team.name}</option>)}</select></td>
                 </tr>)}</tbody>
             </table></div> : <p>No employees yet. Create an invitation to add your first employee.</p>}

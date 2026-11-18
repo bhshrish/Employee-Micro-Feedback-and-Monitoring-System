@@ -112,7 +112,6 @@ export function AdminAttendance() {
                 <p className="section-label">Platform</p>
                 <nav style={{ display: "grid", gap: 6, marginBottom: 20 }}>
                     <a href="/admin" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: "9px", background: "transparent", textAlign: "left", fontWeight: 600, color: "var(--text)", textDecoration: "none" }}><Icon name="chart" size={16} /> Overview</a>
-                    <a href="/admin/businesses" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: "9px", background: "transparent", textAlign: "left", fontWeight: 600, color: "var(--text)", textDecoration: "none" }}><Icon name="shield" size={16} /> Businesses</a>
                     <a href="/admin/users" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: "9px", background: "transparent", textAlign: "left", fontWeight: 600, color: "var(--text)", textDecoration: "none" }}><Icon name="users" size={16} /> Users</a>
                     <a href="/admin/teams" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: "9px", background: "transparent", textAlign: "left", fontWeight: 600, color: "var(--text)", textDecoration: "none" }}><Icon name="users" size={16} /> Teams</a>
                     <a href="/admin/activity" style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: "9px", background: "transparent", textAlign: "left", fontWeight: 600, color: "var(--text)", textDecoration: "none" }}><Icon name="clock" size={16} /> Activity</a>
@@ -128,7 +127,7 @@ export function AdminAttendance() {
                 <header className="admin-header">
                     <div>
                         <h1 style={{ fontSize: 26, letterSpacing: "-.04em" }}>Attendance</h1>
-                        <p style={{ color: "var(--muted)", fontSize: 15, margin: 4 }}>Review daily attendance across businesses.</p>
+                        <p style={{ color: "var(--muted)", fontSize: 15, margin: 4 }}>Review daily attendance across workspaces.</p>
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         <span style={{ color: "var(--muted)", fontSize: 14 }}>{new Date().toLocaleDateString(undefined, { dateStyle: "medium" })}</span>
@@ -162,7 +161,7 @@ export function AdminAttendance() {
                                 <div className="table-scroll">
                                     <table className="data-table">
                                         <thead>
-                                            <tr><th>Employee</th><th>Business</th><th>Check-in</th><th>Check-out</th><th>Duration</th><th>Status</th></tr>
+                                            <tr><th>Employee</th><th>Workspace</th><th>Check-in</th><th>Check-out</th><th>Duration</th><th>Status</th></tr>
                                         </thead>
                                         <tbody>
                                             {(data?.records ?? []).map((record) => (

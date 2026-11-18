@@ -14,6 +14,7 @@ import { User } from "../src/models/User";
 import { TeamActivity } from "../src/models/TeamActivity";
 import { Invoice } from "../src/models/Invoice";
 import { GeneratedReport } from "../src/models/GeneratedReport";
+import { ReportPayment } from "../src/models/ReportPayment";
 import { Alert } from "../src/models/Alert";
 import { processRazorpayEvent } from "../src/services/billing.service";
 import { expireTrials } from "../src/jobs/subscriptions";
@@ -43,6 +44,50 @@ async function signupAndSignin(email, name = "Test User") {
         body: { user: session.user, accessToken: session.accessToken },
         headers: { "set-cookie": [`calmwork_refresh=${session.refreshToken}`] },
     };
+}
+async function withRazorpayMock({ orderId = "order_report_test", paymentId = "pay_report_test", status = "captured", amount = 9900, currency = "INR", paymentOrderId = orderId } = {}, run) {
+    const previousFetch = globalThis.fetch;
+    const previousKeyId = process.env.RAZORPAY_KEY_ID;
+    const previousKeySecret = process.env.RAZORPAY_KEY_SECRET;
+    const keySecret = "report_payment_test_secret";
+    process.env.RAZORPAY_KEY_ID = "rzp_test_report";
+    process.env.RAZORPAY_KEY_SECRET = keySecret;
+    globalThis.fetch = async (input, init = {}) => {
+        const url = new globalThis.URL(input);
+        if (url.pathname === "/v1/orders" && init.method === "POST") {
+            return new globalThis.Response(JSON.stringify({ id: orderId, amount: 9900, currency: "INR" }), {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
+            });
+        }
+        if (url.pathname === `/v1/payments/${paymentId}`) {
+            return new globalThis.Response(JSON.stringify({
+                id: paymentId,
+                order_id: paymentOrderId,
+                amount,
+                currency,
+                status,
+            }), { status: 200, headers: { "Content-Type": "application/json" } });
+        }
+        throw new Error(`Unexpected Razorpay request: ${init.method || "GET"} ${url.pathname}`);
+    };
+    try {
+        return await run({ orderId, paymentId, keySecret });
+    }
+    finally {
+        globalThis.fetch = previousFetch;
+        if (previousKeyId === undefined)
+            delete process.env.RAZORPAY_KEY_ID;
+        else
+            process.env.RAZORPAY_KEY_ID = previousKeyId;
+        if (previousKeySecret === undefined)
+            delete process.env.RAZORPAY_KEY_SECRET;
+        else
+            process.env.RAZORPAY_KEY_SECRET = previousKeySecret;
+    }
+}
+function reportSignature(orderId, paymentId, keySecret) {
+    return createHmac("sha256", keySecret).update(`${orderId}|${paymentId}`).digest("hex");
 }
 function accessCookie(response) {
     const value = response.headers["set-cookie"]?.find((cookie) => cookie.startsWith("calmwork_refresh="));
@@ -283,13 +328,10 @@ describe("PULSE API", () => {
             .set("Authorization", `Bearer ${login.body.accessToken}`)
             .expect(200);
         assert.equal(users.body.members.length, 1);
-        const plans = await request(app).get("/api/v1/billing/plans").expect(200);
-        assert.equal(plans.body.plans.length, 3);
-        const currentSubscription = await request(app)
-            .get("/api/v1/billing/subscription")
+        await request(app).get("/api/v1/billing/plans").expect(404);
+        await request(app).get("/api/v1/billing/subscription")
             .set("Authorization", `Bearer ${login.body.accessToken}`)
-            .expect(200);
-        assert.equal(currentSubscription.body.subscription.status, "trialing");
+            .expect(404);
     });
     it("enforces OTP expiry, resend cooldown, five-attempt limit, and cookie-only sessions", async () => {
         const account = await signupAndSignin("otp-limit@example.test");
@@ -328,7 +370,7 @@ describe("PULSE API", () => {
         assert.equal(jwt.verify(token, process.env.JWT_ADMIN_SECRET).typ, "operations_admin");
         assert.throws(() => jwt.verify(token, process.env.JWT_ACCESS_SECRET));
     });
-    it("keeps planner tasks tenant- and user-scoped and does not persist salary estimates", async () => {
+    it("keeps planner tasks tenant- and user-scoped and removes salary and signature tools", async () => {
         const firstOwner = await signupAndSignin("tools-first@example.test");
         const secondOwner = await signupAndSignin("tools-second@example.test");
         const firstAuth = { Authorization: `Bearer ${firstOwner.body.accessToken}` };
@@ -345,24 +387,12 @@ describe("PULSE API", () => {
         assert.equal(otherTasks.body.tasks.length, 0);
 
         await request(app).post("/api/v1/tools/salary/check").set(firstAuth)
-            .send({ grossMonthly: 5000 }).expect(403);
-        const employee = await User.create({
-            organizationId: firstOwner.body.user.organizationId,
-            teamId: firstOwner.body.user.teamId,
-            name: "Salary Private",
-            email: "salary-private@example.test",
-            passwordHash: await bcrypt.hash("correct-horse-battery", 12),
-            role: "employee",
-            subscription: { plan: "Team", status: "trialing", trialEndsAt: new Date(Date.now() + 86_400_000) },
-        });
-        const employeeSession = await createTestSession({ email: employee.email, password: "correct-horse-battery" });
-        const salary = await request(app).post("/api/v1/tools/salary/check")
-            .set({ Authorization: `Bearer ${employeeSession.accessToken}` })
-            .send({ grossMonthly: 5000, deductionsMonthly: 500, estimatedTaxRate: 10 }).expect(200);
-        assert.equal(salary.body.estimate.estimatedTakeHomeMonthly, 4000);
-        assert.equal(await EmployeeTool.countDocuments({ organizationId: employee.organizationId, kind: "salary" }), 0);
+            .send({ grossMonthly: 5000 }).expect(404);
+        await request(app).get("/api/v1/tools/signatures").set(firstAuth).expect(404);
+        assert.equal(await EmployeeTool.countDocuments({ kind: "salary" }), 0);
+        assert.equal(await EmployeeTool.countDocuments({ kind: "signature" }), 0);
     });
-    it("supports the requested collection, analytics, billing, webhook, and report paths", async () => {
+    it("supports the requested collection, analytics, webhook, and report paths", async () => {
         const account = await signupAndSignin("contract-aliases@example.test");
         const auth = { Authorization: `Bearer ${account.body.accessToken}` };
         await request(app).get("/api/v1/sessions?page=1&limit=10").set(auth).expect(200);
@@ -394,7 +424,7 @@ describe("PULSE API", () => {
             .send({ role: "manager" }).expect(200)
             .expect((res) => assert.equal(res.body.member.role, "manager"));
         await request(app).post("/api/v1/billing/checkout-session").set(auth)
-            .send({ plan: "Team", cycle: "monthly" }).expect(503);
+            .send({ plan: "Team", cycle: "monthly" }).expect(404);
         await request(app).post("/api/v1/webhooks/razorpay")
             .set("Content-Type", "application/json").set("X-Razorpay-Signature", "invalid")
             .send("{}").expect(403);
@@ -469,7 +499,7 @@ describe("PULSE API", () => {
         await request(app)
             .get("/api/v1/billing/invoices")
             .set("Authorization", `Bearer ${member.body.accessToken}`)
-            .expect(403);
+            .expect(404);
         await request(app)
             .get("/api/v1/pulse/teams")
             .set("Authorization", `Bearer ${member.body.accessToken}`)
@@ -540,7 +570,7 @@ describe("PULSE API", () => {
             assert.equal(Object.hasOwn(res.body.teams[0], "userIds"), false);
         });
     });
-    it("prevents cross-user access to personal activity sessions and blocks expired trial access", async () => {
+    it("prevents cross-user activity access while keeping app access after a trial expires", async () => {
         const first = await signupAndSignin("first@example.test");
         const second = await signupAndSignin("second@example.test");
         const started = await request(app)
@@ -566,9 +596,8 @@ describe("PULSE API", () => {
         await request(app)
             .get("/api/v1/reports/summary")
             .set("Authorization", "Bearer " + first.body.accessToken)
-            .expect(402)
-            .expect((res) => assert.equal(res.body.error.code, "SUBSCRIPTION_REQUIRED"));
-        await request(app).get("/api/v1/dashboard").set("Authorization", `Bearer ${first.body.accessToken}`).expect(403);
+            .expect(200);
+        await request(app).get("/api/v1/dashboard").set("Authorization", `Bearer ${first.body.accessToken}`).expect(200);
     });
     it("supports pausing and resuming a personal activity session", async () => {
         const account = await signupAndSignin("timer@example.test");
@@ -678,22 +707,19 @@ describe("PULSE API", () => {
         assert.deepEqual(heatmap.body.teams.map((team) => team.name).sort(), ["General", "Quiet team"]);
         assert.equal(heatmap.body.cells.some((cell) => cell.teamId === String(quietTeam._id)), false);
     });
-    it("allows monitoring previews during trial but requires an active plan for exports", async () => {
+    it("allows report previews and requires payment data to generate a report", async () => {
         const account = await signupAndSignin("report-gates@example.test");
         const auth = { Authorization: `Bearer ${account.body.accessToken}` };
         await request(app).get("/api/v1/reports/preview").set(auth).expect(200);
-        const generate = await request(app).post("/api/v1/reports/generate").set(auth)
-            .send({ period: "30d", metrics: ["Active time"], format: "csv" }).expect(402);
-        assert.equal(generate.body.error.code, "SUBSCRIPTION_REQUIRED");
+        await request(app).post("/api/v1/reports/generate").set(auth)
+            .send({ period: "30d", metrics: ["Active time"], format: "csv" }).expect(400);
         await User.updateMany({ organizationId: account.body.user.organizationId }, { $set: {
             "subscription.status": "trial_expired",
         } });
-        const expiredPreview = await request(app).get("/api/v1/reports/preview").set(auth).expect(402);
-        assert.equal(expiredPreview.body.error.code, "SUBSCRIPTION_REQUIRED");
+        await request(app).get("/api/v1/reports/preview").set(auth).expect(200);
     });
-    it("includes the current week's pulse responses in a today report", async () => {
+    it("includes the current week's wellbeing check-ins in a report preview", async () => {
         const account = await signupAndSignin("report-pulse-today@example.test");
-        await User.updateMany({ organizationId: account.body.user.organizationId }, { $set: { "subscription.status": "active", "subscription.plan": "Team" } });
         await PulseResponse.insertMany(Array.from({ length: 5 }, () => ({
             organizationId: account.body.user.organizationId,
             teamId: account.body.user.teamId,
@@ -703,22 +729,71 @@ describe("PULSE API", () => {
             workload: 3,
         })));
         const preview = await request(app)
-            .get("/api/v1/reports/preview?period=today&metrics=Team%20pulse")
+            .get("/api/v1/reports/preview?period=today&metrics=Burnout%20risk")
             .set("Authorization", `Bearer ${account.body.accessToken}`)
             .expect(200);
         assert.equal(preview.body.pulseParticipationResponses, 5);
     });
-    it("generates and downloads tenant-scoped reports for an active Team plan", async () => {
+    it("charges once for a report and scopes payment-backed downloads to the buyer workspace", async () => {
         const account = await signupAndSignin("report-download@example.test");
-        await User.updateMany({ organizationId: account.body.user.organizationId }, { $set: { "subscription.status": "active", "subscription.plan": "Team" } });
+        const secondAccount = await signupAndSignin("report-other@example.test");
         const auth = { Authorization: `Bearer ${account.body.accessToken}` };
-        const created = await request(app).post("/api/v1/reports/generate").set(auth)
-            .send({ period: "30d", metrics: ["Active time", "Team pulse"], format: "csv" }).expect(201);
-        const reportId = created.body.report.id;
-        assert.ok(await GeneratedReport.exists({ _id: reportId }));
-        const file = await request(app).get(`/api/v1/reports/${reportId}`).set(auth).expect(200);
-        assert.match(file.headers["content-type"], /text\/csv/);
-        assert.match(file.text, /Metric,Value/);
+        const otherAuth = { Authorization: `Bearer ${secondAccount.body.accessToken}` };
+        await withRazorpayMock({}, async ({ orderId, paymentId, keySecret }) => {
+            const order = await request(app).post("/api/v1/reports/orders").set(auth)
+                .send({ period: "30d", metrics: ["Active time"], format: "csv" }).expect(201);
+            assert.deepEqual(order.body.order, { id: orderId, amount: 9900, currency: "INR" });
+            const storedPayment = await ReportPayment.findOne({ orderId }).lean();
+            assert.equal(storedPayment?.status, "pending");
+            assert.equal(storedPayment?.amount, 9900);
+            assert.equal(storedPayment?.format, "csv");
+
+            const payment = {
+                orderId,
+                paymentId,
+                signature: reportSignature(orderId, paymentId, keySecret),
+            };
+            const created = await request(app).post("/api/v1/reports/generate").set(auth)
+                .send({ ...payment, period: "today", metrics: ["Burnout risk"], format: "pdf" }).expect(201);
+            const reportId = created.body.report.id;
+            const savedReport = await GeneratedReport.findById(reportId).lean();
+            assert.deepEqual(savedReport?.metrics, ["Active time"]);
+            assert.equal(savedReport?.period, "30d");
+            assert.equal(savedReport?.format, "csv");
+
+            const file = await request(app).get(`/api/v1/reports/${reportId}`).set(auth).expect(200);
+            assert.match(file.headers["content-type"], /text\/csv/);
+            assert.match(file.text, /Metric,Value/);
+            await request(app).get(`/api/v1/reports/${reportId}`).set(otherAuth).expect(404);
+            await request(app).post("/api/v1/reports/generate").set(auth)
+                .send({ ...payment, period: "30d", metrics: ["Active time"], format: "csv" })
+                .expect(409)
+                .expect((res) => assert.equal(res.body.error.code, "REPORT_PAYMENT_USED"));
+            assert.ok(await GeneratedReport.exists({ paymentId: storedPayment?._id }));
+            assert.notEqual(account.body.user.organizationId, secondAccount.body.user.organizationId);
+        });
+    });
+    it("rejects forged, foreign, and uncaptured report payments", async () => {
+        const account = await signupAndSignin("report-payment-owner@example.test");
+        const otherAccount = await signupAndSignin("report-payment-other@example.test");
+        const auth = { Authorization: `Bearer ${account.body.accessToken}` };
+        const otherAuth = { Authorization: `Bearer ${otherAccount.body.accessToken}` };
+        await withRazorpayMock({ status: "authorized" }, async ({ orderId, paymentId, keySecret }) => {
+            await request(app).post("/api/v1/reports/orders").set(auth)
+                .send({ period: "30d", metrics: ["Burnout risk"], format: "pdf" }).expect(201);
+            const payment = {
+                orderId,
+                paymentId,
+                signature: reportSignature(orderId, paymentId, keySecret),
+            };
+            await request(app).post("/api/v1/reports/generate").set(auth)
+                .send({ ...payment, signature: "f".repeat(64) }).expect(400);
+            await request(app).post("/api/v1/reports/generate").set(otherAuth)
+                .send(payment).expect(404);
+            await request(app).post("/api/v1/reports/generate").set(auth)
+                .send(payment).expect(400);
+            assert.equal((await ReportPayment.findOne({ orderId }).lean())?.status, "pending");
+        });
     });
     it("expires trials and persists invoices from Razorpay webhook events", async () => {
         const account = await signupAndSignin("invoice@example.test");
@@ -783,13 +858,12 @@ describe("PULSE API", () => {
                 process.env.RAZORPAY_WEBHOOK_SECRET = oldWebhookSecret;
         }
     });
-    it("does not allow report exports during a trial", async () => {
+    it("does not expose the legacy direct report export endpoint", async () => {
         const account = await signupAndSignin("reports@example.test");
         await request(app)
             .get("/api/v1/reports/export?format=csv")
             .set("Authorization", `Bearer ${account.body.accessToken}`)
-            .expect(402)
-            .expect((res) => assert.equal(res.body.error.code, "SUBSCRIPTION_REQUIRED"));
+            .expect(400);
     });
 
     it("allows only the configured platform administrator to manage businesses, users, teams, activity, and attendance", async () => {

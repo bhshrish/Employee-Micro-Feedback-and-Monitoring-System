@@ -88,18 +88,6 @@ async function requireEntitlement(req, _res, next) {
     try {
         if (!req.auth)
             throw (0, errors_1.unauthorized)();
-        const user = await User_1.User.findById(req.auth.userId).select("subscription.plan subscription.status subscription.trialEndsAt");
-        if (!user)
-            throw (0, errors_1.unauthorized)();
-        const sub = user.subscription;
-        if (sub.status === "trialing" && sub.trialEndsAt <= new Date()) {
-            sub.status = "trial_expired";
-            await user.save();
-        }
-        if (user.subscription.status === "trial_expired" || user.subscription.status === "canceled") {
-            next((0, errors_1.forbidden)("A current trial or subscription is required"));
-            return;
-        }
         next();
     }
     catch (error) {

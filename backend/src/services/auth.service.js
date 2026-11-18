@@ -88,7 +88,7 @@ async function signup(input) {
         throw (0, errors_1.conflict)("An account with this email already exists", "EMAIL_IN_USE");
     const ownerId = new mongoose_1.Types.ObjectId();
     const organization = await Organization_1.Organization.create({
-        name: input.organizationName?.trim() || `${input.name.trim()}'s workspace`,
+        name: `${input.name.trim()}'s workspace`,
         ownerId,
     });
     const team = await Team_1.Team.create({ organizationId: organization._id, name: "General" });
@@ -119,7 +119,7 @@ async function signin(input) {
     if (!user || !user.isActive || !(await bcryptjs_1.default.compare(input.password, user.passwordHash)))
         throw (0, errors_1.unauthorized)("Email or password is incorrect");
     if (!await Organization_1.Organization.exists({ _id: user.organizationId, isActive: { $ne: false } }))
-        throw (0, errors_1.unauthorized)("This business workspace is inactive");
+        throw (0, errors_1.unauthorized)("This workspace is inactive");
     return createSessionForUser(user);
 }
 async function acceptInvitation(input) {
@@ -136,7 +136,7 @@ async function acceptInvitation(input) {
         }
         const organization = await Organization_1.Organization.findById(invitation.organizationId).select("ownerId isActive");
         if (!organization || organization.isActive === false)
-            throw (0, errors_1.unauthorized)("This business workspace is inactive");
+            throw (0, errors_1.unauthorized)("This workspace is inactive");
         const owner = await User_1.User.findById(organization.ownerId);
         if (!owner)
             throw (0, errors_1.unauthorized)("Workspace owner account is unavailable");

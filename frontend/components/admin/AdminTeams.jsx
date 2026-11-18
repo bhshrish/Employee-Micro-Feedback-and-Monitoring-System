@@ -87,7 +87,7 @@ export function AdminTeams() {
     return <div className="admin-panel">
         <FieldError>{error}</FieldError>
         <section className="data-card admin-card">
-            <div className="card-heading"><div><p className="section-label">Teams</p><h2>Structure the business</h2><p className="subtle-text">Teams shape pulse aggregation and keep small groups private.</p></div><span className="admin-chip"><Icon name="users" size={15}/>{teams.length} active</span></div>
+            <div className="card-heading"><div><p className="section-label">Teams</p><h2>Structure the workspace</h2><p className="subtle-text">Teams shape wellbeing summaries and keep small groups private.</p></div><span className="admin-chip"><Icon name="users" size={15}/>{teams.length} active</span></div>
             <form className="admin-inline-create" onSubmit={create}>
                 <label>New team name<input required minLength={2} maxLength={80} value={name} onChange={(event) => setName(event.target.value)} placeholder="Customer support"/></label>
                 <button className="button" disabled={saving || name.trim().length < 2}>Add team</button>

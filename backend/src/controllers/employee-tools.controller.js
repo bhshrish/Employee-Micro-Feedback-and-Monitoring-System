@@ -1,10 +1,7 @@
 "use strict";
-const { createHash } = require("node:crypto");
-const { Types } = require("mongoose");
 const { EmployeeTool } = require("../models/EmployeeTool");
-const { User } = require("../models/User");
 const { asyncHandler } = require("../utils/async-handler");
-const { unauthorized, notFound, badRequest, forbidden } = require("../utils/errors");
+const { unauthorized, notFound } = require("../utils/errors");
 
 function authOf(req) {
     if (!req.auth)
@@ -137,96 +134,4 @@ exports.createCalendarEvent = asyncHandler(async (req, res) => {
         status: "open",
     });
     res.status(201).json({ event });
-});
-
-exports.listSignatures = asyncHandler(async (req, res) => {
-    const auth = authOf(req);
-    const scope = auth.role === "admin" || auth.role === "manager"
-        ? { createdBy: auth.userId }
-        : { userId: auth.userId };
-    const documents = await EmployeeTool.find({
-        organizationId: auth.organizationId,
-        kind: "signature",
-        ...scope,
-    }).populate("userId", "name email").sort({ createdAt: -1 }).lean();
-    res.json({ documents });
-});
-
-exports.createSignature = asyncHandler(async (req, res) => {
-    const auth = authOf(req);
-    if (!Types.ObjectId.isValid(req.body.employeeId))
-        throw badRequest("Employee id is invalid");
-    const employee = await User.findOne({
-        _id: req.body.employeeId,
-        organizationId: auth.organizationId,
-        role: "employee",
-        isActive: true,
-    }).select("_id");
-    if (!employee)
-        throw notFound("Active employee not found in this business");
-    const document = await EmployeeTool.create({
-        organizationId: auth.organizationId,
-        userId: employee._id,
-        createdBy: auth.userId,
-        kind: "signature",
-        title: req.body.title,
-        description: req.body.documentText,
-        status: "pending",
-    });
-    res.status(201).json({ document });
-});
-
-exports.signDocument = asyncHandler(async (req, res) => {
-    const auth = authOf(req);
-    const document = await EmployeeTool.findOne({
-        _id: req.params.toolId,
-        organizationId: auth.organizationId,
-        userId: auth.userId,
-        kind: "signature",
-        status: "pending",
-    });
-    if (!document)
-        throw notFound("Pending signature request not found");
-    const signatureHash = createHash("sha256")
-        .update(`${document.title}\n${document.description}\n${req.body.signedName}\n${req.body.confirmation}`)
-        .digest("hex");
-    const signed = await EmployeeTool.findOneAndUpdate({
-        _id: document._id,
-        organizationId: auth.organizationId,
-        userId: auth.userId,
-        kind: "signature",
-        status: "pending",
-    }, {
-        $set: {
-            signedName: req.body.signedName,
-            signatureHash,
-            signedAt: new Date(),
-            status: "signed",
-        },
-    }, { new: true, runValidators: true });
-    if (!signed)
-        throw notFound("Pending signature request not found");
-    res.json({ document: signed });
-});
-
-exports.salaryCheck = asyncHandler(async (req, res) => {
-    const auth = authOf(req);
-    if (auth.role !== "employee")
-        throw forbidden("Salary estimates are available only in an employee account");
-    const grossMonthly = req.body.grossMonthly;
-    const deductionsMonthly = req.body.deductionsMonthly || 0;
-    const estimatedTaxRate = req.body.estimatedTaxRate || 0;
-    const taxMonthly = Math.round(grossMonthly * estimatedTaxRate / 100);
-    res.setHeader("Cache-Control", "no-store");
-    res.json({
-        estimate: {
-            grossMonthly,
-            deductionsMonthly,
-            estimatedTaxRate,
-            estimatedTaxMonthly: taxMonthly,
-            estimatedTakeHomeMonthly: Math.max(0, grossMonthly - deductionsMonthly - taxMonthly),
-            estimatedTakeHomeAnnual: Math.max(0, grossMonthly - deductionsMonthly - taxMonthly) * 12,
-            note: "Estimate only; based on the inputs you provided. CalmWork does not save salary inputs.",
-        },
-    });
 });

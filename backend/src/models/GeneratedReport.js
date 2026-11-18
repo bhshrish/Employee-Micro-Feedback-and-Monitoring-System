@@ -6,6 +6,7 @@ const generatedReportSchema = new mongoose_1.Schema({
     organizationId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
     teamId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Team", default: null, index: true },
     createdBy: { type: mongoose_1.Schema.Types.ObjectId, ref: "User", required: true },
+    paymentId: { type: mongoose_1.Schema.Types.ObjectId, ref: "ReportPayment", default: null, index: true },
     period: { type: String, required: true },
     metrics: { type: [String], required: true },
     format: { type: String, enum: ["csv", "pdf"], required: true },

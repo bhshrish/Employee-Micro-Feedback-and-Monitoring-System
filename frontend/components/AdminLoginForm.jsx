@@ -42,7 +42,7 @@ export function AdminLoginForm() {
                 <button className="button button-full" disabled={loading}>{loading ? "Please wait…" : "Sign in"}<Icon name="arrow" /></button>
             </form>
             <p className="auth-forgot-link"><Link href="/forgot-password">Forgot password?</Link></p>
-            <p className="auth-text-switch"><Link href="/login">Return to employee or business sign in</Link></p>
+            <p className="auth-text-switch"><Link href="/login">Return to account sign in</Link></p>
         </div>
     </main>;
 }

@@ -9,10 +9,8 @@ import { Icon } from "./Icon";
 import { FieldError } from "./UI";
 
 export function AuthForm() {
-    const [accountType, setAccountType] = useState("employee");
     const [formMode, setFormMode] = useState("signin");
     const [name, setName] = useState("");
-    const [businessName, setBusinessName] = useState("");
     const [email, setEmail] = useState("");
     const [phone, setPhone] = useState("");
     const [password, setPassword] = useState("");
@@ -24,12 +22,10 @@ export function AuthForm() {
     const [inviteToken, setInviteToken] = useState("");
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
-    const { signIn, signOut, selectPlan, authenticated, hydrated } = useSubscription();
+    const { signIn, authenticated, hydrated } = useSubscription();
     const router = useRouter();
-    const signingUp = accountType === "business" && formMode === "signup";
-    const joining = accountType === "employee" && formMode === "join";
-    const purpose = signingUp ? "business_signup" : joining ? "invitation" : "signin";
-    // FIX: true only for the plain "email + password" sign-in (no OTP involved)
+    const signingUp = formMode === "signup";
+    const joining = formMode === "join";
     const passwordSignIn = !useCode && !signingUp && !joining;
     const submitLabel = otpRequested
         ? "Verify and continue"
@@ -58,16 +54,10 @@ export function AuthForm() {
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
-        const plan = params.get("plan");
-        const cycle = params.get("cycle");
-        if (plan && ["Starter", "Team", "Business"].includes(plan))
-            selectPlan(plan, cycle === "yearly" ? "yearly" : "monthly");
         if (params.get("mode") === "signup") {
-            setAccountType("business");
             setFormMode("signup");
         }
         if (params.has("invite")) {
-            setAccountType("employee");
             setFormMode("join");
             setInviteToken(params.get("invite") || "");
             setEmail(params.get("email") || "");
@@ -86,15 +76,6 @@ export function AuthForm() {
         setCode("");
         setResendIn(0);
         setErrors({});
-    };
-
-    const chooseAccountType = (type) => {
-        setAccountType(type);
-        setFormMode("signin");
-        setChannel("email");
-        resetCodeState();
-        if (type !== "employee")
-            setEmail("");
     };
 
     const switchFormMode = (mode) => {
@@ -119,17 +100,15 @@ export function AuthForm() {
         const trimmedPhone = phone.trim();
 
         if (channel === "email" && !/^\S+@\S+\.\S+$/.test(trimmedEmail))
-            next.email = "Enter a valid work email.";
+            next.email = "Enter a valid email address.";
         if (channel === "sms" && !/^\+[1-9]\d{7,14}$/.test(trimmedPhone))
             next.phone = "Enter a phone number in international format, including + and country code.";
         if (!useCode && (!password || password.length < 8))
             next.password = "Password must be at least 8 characters.";
         if (!otpRequested && (signingUp || joining) && name.trim().length < 2)
             next.name = "Enter your name.";
-        if (!otpRequested && signingUp && businessName.trim().length < 2)
-            next.businessName = "Enter your business name.";
         if (!otpRequested && joining && inviteToken.trim().length < 32)
-            next.inviteToken = "Use the invitation link provided by your business.";
+            next.inviteToken = "Use the invitation link provided to you.";
         if (otpRequested && !/^\d{6}$/.test(code))
             next.code = "Enter the 6-digit code from your email.";
         setErrors(next);
@@ -143,7 +122,6 @@ export function AuthForm() {
                     name: name.trim(),
                     email: trimmedEmail,
                     password,
-                    organizationName: businessName.trim() || undefined,
                 });
                 const user = await signInWithPassword({ email: trimmedEmail, password });
                 signIn(user);
@@ -166,16 +144,6 @@ export function AuthForm() {
 
             if (passwordSignIn) {
                 const user = await signInWithPassword({ email: trimmedEmail, password });
-                const roleMatches = accountType === "business"
-                    ? user.role === "admin"
-                    : user.role === "employee" || user.role === "manager";
-                if (!roleMatches) {
-                    await signOut();
-                    setErrors({ form: accountType === "business"
-                        ? "This account belongs to an employee. Choose Employee sign in."
-                        : "This account belongs to a business. Choose Business sign in." });
-                    return;
-                }
                 signIn(user);
                 router.push("/dashboard");
                 return;
@@ -199,16 +167,6 @@ export function AuthForm() {
                 purpose: "signin",
                 code,
             });
-            const roleMatches = accountType === "business"
-                ? user.role === "admin"
-                : user.role === "employee" || user.role === "manager";
-            if (!roleMatches) {
-                await signOut();
-                setErrors({ form: accountType === "business"
-                    ? "This account belongs to an employee. Choose Employee sign in."
-                    : "This account belongs to a business. Choose Business sign in." });
-                return;
-            }
             signIn(user);
             router.push("/dashboard");
         }
@@ -233,24 +191,16 @@ export function AuthForm() {
         <section className="auth-form-wrap">
             <div className="auth-mobile-logo"><Logo /></div>
             <div className="auth-form">
-                <div className="tabs access-type-tabs" role="tablist" aria-label="Account type">
-                    {["employee", "business"].map((type) =>
-                        <button key={type} type="button" role="tab" aria-selected={accountType === type}
-                            className={accountType === type ? "active" : ""}
-                            onClick={() => chooseAccountType(type)}>
-                            {type[0].toUpperCase() + type.slice(1)}
-                        </button>)}
-                </div>
-                <h2>{joining ? "Join your business." : signingUp ? "Create your business workspace." : accountType === "business" ? "Business sign in." : "Employee sign in."}</h2>
+                <h2>{joining ? "Join your workspace." : signingUp ? "Create your account." : "Welcome back."}</h2>
                 <p>{otpRequested
                     ? `Enter the 6-digit code sent to ${channel === "email" ? email : phone}.`
                     : joining
-                    ? "Accept your business invitation and create your password."
+                    ? "Accept your invitation and create your password."
                     : signingUp
-                        ? "Create your workspace with your name, work email, and password."
+                        ? "Create your account with your name, email, and password."
                         : useCode
                             ? `Sign in securely with a one-time ${channel === "email" ? "email" : "SMS"} code.`
-                            : "Sign in with your work email and password."}</p>
+                            : "Sign in with your email and password."}</p>
                 {!useCode && <p className="subtle-label">Use a password with at least 8 characters.</p>}
                 {!signingUp && !joining && !otpRequested && <div className="auth-mode-switch" role="group" aria-label="Sign-in method">
                     <button type="button" className={!useCode ? "active" : ""} onClick={() => switchAuthMethod(false)}>Password</button>
@@ -262,8 +212,7 @@ export function AuthForm() {
                 </div>}
                 <form onSubmit={submit} noValidate>
                     {(signingUp || joining) && <label>Full name<input value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" placeholder="Alex Morgan"/><FieldError>{errors.name}</FieldError></label>}
-                    {signingUp && <label>Business name<input value={businessName} onChange={(event) => setBusinessName(event.target.value)} autoComplete="organization" maxLength={120} placeholder="Your company"/><FieldError>{errors.businessName}</FieldError></label>}
-                    {!otpRequested && (!useCode || channel === "email") && <label>Work email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" autoCapitalize="none" spellCheck={false} placeholder="you@company.com"/><FieldError>{errors.email}</FieldError></label>}
+                    {!otpRequested && (!useCode || channel === "email") && <label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" autoCapitalize="none" spellCheck={false} placeholder="you@example.com"/><FieldError>{errors.email}</FieldError></label>}
                     {!otpRequested && useCode && channel === "sms" && <label>Phone number<input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} autoComplete="tel" placeholder="+14155550123"/><FieldError>{errors.phone}</FieldError></label>}
                     {joining && <label>Invitation code<input value={inviteToken} onChange={(event) => setInviteToken(event.target.value)} autoCapitalize="none" spellCheck={false}/><FieldError>{errors.inviteToken}</FieldError></label>}
                     {!useCode && <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete={signingUp || joining ? "new-password" : "current-password"} minLength={8} maxLength={128} placeholder="At least 8 characters"/><FieldError>{errors.password}</FieldError></label>}
@@ -283,17 +232,13 @@ export function AuthForm() {
                 {!useCode && <p className="auth-account-switch">
                     {signingUp || joining
                         ? "Already have an account?"
-                        : accountType === "business"
-                            ? "New to CalmWork?"
-                            : "Have an employee invitation?"}
+                        : "New to CalmWork?"}
                     <button type="button" onClick={() => switchFormMode(
-                        signingUp || joining ? "signin" : accountType === "business" ? "signup" : "join"
+                        signingUp || joining ? "signin" : "signup"
                     )}>
                         {signingUp || joining
                             ? "Sign in"
-                            : accountType === "business"
-                                ? "Create account"
-                                : "Join and create account"}
+                            : "Create account"}
                     </button>
                 </p>}
                 <p className="auth-text-switch"><Link href="/admin/login">Platform administrator sign in</Link></p>

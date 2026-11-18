@@ -11,7 +11,6 @@ const User_1 = require("../models/User");
 const PulseResponse_1 = require("../models/PulseResponse");
 const TeamActivity_1 = require("../models/TeamActivity");
 const week_1 = require("../utils/week");
-const errors_1 = require("../utils/errors");
 async function reportSummary(organizationId, period, metrics, minResponses = 5, teamId) {
     const { start, end } = (0, week_1.dateRange)(period);
     const pulseRange = (0, week_1.pulseWeekRange)(period);
@@ -53,10 +52,7 @@ async function reportSummary(organizationId, period, metrics, minResponses = 5, 
         generatedAt: new Date().toISOString(),
     };
 }
-async function exportReport(organizationId, subscription, period, metrics, format, minResponses = 5, teamId) {
-    if (subscription.status !== "active" || !["Team", "Business"].includes(subscription.plan)) {
-        throw (0, errors_1.paymentRequired)("Report generation requires an active Team or Business subscription");
-    }
+async function exportReport(organizationId, period, metrics, format, minResponses = 5, teamId) {
     const summary = await reportSummary(organizationId, period, metrics, minResponses, teamId);
     const rows = [["Period", summary.period]];
     const selected = {
@@ -71,7 +67,6 @@ async function exportReport(organizationId, subscription, period, metrics, forma
         "Active time": ["Active time (hours)"],
         "Idle time": ["Idle time (hours)"],
         Productivity: ["Productivity"],
-        "Team pulse": ["Pulse responses (eligible groups only)"],
         "Burnout risk": ["Teams requiring support"],
     };
     for (const metric of metrics)

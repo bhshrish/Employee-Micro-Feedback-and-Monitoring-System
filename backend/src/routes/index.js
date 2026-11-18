@@ -44,7 +44,6 @@ const adminController = __importStar(require("../controllers/admin.controller"))
 const attendanceController = __importStar(require("../controllers/attendance.controller"));
 const activityController = __importStar(require("../controllers/activity.controller"));
 const analyticsController = __importStar(require("../controllers/analytics.controller"));
-const billingController = __importStar(require("../controllers/billing.controller"));
 const pulseController = __importStar(require("../controllers/pulse.controller"));
 const reportController = __importStar(require("../controllers/report.controller"));
 const workspaceController = __importStar(require("../controllers/workspace.controller"));
@@ -93,6 +92,8 @@ operationsRoutes.delete("/teams/:teamId", (0, validate_1.validateParams)(schemas
 operationsRoutes.get("/activity", (0, validate_1.validateQuery)(schemas_1.operationsDateQuerySchema), operationsController.activity);
 operationsRoutes.get("/attendance", (0, validate_1.validateQuery)(schemas_1.operationsDateQuerySchema), operationsController.attendance);
 operationsRoutes.get("/attendance/export", (0, validate_1.validateQuery)(schemas_1.operationsDateQuerySchema), operationsController.attendanceExport);
+operationsRoutes.get("/leave", operationsController.leaveApplications);
+operationsRoutes.patch("/leave/:toolId", (0, validate_1.validateParams)(schemas_1.toolIdParamsSchema), (0, validate_1.validateBody)(schemas_1.leaveDecisionSchema), operationsController.decideLeaveApplication);
 api.use("/operations", operationsRoutes);
 const adminRoutes = (0, express_1.Router)();
 adminRoutes.use(auth_1.authenticate, auth_1.requireEntitlement, (0, auth_1.requireRole)("admin"));
@@ -125,10 +126,6 @@ employeeToolsRoutes.post("/leave", (0, auth_1.requireRole)("employee"), (0, vali
 employeeToolsRoutes.patch("/leave/:toolId/decision", (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateParams)(schemas_1.toolIdParamsSchema), (0, validate_1.validateBody)(schemas_1.leaveDecisionSchema), employeeToolsController.decideLeave);
 employeeToolsRoutes.get("/calendar", employeeToolsController.listCalendar);
 employeeToolsRoutes.post("/calendar", (0, validate_1.validateBody)(schemas_1.calendarEventSchema), employeeToolsController.createCalendarEvent);
-employeeToolsRoutes.get("/signatures", employeeToolsController.listSignatures);
-employeeToolsRoutes.post("/signatures", (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateBody)(schemas_1.signatureCreateSchema), employeeToolsController.createSignature);
-employeeToolsRoutes.post("/signatures/:toolId/sign", (0, auth_1.requireRole)("employee"), (0, validate_1.validateParams)(schemas_1.toolIdParamsSchema), (0, validate_1.validateBody)(schemas_1.signatureSignSchema), employeeToolsController.signDocument);
-employeeToolsRoutes.post("/salary/check", (0, auth_1.requireRole)("employee"), (0, validate_1.validateBody)(schemas_1.salaryCheckSchema), employeeToolsController.salaryCheck);
 api.use("/tools", employeeToolsRoutes);
 api.get("/attendance/me", auth_1.authenticate, attendanceController.current);
 api.post("/attendance/check-in", auth_1.authenticate, attendanceController.checkIn);
@@ -206,20 +203,11 @@ reportRoutes.use(auth_1.authenticate);
 reportRoutes.get("/preview", (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateQuery)(schemas_1.reportQuerySchema), reportController.preview);
 reportRoutes.post("/preview", (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateBody)(schemas_1.reportGenerateSchema), reportController.previewPost);
 reportRoutes.get("/summary", (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateQuery)(schemas_1.reportQuerySchema), reportController.summary);
-reportRoutes.get("/export", (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateQuery)(schemas_1.reportQuerySchema), reportController.download);
-reportRoutes.post("/generate", (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateBody)(schemas_1.reportGenerateSchema), reportController.generate);
+reportRoutes.post("/orders", (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateBody)(schemas_1.reportPaymentOrderSchema), reportController.createOrder);
+reportRoutes.post("/generate", (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateBody)(schemas_1.paidReportGenerateSchema), reportController.generate);
 reportRoutes.get("/:reportId/download", (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateParams)(schemas_1.reportIdParamsSchema), (0, validate_1.validateQuery)(schemas_1.reportFormatQuerySchema), reportController.downloadGenerated);
 reportRoutes.get("/:reportId", (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateParams)(schemas_1.reportIdParamsSchema), reportController.downloadGenerated);
 api.use("/reports", reportRoutes);
-const billingRoutes = (0, express_1.Router)();
-billingRoutes.get("/plans", billingController.availablePlans);
-billingRoutes.use(auth_1.authenticate);
-billingRoutes.post("/checkout", (0, auth_1.requireRole)("admin"), (0, validate_1.validateBody)(schemas_1.checkoutSchema), billingController.checkout);
-billingRoutes.post("/checkout-session", (0, auth_1.requireRole)("admin"), (0, validate_1.validateBody)(schemas_1.checkoutSchema), billingController.checkout);
-billingRoutes.post("/cancel", (0, auth_1.requireRole)("admin"), billingController.cancel);
-billingRoutes.get("/invoices", (0, auth_1.requireRole)("admin"), billingController.listInvoices);
-billingRoutes.get("/subscription", billingController.currentSubscription);
-api.use("/billing", billingRoutes);
 api.get("/alerts/:alertId", auth_1.authenticate, activeWorkspace, teamFeature, (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateParams)(schemas_1.alertIdParamsSchema), (0, async_handler_1.asyncHandler)(async (req, res) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();

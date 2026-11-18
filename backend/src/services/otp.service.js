@@ -1,16 +1,14 @@
 "use strict";
 const { createHmac, randomInt, timingSafeEqual, randomBytes } = require("node:crypto");
-const bcrypt = require("bcryptjs");
 const { getConfig } = require("../config/env");
 const { OtpChallenge } = require("../models/OtpChallenge");
 const { User } = require("../models/User");
 const { Invitation } = require("../models/Invitation");
-const { Team } = require("../models/Team");
 const { Organization } = require("../models/Organization");
 const { sendOtpEmail } = require("./email.service");
 const { sendSms } = require("./sms.service");
 const auth = require("./auth.service");
-const { AppError, unauthorized, conflict, notFound } = require("../utils/errors");
+const { AppError, unauthorized, notFound } = require("../utils/errors");
 
 const OTP_TTL_MS = 5 * 60_000;
 const RESEND_COOLDOWN_MS = 60_000;
@@ -51,15 +49,6 @@ async function ensurePurposeAllowed(destination, purpose, payload, channel) {
         const filter = channel === "sms" ? { phone: destination } : { email: emailPattern(destination) };
         return Boolean(await User.findOne({ ...filter, isActive: true }).select("_id"));
     }
-    if (purpose === "business_signup") {
-        if (channel !== "email")
-            throw new AppError(400, "Business registration requires an email address.", "EMAIL_REQUIRED");
-        if (destination === getConfig().OPS_ADMIN_EMAIL.toLowerCase())
-            throw conflict("This email is reserved for the platform administrator", "EMAIL_RESERVED");
-        if (await User.exists({ email: emailPattern(destination) }))
-            throw conflict("An account with this email already exists", "EMAIL_IN_USE");
-        return true;
-    }
     if (purpose === "invitation") {
         if (channel !== "email")
             throw new AppError(400, "Invitation verification requires the invited email address.", "EMAIL_REQUIRED");
@@ -96,9 +85,7 @@ async function requestOtp(input) {
     const challenge = {
         ...filter,
         codeHash: hashCode(destination, purpose, code, channel),
-        payload: purpose === "business_signup"
-            ? { name: input.name.trim(), organizationName: input.organizationName.trim() }
-            : purpose === "invitation"
+        payload: purpose === "invitation"
                 ? { invitationToken: input.invitationToken.trim(), invitationEmail: allowed.email }
                 : {},
         attempts: 0,
@@ -150,37 +137,6 @@ async function verifyOtp(input) {
         if (channel !== "email" || destination !== getConfig().OPS_ADMIN_EMAIL.toLowerCase())
             throw unauthorized();
         return { admin: true };
-    }
-
-    if (purpose === "business_signup") {
-        const password = randomBytes(48).toString("base64url");
-        if (await User.exists({ email: emailPattern(destination) }))
-            throw conflict("An account with this email already exists", "EMAIL_IN_USE");
-        const ownerId = new (require("mongoose").Types.ObjectId)();
-        const organization = await Organization.create({
-            name: challenge.payload.organizationName,
-            ownerId,
-        });
-        const team = await Team.create({ organizationId: organization._id, name: "General" });
-        let user;
-        try {
-            user = await User.create({
-                _id: ownerId,
-                organizationId: organization._id,
-                teamId: team._id,
-                name: challenge.payload.name,
-                email: destination,
-                passwordHash: await bcrypt.hash(password, 12),
-                role: "admin",
-                subscription: { plan: "Team", status: "trialing", trialEndsAt: new Date(Date.now() + 7 * 86_400_000) },
-            });
-        }
-        catch (error) {
-            await Team.deleteOne({ _id: team._id });
-            await Organization.deleteOne({ _id: organization._id });
-            throw error;
-        }
-        return auth.createSessionForUser(user);
     }
 
     if (purpose === "invitation") {
