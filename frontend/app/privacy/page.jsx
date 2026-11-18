@@ -10,7 +10,7 @@ export default function PrivacyPage() {
             <section className="page-hero compact">
                 <p className="section-label">Privacy, in plain language</p>
                 <h1>Your work is<br />not our content.</h1>
-                <p>CalmWork supports self-directed productivity tools, attendance and leave applications, and voluntary wellbeing check-ins. It does not monitor employees' work activity.</p>
+                <p>CalmWork supports self-directed productivity tools, attendance, administrator-managed people workflows, and voluntary wellbeing check-ins. It does not monitor employees' work activity.</p>
             </section>
             <section className="section privacy-document">
                 <div className="privacy-callout">
@@ -24,7 +24,7 @@ export default function PrivacyPage() {
                     <h2>What the current demo supports</h2>
                     <ul>
                         <li>Voluntary mood, stress, and workload ratings</li>
-                        <li>Tasks, calendar events, and leave applications entered by the account holder</li>
+                        <li>Tasks and calendar events entered by the account holder</li>
                     </ul>
                 </article>
                 <article>

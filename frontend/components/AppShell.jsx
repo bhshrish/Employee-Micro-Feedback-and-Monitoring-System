@@ -11,6 +11,7 @@ import { RouteGuard } from "./RouteGuard";
 import { useToast } from "./Toast";
 const nav = [
     { href: "/dashboard", label: "My day", icon: "clock" },
+    { href: "/monitoring", label: "Burnout monitor", icon: "pulse" },
     { href: "/attendance", label: "Attendance", icon: "calendar" },
     { href: "/tools", label: "Tools", icon: "calendar" },
     { href: "/people", label: "People", icon: "users" },
@@ -40,6 +41,8 @@ function AppFrame({ children }) {
     }, [toast]);
     const visibleNav = nav.filter((item) => {
         if (item.href === "/reports")
+            return user?.role === "admin" || user?.role === "manager";
+        if (item.href === "/monitoring")
             return user?.role === "admin" || user?.role === "manager";
         if (item.href === "/people")
             return user?.role === "admin";

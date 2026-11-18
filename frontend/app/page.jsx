@@ -9,7 +9,7 @@ const features = [
     { title: "Wellbeing check-in", text: "Use a short weekly form to reflect on mood, stress, and workload.", icon: "shield" },
     { title: "Burnout scale", text: "See aggregated wellbeing patterns and spot when stress or workload may need attention.", icon: "bell" },
     { title: "Paid reports", text: "Generate a clear, downloadable report from submitted check-in data for ₹99 per report.", icon: "chart" },
-    { title: "Leave applications", text: "Submit leave requests and follow their status from your workspace.", icon: "calendar" },
+    { title: "People management", text: "Workspace admins can invite employees, organize teams, and manage roles.", icon: "users" },
     { title: "Meetings & reminders", text: "Keep events and reminders organized alongside your tasks.", icon: "calendar" },
 ];
 export default function Home() {
