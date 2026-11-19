@@ -71,7 +71,6 @@ function SettingsContent() {
                 <div className="settings-fields">
                     <label>Full name<input value={name} onChange={(e) => setName(e.target.value)} required minLength={2}/></label>
                     <label>Email<input type="email" value={user?.email || ""} readOnly/></label>
-                    
                 </div>
             </section>
             <section className="settings-section">
