@@ -3,7 +3,8 @@ import bcrypt from "bcryptjs";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import request from "supertest";
 import assert from "node:assert/strict";
-import { afterAll, beforeAll, beforeEach, describe, it } from "vitest";
+import { createRequire } from "node:module";
+import { afterAll, beforeAll, beforeEach, describe, it, vi } from "vitest";
 import { createHmac } from "node:crypto";
 import jwt from "jsonwebtoken";
 import { createApp } from "../src/app";
@@ -23,11 +24,13 @@ import { Organization } from "../src/models/Organization";
 import { Attendance } from "../src/models/Attendance";
 import { OtpChallenge } from "../src/models/OtpChallenge";
 import { PasswordResetToken } from "../src/models/PasswordResetToken";
+import { EmailChangeToken } from "../src/models/EmailChangeToken";
 import { OperationsAdmin } from "../src/models/OperationsAdmin";
 import { EmployeeTool } from "../src/models/EmployeeTool";
 import { migrateLegacyData } from "../src/legacy-migration";
 import { signin as createTestSession } from "../src/services/auth.service";
 import { hashCode } from "../src/services/otp.service";
+const nodemailer = createRequire(import.meta.url)("nodemailer");
 const app = createApp();
 let mongo;
 const pulseAnswers = {
@@ -710,6 +713,73 @@ describe("PULSE API", () => {
         assert.equal(profile.body.user.name, "Signed In Name");
         assert.equal(profile.body.user.settings.idleThresholdMinutes, 9);
         assert.equal(profile.body.user.settings.notifications.weeklyPulse, false);
+    });
+    it("changes the sign-in email only after verifying the new address", async () => {
+        const account = await signupAndSignin("email-owner@example.test");
+        const auth = { Authorization: `Bearer ${account.body.accessToken}` };
+        await signup("email-taken@example.test").expect(201);
+        const previousEnv = Object.fromEntries(
+            ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"].map((key) => [key, process.env[key]]),
+        );
+        const sentMessages = [];
+        const transport = {
+            sendMail: vi.fn(async (message) => {
+                sentMessages.push(message);
+                return { messageId: "email-change-test" };
+            }),
+        };
+        const transportSpy = vi.spyOn(nodemailer, "createTransport").mockReturnValue(transport);
+        Object.assign(process.env, {
+            SMTP_HOST: "smtp.example.test",
+            SMTP_PORT: "587",
+            SMTP_USER: "sender@example.test",
+            SMTP_PASS: "test-password",
+            SMTP_FROM: "sender@example.test",
+        });
+        try {
+            await request(app).patch("/api/v1/auth/me").set(auth)
+                .send({ email: "EMAIL-TAKEN@example.test" })
+                .expect(409);
+            assert.equal(sentMessages.length, 0);
+
+            const pending = await request(app).patch("/api/v1/auth/me").set(auth)
+                .send({ email: "New.Address@example.test", name: "Updated Name" })
+                .then((response) => {
+                    assert.equal(response.status, 200, JSON.stringify(response.body));
+                    return response;
+                });
+            assert.equal(pending.body.user.name, "Updated Name");
+            assert.equal(pending.body.user.email, "email-owner@example.test");
+            assert.equal(pending.body.emailChange.pendingEmail, "new.address@example.test");
+            assert.equal(sentMessages.length, 1);
+            assert.equal(sentMessages[0].to, "new.address@example.test");
+
+            const verificationUrl = sentMessages[0].text.match(/https?:\/\/\S+/)?.[0];
+            assert.ok(verificationUrl);
+            const token = new globalThis.URL(verificationUrl).searchParams.get("token");
+            assert.ok(token);
+            assert.equal(await EmailChangeToken.countDocuments({ userId: account.body.user.id, revokedAt: null }), 1);
+            await request(app).post("/api/v1/auth/signin")
+                .send({ email: "email-owner@example.test", password: "correct-horse-battery" }).expect(200);
+            await request(app).post("/api/v1/auth/signin")
+                .send({ email: "new.address@example.test", password: "correct-horse-battery" }).expect(401);
+
+            await request(app).post("/api/v1/auth/email-change/verify").send({ token }).expect(200);
+            const updatedUser = await User.findById(account.body.user.id);
+            assert.equal(updatedUser?.email, "new.address@example.test");
+            await request(app).post("/api/v1/auth/email-change/verify").send({ token }).expect(401);
+            await request(app).post("/api/v1/auth/signin")
+                .send({ email: "new.address@example.test", password: "correct-horse-battery" }).expect(200);
+        }
+        finally {
+            transportSpy.mockRestore();
+            for (const [key, value] of Object.entries(previousEnv)) {
+                if (value === undefined)
+                    delete process.env[key];
+                else
+                    process.env[key] = value;
+            }
+        }
     });
     it("supports session start, heartbeat, idle, tags, history and summary paths", async () => {
         const account = await signupAndSignin("session-paths@example.test");

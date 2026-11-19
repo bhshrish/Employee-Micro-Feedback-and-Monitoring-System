@@ -61,4 +61,14 @@ async function sendPasswordResetEmail({ to, token }) {
     });
 }
 
-module.exports = { sendOtpEmail, sendCalendarReminder, sendPasswordResetEmail };
+async function sendEmailChangeVerification({ to, token }) {
+    const config = getConfig();
+    const verificationUrl = `${config.FRONTEND_URL.replace(/\/$/, "")}/verify-email-change?token=${encodeURIComponent(token)}`;
+    await deliver({
+        to,
+        subject: "Verify your CalmWork email address",
+        text: `You requested to change the email address on your CalmWork account.\n\nVerify this address using the link below. It expires in ${config.PASSWORD_RESET_TTL_MINUTES} minutes:\n\n${verificationUrl}\n\nIf you did not request this change, you can ignore this email.\n`,
+    });
+}
+
+module.exports = { sendOtpEmail, sendCalendarReminder, sendPasswordResetEmail, sendEmailChangeVerification };

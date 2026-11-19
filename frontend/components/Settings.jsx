@@ -12,6 +12,8 @@ function SettingsContent() {
     const { user, signIn, resetLocalPreferences } = useSubscription();
     const { theme, setTheme } = useTheme();
     const [name, setName] = useState("");
+    const [email, setEmail] = useState("");
+    const [pendingEmail, setPendingEmail] = useState("");
     const [phone, setPhone] = useState("");
     const [threshold, setThreshold] = useState(5);
     const [weekly, setWeekly] = useState(true);
@@ -25,30 +27,39 @@ function SettingsContent() {
         if (!user)
             return;
         setName(user.name);
+        setEmail(user.email);
+        setPendingEmail("");
         setPhone(user.phone || "");
         setThreshold(user.settings.idleThresholdMinutes);
         setWeekly(user.settings.notifications.weeklyPulse);
         setIdle(user.settings.notifications.idlePrompt);
         setProduct(user.settings.notifications.productUpdates);
-    }, [user]);
+    }, [user?.id, user?.email]);
     const save = async (e) => {
         e.preventDefault();
         if (!user)
             return;
         setSaving(true);
         try {
-            const { user: updated } = await updateProfile({
+            const result = await updateProfile({
                 name,
+                email,
                 phone: phone || null,
                 settings: {
                     idleThresholdMinutes: threshold,
                     notifications: { weeklyPulse: weekly, idlePrompt: idle, productUpdates: product },
                 },
             });
-            signIn(updated);
+            signIn(result.user);
+            if (result.emailChange?.pendingEmail) {
+                setEmail(result.user.email);
+                setPendingEmail(result.emailChange.pendingEmail);
+            }
             localStorage.setItem("calmwork:idleThreshold", String(threshold));
             window.dispatchEvent(new Event("calmwork:settings"));
-            toast("Profile and preferences saved.");
+            toast(result.emailChange?.pendingEmail
+                ? `Profile saved. Verify the link sent to ${result.emailChange.pendingEmail} to update your email.`
+                : "Profile and preferences saved.");
         }
         catch (error) {
             toast(error instanceof Error ? error.message : "Could not save your settings.");
@@ -70,7 +81,8 @@ function SettingsContent() {
                 <div><h2>Profile</h2><p>Your profile is tied to the account you signed in with.</p></div>
                 <div className="settings-fields">
                     <label>Full name<input value={name} onChange={(e) => setName(e.target.value)} required minLength={2}/></label>
-                    <label>Email<input type="email" value={user?.email || ""} readOnly/></label>
+                    <label>Email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" autoCapitalize="none" required /></label>
+                    {pendingEmail && <p className="form-note" role="status">A verification link was sent to {pendingEmail}. Your sign-in email will remain {user?.email} until you verify it.</p>}
                 </div>
             </section>
             <section className="settings-section">

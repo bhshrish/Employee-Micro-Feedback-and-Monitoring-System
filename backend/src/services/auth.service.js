@@ -13,6 +13,8 @@ exports.rotateRefreshToken = rotateRefreshToken;
 exports.revokeRefreshToken = revokeRefreshToken;
 exports.revokeAllRefreshTokens = revokeAllRefreshTokens;
 exports.getCurrentUser = getCurrentUser;
+exports.updateProfile = updateProfile;
+exports.verifyEmailChange = verifyEmailChange;
 exports.forgotPassword = forgotPassword;
 exports.resetPassword = resetPassword;
 const node_crypto_1 = require("node:crypto");
@@ -24,6 +26,7 @@ const Organization_1 = require("../models/Organization");
 const Invitation_1 = require("../models/Invitation");
 const RefreshToken_1 = require("../models/RefreshToken");
 const PasswordResetToken_1 = require("../models/PasswordResetToken");
+const EmailChangeToken_1 = require("../models/EmailChangeToken");
 const OperationsAdmin_1 = require("../models/OperationsAdmin");
 const Team_1 = require("../models/Team");
 const User_1 = require("../models/User");
@@ -224,6 +227,117 @@ async function getCurrentUser(userId) {
     }
     return publicUser(user);
 }
+function escapeEmailForRegex(email) {
+    return email.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+async function updateProfile(userId, input) {
+    const user = await User_1.User.findById(userId);
+    if (!user)
+        throw (0, errors_1.unauthorized)();
+    let pendingEmail = null;
+    if (input.email !== undefined && input.email.toLowerCase() !== user.email.toLowerCase()) {
+        pendingEmail = await requestEmailChange(user, input.email);
+    }
+    const update = {};
+    if (input.name !== undefined)
+        update.name = input.name;
+    if (input.phone !== undefined)
+        update.phone = input.phone;
+    if (input.settings?.idleThresholdMinutes !== undefined)
+        update["settings.idleThresholdMinutes"] = input.settings.idleThresholdMinutes;
+    for (const [key, value] of Object.entries(input.settings?.notifications ?? {})) {
+        update[`settings.notifications.${key}`] = value;
+    }
+    const updatedUser = Object.keys(update).length
+        ? await User_1.User.findByIdAndUpdate(userId, { $set: update }, { new: true, runValidators: true })
+        : user;
+    if (!updatedUser)
+        throw (0, errors_1.unauthorized)();
+    return {
+        user: publicUser(updatedUser),
+        emailChange: pendingEmail ? { pendingEmail } : null,
+    };
+}
+async function requestEmailChange(user, email) {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (normalizedEmail === (0, env_1.getConfig)().OPS_ADMIN_EMAIL.toLowerCase())
+        throw (0, errors_1.conflict)("This email is reserved for the platform administrator", "EMAIL_RESERVED");
+    const existing = await User_1.User.findOne({
+        email: new RegExp(`^${escapeEmailForRegex(normalizedEmail)}$`, "i"),
+        _id: { $ne: user._id },
+    }).select("_id");
+    if (existing)
+        throw (0, errors_1.conflict)("An account with this email already exists", "EMAIL_IN_USE");
+    const now = new Date();
+    await EmailChangeToken_1.EmailChangeToken.updateMany(
+        { userId: user._id, usedAt: null, revokedAt: null },
+        { $set: { revokedAt: now } },
+    );
+    const raw = (0, node_crypto_1.randomBytes)(RESET_TOKEN_LENGTH).toString("base64url");
+    const tokenHash = hashResetToken(raw);
+    const token = await EmailChangeToken_1.EmailChangeToken.create({
+        userId: user._id,
+        email: normalizedEmail,
+        tokenHash,
+        expiresAt: new Date(now.getTime() + (0, env_1.getConfig)().PASSWORD_RESET_TTL_MINUTES * 60_000),
+    });
+    try {
+        await (0, email_1.sendEmailChangeVerification)({ to: normalizedEmail, token: raw });
+    }
+    catch (error) {
+        await EmailChangeToken_1.EmailChangeToken.updateOne({ _id: token._id }, { $set: { revokedAt: new Date() } });
+        throw error;
+    }
+    return normalizedEmail;
+}
+async function verifyEmailChange(input) {
+    const tokenHash = hashResetToken(input.token);
+    const now = new Date();
+    const token = await EmailChangeToken_1.EmailChangeToken.findOne({
+        tokenHash,
+        usedAt: null,
+        revokedAt: null,
+        expiresAt: { $gt: now },
+    });
+    if (!token)
+        throw (0, errors_1.unauthorized)("Email verification link is invalid or expired");
+    if (token.email === (0, env_1.getConfig)().OPS_ADMIN_EMAIL.toLowerCase())
+        throw (0, errors_1.conflict)("This email is reserved for the platform administrator", "EMAIL_RESERVED");
+    const existing = await User_1.User.findOne({
+        email: new RegExp(`^${escapeEmailForRegex(token.email)}$`, "i"),
+        _id: { $ne: token.userId },
+    }).select("_id");
+    if (existing)
+        throw (0, errors_1.conflict)("An account with this email already exists", "EMAIL_IN_USE");
+    const consumed = await EmailChangeToken_1.EmailChangeToken.findOneAndUpdate(
+        { _id: token._id, usedAt: null, revokedAt: null, expiresAt: { $gt: now } },
+        { $set: { usedAt: now } },
+        { new: true },
+    );
+    if (!consumed)
+        throw (0, errors_1.unauthorized)("Email verification link is invalid or expired");
+    try {
+        const user = await User_1.User.findByIdAndUpdate(token.userId, { $set: { email: token.email } }, { new: true, runValidators: true });
+        if (!user)
+            throw (0, errors_1.unauthorized)("The account for this email change is unavailable");
+    }
+    catch (error) {
+        if (error && typeof error === "object" && "code" in error && error.code === 11000)
+            throw (0, errors_1.conflict)("An account with this email already exists", "EMAIL_IN_USE");
+        throw error;
+    }
+    await Promise.all([
+        EmailChangeToken_1.EmailChangeToken.updateMany(
+            { userId: token.userId, _id: { $ne: token._id }, usedAt: null, revokedAt: null },
+            { $set: { revokedAt: now } },
+        ),
+        PasswordResetToken_1.PasswordResetToken.updateMany(
+            { userId: token.userId, usedAt: null, revokedAt: null },
+            { $set: { revokedAt: now } },
+        ),
+    ]);
+    return { message: "Your email address has been verified and updated. You can now sign in with it." };
+}
 const RESET_TOKEN_LENGTH = 48;
 function hashResetToken(token) {
     return (0, node_crypto_1.createHmac)("sha256", (0, env_1.getConfig)().JWT_REFRESH_SECRET).update(token).digest("hex");
@@ -241,7 +355,7 @@ async function createPasswordResetToken(target) {
     return raw;
 }
 async function forgotPassword(input) {
-    const escapedEmail = input.email.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const escapedEmail = escapeEmailForRegex(input.email.trim());
     const normalizedEmail = input.email.trim().toLowerCase();
     const adminEmail = (0, env_1.getConfig)().OPS_ADMIN_EMAIL.toLowerCase();
     if (normalizedEmail === adminEmail) {
