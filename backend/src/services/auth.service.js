@@ -4,9 +4,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.signup = signup;
+exports.signupSession = signupSession;
 exports.signin = signin;
 exports.createSessionForUser = createSessionForUser;
 exports.acceptInvitation = acceptInvitation;
+exports.acceptInvitationSession = acceptInvitationSession;
 exports.rotateRefreshToken = rotateRefreshToken;
 exports.revokeRefreshToken = revokeRefreshToken;
 exports.revokeAllRefreshTokens = revokeAllRefreshTokens;
@@ -81,7 +83,7 @@ function publicUser(user) {
         settings: user.settings,
     };
 }
-async function signup(input) {
+async function createOwnerAccount(input) {
     if (input.email.trim().toLowerCase() === (0, env_1.getConfig)().OPS_ADMIN_EMAIL.toLowerCase())
         throw (0, errors_1.conflict)("This email is reserved for the platform administrator", "EMAIL_RESERVED");
     if (await User_1.User.exists({ email: input.email }))
@@ -110,7 +112,13 @@ async function signup(input) {
         await Organization_1.Organization.deleteOne({ _id: organization._id });
         throw error;
     }
-    return publicUser(user);
+    return user;
+}
+async function signup(input) {
+    return publicUser(await createOwnerAccount(input));
+}
+async function signupSession(input) {
+    return createSessionForUser(await createOwnerAccount(input));
 }
 async function signin(input) {
     if (input.email.trim().toLowerCase() === (0, env_1.getConfig)().OPS_ADMIN_EMAIL.toLowerCase())
@@ -122,7 +130,7 @@ async function signin(input) {
         throw (0, errors_1.unauthorized)("This workspace is inactive");
     return createSessionForUser(user);
 }
-async function acceptInvitation(input) {
+async function createInvitedUser(input) {
     if (input.email.trim().toLowerCase() === (0, env_1.getConfig)().OPS_ADMIN_EMAIL.toLowerCase())
         throw (0, errors_1.conflict)("This email is reserved for the platform administrator", "EMAIL_RESERVED");
     const tokenHash = hashRefreshToken(input.token);
@@ -149,12 +157,18 @@ async function acceptInvitation(input) {
             role: invitation.role === "manager" ? "manager" : "employee",
             subscription: owner.subscription.toObject(),
         });
-        return publicUser(user);
+        return user;
     }
     catch (error) {
         await Invitation_1.Invitation.updateOne({ _id: invitation._id, acceptedAt: now }, { $set: { acceptedAt: null } });
         throw error;
     }
+}
+async function acceptInvitation(input) {
+    return publicUser(await createInvitedUser(input));
+}
+async function acceptInvitationSession(input) {
+    return createSessionForUser(await createInvitedUser(input));
 }
 async function rotateRefreshToken(raw) {
     if (!raw || raw.length < 40)

@@ -81,6 +81,47 @@ paths:
         "201": { description: Workspace owner account created }
         "400": { $ref: "#/components/responses/BadRequest" }
         "409": { description: Email is already registered }
+  /auth/signup/session:
+    post:
+      tags: [Authentication]
+      summary: Create a workspace account and start its session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name, email, password]
+              properties:
+                name: { type: string, minLength: 2, maxLength: 100 }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8, maxLength: 128 }
+      responses:
+        "201": { $ref: "#/components/responses/AuthSession" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "409": { description: Email is already registered }
+  /auth/accept-invitation/session:
+    post:
+      tags: [Authentication]
+      summary: Accept a workspace invitation and start a session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [token, email, name, password]
+              properties:
+                token: { type: string, minLength: 32, maxLength: 128 }
+                email: { type: string, format: email }
+                name: { type: string, minLength: 2, maxLength: 100 }
+                password: { type: string, minLength: 8, maxLength: 128 }
+      responses:
+        "201": { $ref: "#/components/responses/AuthSession" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
   /auth/signin:
     post:
       tags: [Authentication]

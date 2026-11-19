@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateProfile = exports.me = exports.logoutEverywhere = exports.logout = exports.refresh = exports.acceptInvitation = exports.signin = exports.signup = exports.forgotPassword = exports.resetPassword = void 0;
+exports.updateProfile = exports.me = exports.logoutEverywhere = exports.logout = exports.refresh = exports.acceptInvitation = exports.acceptInvitationSession = exports.signin = exports.signup = exports.signupSession = exports.forgotPassword = exports.resetPassword = void 0;
 const env_1 = require("../config/env");
 const auth = __importStar(require("../services/auth.service"));
 const otp = require("../services/otp.service");
@@ -73,12 +73,14 @@ exports.signup = (0, async_handler_1.asyncHandler)(async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     res.status(201).json({ user: await auth.signup(req.body) });
 });
+exports.signupSession = (0, async_handler_1.asyncHandler)(async (req, res) => setSession(res, await auth.signupSession(req.body), 201));
 exports.signin = (0, async_handler_1.asyncHandler)(async (req, res) => setSession(res, await auth.signin(req.body)));
 exports.acceptInvitation = (0, async_handler_1.asyncHandler)(async (req, res) => {
     const user = await auth.acceptInvitation(req.body);
     res.setHeader("Cache-Control", "no-store");
     res.status(201).json({ user });
 });
+exports.acceptInvitationSession = (0, async_handler_1.asyncHandler)(async (req, res) => setSession(res, await auth.acceptInvitationSession(req.body), 201));
 exports.refresh = (0, async_handler_1.asyncHandler)(async (req, res) => {
     const raw = req.cookies?.[cookieName];
     if (!raw)

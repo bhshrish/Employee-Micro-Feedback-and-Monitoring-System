@@ -199,6 +199,36 @@ describe("PULSE API", () => {
         assert.match(cookie, /;\s*secure/i);
         assert.match(cookie, /;\s*samesite=none/i);
     });
+    it("creates a session when a workspace account is signed up", async () => {
+        const response = await request(app).post("/api/v1/auth/signup/session").send({
+            name: "Quick Signup",
+            email: "quick-signup@example.test",
+            password: "correct-horse-battery",
+        }).expect(201);
+        assert.equal(response.body.user.email, "quick-signup@example.test");
+        assert.ok(response.body.accessToken);
+        assert.equal(response.body.tokenType, "Bearer");
+        assert.equal(response.body.refreshToken, undefined);
+        const cookie = response.headers["set-cookie"]?.find((value) => value.startsWith("calmwork_refresh="));
+        assert.ok(cookie);
+        assert.match(cookie, /;\s*httponly/i);
+
+        const invitationResponse = await request(app).post("/api/v1/workspace/invitations")
+            .set("Authorization", `Bearer ${response.body.accessToken}`)
+            .send({ email: "quick-invite@example.test", teamId: response.body.user.teamId })
+            .expect(201);
+        const invitedSession = await request(app).post("/api/v1/auth/accept-invitation/session")
+            .send({
+                token: invitationResponse.body.invitation.token,
+                email: invitationResponse.body.invitation.email,
+                name: "Quick Invite",
+                password: "correct-horse-battery",
+            })
+            .expect(201);
+        assert.equal(invitedSession.body.user.email, "quick-invite@example.test");
+        assert.ok(invitedSession.body.accessToken);
+        assert.ok(invitedSession.headers["set-cookie"]?.some((value) => value.startsWith("calmwork_refresh=")));
+    });
     it("allows password sign-in and completes a single-use email password reset", async () => {
         const email = "password-reset@example.test";
         await signup(email).expect(201);

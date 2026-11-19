@@ -25,7 +25,7 @@ export function setAdminToken(token) {
 }
 function isAuthPath(path) {
     return path.startsWith("/auth/otp/") ||
-        ["/auth/refresh", "/auth/signin", "/auth/login", "/auth/signup", "/auth/accept-invitation", "/auth/forgot-password", "/auth/reset-password"].includes(path) ||
+        ["/auth/refresh", "/auth/signin", "/auth/login", "/auth/signup", "/auth/signup/session", "/auth/accept-invitation", "/auth/accept-invitation/session", "/auth/forgot-password", "/auth/reset-password"].includes(path) ||
         path.startsWith("/operations/auth/otp/");
 }
 function apiError(status, code, message) {
@@ -121,6 +121,13 @@ export async function verifyOtp(input) {
 export async function signup(input) {
     return request("/auth/signup", { method: "POST", body: JSON.stringify(input) }, false);
 }
+export async function signupWithSession(input) {
+    const result = await request("/auth/signup/session", { method: "POST", body: JSON.stringify(input) }, false);
+    if (result.accessToken)
+        setAccessToken(result.accessToken);
+    localStorage.setItem("calmwork:auth", "true");
+    return result.user;
+}
 export async function signInWithPassword(input) {
     const result = await request("/auth/signin", { method: "POST", body: JSON.stringify(input) }, false);
     if (result.accessToken)
@@ -130,6 +137,13 @@ export async function signInWithPassword(input) {
 }
 export async function acceptInvitation(input) {
     return request("/auth/accept-invitation", { method: "POST", body: JSON.stringify(input) }, false);
+}
+export async function acceptInvitationWithSession(input) {
+    const result = await request("/auth/accept-invitation/session", { method: "POST", body: JSON.stringify(input) }, false);
+    if (result.accessToken)
+        setAccessToken(result.accessToken);
+    localStorage.setItem("calmwork:auth", "true");
+    return result.user;
 }
 export async function requestPasswordReset(email) {
     return request("/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) }, false);
