@@ -344,6 +344,12 @@ export async function signOut(everywhere = false) {
 export async function updateProfile(input) {
     return request("/auth/me", { method: "PATCH", body: JSON.stringify(input) });
 }
+export async function requestEmailChange(email) {
+    return request("/auth/me/email/request", { method: "POST", body: JSON.stringify({ email }) });
+}
+export async function verifyEmailChange(email, code) {
+    return request("/auth/me/email/verify", { method: "POST", body: JSON.stringify({ email, code }) });
+}
 function hours(seconds) {
     return `${(seconds / 3600).toFixed(1)}h`;
 }

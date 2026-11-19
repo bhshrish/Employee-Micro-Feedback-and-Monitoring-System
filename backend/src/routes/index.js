@@ -74,6 +74,8 @@ authRoutes.post("/logout", authController.logout);
 authRoutes.post("/logout-all", auth_1.authenticate, authController.logoutEverywhere);
 authRoutes.get("/me", auth_1.authenticate, authController.me);
 authRoutes.patch("/me", auth_1.authenticate, (0, validate_1.validateBody)(schemas_1.profileSchema), authController.updateProfile);
+authRoutes.post("/me/email/request", auth_1.authenticate, (0, validate_1.validateBody)(schemas_1.emailChangeRequestSchema), authController.requestEmailChange);
+authRoutes.post("/me/email/verify", auth_1.authenticate, (0, validate_1.validateBody)(schemas_1.emailChangeVerifySchema), authController.verifyEmailChange);
 api.use("/auth", authRoutes);
 const operationsRoutes = (0, express_1.Router)();
 operationsRoutes.post("/auth/login", (0, validate_1.validateBody)(schemas_1.adminPasswordSigninSchema), operationsController.signInAdminWithPassword);

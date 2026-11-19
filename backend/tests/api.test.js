@@ -711,6 +711,41 @@ describe("PULSE API", () => {
         assert.equal(profile.body.user.settings.idleThresholdMinutes, 9);
         assert.equal(profile.body.user.settings.notifications.weeklyPulse, false);
     });
+    it("changes a sign-in email only after verifying the new address", async () => {
+        const account = await signupAndSignin("email-change@example.test");
+        const auth = { Authorization: `Bearer ${account.body.accessToken}` };
+        await request(app).post("/api/v1/auth/me/email/request")
+            .send({ email: "new-address@example.test" }).expect(401);
+        const requested = await request(app).post("/api/v1/auth/me/email/request")
+            .set(auth).send({ email: "new-address@example.test" }).expect(200);
+        assert.match(requested.body.message, /verification code has been sent/i);
+        assert.equal((await User.findById(account.body.user.id)).email, "email-change@example.test");
+        await request(app).post("/api/v1/auth/me/email/request")
+            .set(auth).send({ email: process.env.OPS_ADMIN_EMAIL || "admin@gmail.com" }).expect(409);
+
+        const challenge = await OtpChallenge.findOne({
+            destination: "new-address@example.test",
+            purpose: "email_change",
+        });
+        assert.ok(challenge);
+        assert.equal(challenge.payload.userId, account.body.user.id);
+        await OtpChallenge.updateOne({ _id: challenge._id }, {
+            $set: { codeHash: hashCode("new-address@example.test", "email_change", "123456") },
+        });
+
+        await request(app).post("/api/v1/auth/me/email/verify")
+            .set(auth).send({ email: "new-address@example.test", code: "000000" }).expect(401);
+        assert.equal((await User.findById(account.body.user.id)).email, "email-change@example.test");
+
+        const verified = await request(app).post("/api/v1/auth/me/email/verify")
+            .set(auth).send({ email: "new-address@example.test", code: "123456" }).expect(200);
+        assert.equal(verified.body.user.email, "new-address@example.test");
+        assert.equal((await User.findById(account.body.user.id)).email, "new-address@example.test");
+        await request(app).post("/api/v1/auth/signin")
+            .send({ email: "email-change@example.test", password: "correct-horse-battery" }).expect(401);
+        await request(app).post("/api/v1/auth/signin")
+            .send({ email: "new-address@example.test", password: "correct-horse-battery" }).expect(200);
+    });
     it("supports session start, heartbeat, idle, tags, history and summary paths", async () => {
         const account = await signupAndSignin("session-paths@example.test");
         const auth = { Authorization: `Bearer ${account.body.accessToken}` };

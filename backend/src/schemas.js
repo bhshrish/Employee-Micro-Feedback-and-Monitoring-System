@@ -103,6 +103,11 @@ exports.profileSchema = zod_1.z.object({
         }).strict().optional(),
     }).strict().optional(),
 }).strict().refine((value) => Object.keys(value).length > 0, "Provide at least one field");
+exports.emailChangeRequestSchema = zod_1.z.object({ email }).strict();
+exports.emailChangeVerifySchema = zod_1.z.object({
+    email,
+    code: zod_1.z.string().regex(/^\d{6}$/),
+}).strict();
 exports.reportQuerySchema = zod_1.z.object({
     period: zod_1.z.enum(["today", "7d", "30d", "quarter"]).default("30d"),
     metrics: zod_1.z.string().max(200).default("Active time,Productivity,Burnout risk")

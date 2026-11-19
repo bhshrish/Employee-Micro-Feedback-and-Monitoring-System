@@ -123,6 +123,18 @@ exports.updateProfile = (0, async_handler_1.asyncHandler)(async (req, res) => {
         throw (0, errors_1.unauthorized)();
     res.json({ user: await auth.getCurrentUser(user._id) });
 });
+exports.requestEmailChange = (0, async_handler_1.asyncHandler)(async (req, res) => {
+    if (!req.auth)
+        throw (0, errors_1.unauthorized)();
+    res.setHeader("Cache-Control", "no-store");
+    res.json(await otp.requestEmailChange(req.auth.userId, req.body));
+});
+exports.verifyEmailChange = (0, async_handler_1.asyncHandler)(async (req, res) => {
+    if (!req.auth)
+        throw (0, errors_1.unauthorized)();
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ user: await otp.verifyEmailChange(req.auth.userId, req.body) });
+});
 exports.forgotPassword = (0, async_handler_1.asyncHandler)(async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     res.status(200).json(await auth.forgotPassword(req.body));

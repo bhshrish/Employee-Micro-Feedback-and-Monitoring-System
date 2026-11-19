@@ -240,6 +240,45 @@ paths:
       responses:
         "200": { description: Updated user }
         "400": { $ref: "#/components/responses/BadRequest" }
+  /auth/me/email/request:
+    post:
+      tags: [Authentication]
+      summary: Send a verification code to a proposed sign-in email address
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        "200": { description: Verification code sent to the proposed address }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /auth/me/email/verify:
+    post:
+      tags: [Authentication]
+      summary: Verify and replace the current sign-in email address
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email, code]
+              properties:
+                email: { type: string, format: email }
+                code: { type: string, pattern: "^[0-9]{6}$" }
+      responses:
+        "200": { description: Current user with the updated email }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /workspace/organization:
     get:
       tags: [Workspace]
