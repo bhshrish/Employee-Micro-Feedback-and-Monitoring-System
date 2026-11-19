@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSubscription } from "@/lib/subscription";
 import { useTheme } from "@/lib/theme";
-import { requestEmailChange, updateProfile, verifyEmailChange } from "@/lib/api";
+import { updateProfile } from "@/lib/api";
 import { AppShell } from "./AppShell";
 import { Modal } from "./UI";
 import { Icon } from "./Icon";
@@ -12,10 +12,6 @@ function SettingsContent() {
     const { user, signIn, resetLocalPreferences } = useSubscription();
     const { theme, setTheme } = useTheme();
     const [name, setName] = useState("");
-    const [email, setEmail] = useState("");
-    const [emailCode, setEmailCode] = useState("");
-    const [emailCodeRequested, setEmailCodeRequested] = useState(false);
-    const [emailSaving, setEmailSaving] = useState(false);
     const [phone, setPhone] = useState("");
     const [threshold, setThreshold] = useState(5);
     const [weekly, setWeekly] = useState(true);
@@ -29,7 +25,6 @@ function SettingsContent() {
         if (!user)
             return;
         setName(user.name);
-        setEmail(user.email);
         setPhone(user.phone || "");
         setThreshold(user.settings.idleThresholdMinutes);
         setWeekly(user.settings.notifications.weeklyPulse);
@@ -62,46 +57,6 @@ function SettingsContent() {
             setSaving(false);
         }
     };
-    const requestEmailVerification = async () => {
-        if (!email.trim() || email.trim().toLowerCase() === user?.email.toLowerCase()) {
-            toast("Enter a different email address.");
-            return;
-        }
-        setEmailSaving(true);
-        try {
-            await requestEmailChange(email.trim());
-            setEmailCodeRequested(true);
-            setEmailCode("");
-            toast("A verification code has been sent to the new email address.");
-        }
-        catch (error) {
-            toast(error instanceof Error ? error.message : "Could not send an email verification code.");
-        }
-        finally {
-            setEmailSaving(false);
-        }
-    };
-    const confirmEmailChange = async () => {
-        if (!user || !/^\d{6}$/.test(emailCode)) {
-            toast("Enter the 6-digit verification code.");
-            return;
-        }
-        setEmailSaving(true);
-        try {
-            const result = await verifyEmailChange(email.trim(), emailCode);
-            signIn(result.user);
-            setEmail(result.user.email);
-            setEmailCode("");
-            setEmailCodeRequested(false);
-            toast("Your sign-in email has been updated.");
-        }
-        catch (error) {
-            toast(error instanceof Error ? error.message : "Could not verify the new email address.");
-        }
-        finally {
-            setEmailSaving(false);
-        }
-    };
     return <div className="settings-page">
         <div className="app-page-heading">
             <div>
@@ -115,25 +70,7 @@ function SettingsContent() {
                 <div><h2>Profile</h2><p>Your profile is tied to the account you signed in with.</p></div>
                 <div className="settings-fields">
                     <label>Full name<input value={name} onChange={(e) => setName(e.target.value)} required minLength={2}/></label>
-                    <label>Email address<input type="email" value={email} onChange={(event) => {
-                        setEmail(event.target.value);
-                        setEmailCode("");
-                        setEmailCodeRequested(false);
-                    }} autoComplete="email" autoCapitalize="none" required disabled={emailSaving} /></label>
-                    <p className="form-note">Your sign-in email changes only after you confirm a code sent to the new address.</p>
-                    {!emailCodeRequested
-                        ? <button type="button" className="button button-outline" onClick={requestEmailVerification} disabled={emailSaving}>
-                            {emailSaving ? "Sending code…" : "Verify new email"}
-                        </button>
-                        : <>
-                            <label>Verification code<input inputMode="numeric" autoComplete="one-time-code" value={emailCode} onChange={(event) => setEmailCode(event.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="6-digit code" /></label>
-                            <div className="modal-actions">
-                                <button type="button" className="button" onClick={confirmEmailChange} disabled={emailSaving}>
-                                    {emailSaving ? "Verifying…" : "Confirm email"}
-                                </button>
-                                <button type="button" className="button button-outline" onClick={() => { setEmailCodeRequested(false); setEmailCode(""); }} disabled={emailSaving}>Cancel</button>
-                            </div>
-                        </>}
+                    <label>Email<input type="email" value={user?.email || ""} readOnly/></label>
                 </div>
             </section>
             <section className="settings-section">

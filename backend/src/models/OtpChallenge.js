@@ -4,7 +4,7 @@ const { Schema, model, models } = require("mongoose");
 const otpChallengeSchema = new Schema({
     destination: { type: String, required: true, lowercase: true, trim: true },
     channel: { type: String, enum: ["email", "sms"], default: "email", required: true },
-    purpose: { type: String, required: true, enum: ["signin", "invitation", "admin", "email_change"] },
+    purpose: { type: String, required: true, enum: ["signin", "invitation", "admin"] },
     codeHash: { type: String, required: true, select: false },
     payload: { type: Schema.Types.Mixed, default: {} },
     attempts: { type: Number, min: 0, default: 0 },

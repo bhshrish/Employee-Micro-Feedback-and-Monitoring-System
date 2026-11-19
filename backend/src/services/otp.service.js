@@ -2,14 +2,13 @@
 const { createHmac, randomInt, timingSafeEqual, randomBytes } = require("node:crypto");
 const { getConfig } = require("../config/env");
 const { OtpChallenge } = require("../models/OtpChallenge");
-const { PasswordResetToken } = require("../models/PasswordResetToken");
 const { User } = require("../models/User");
 const { Invitation } = require("../models/Invitation");
 const { Organization } = require("../models/Organization");
 const { sendOtpEmail } = require("./email.service");
 const { sendSms } = require("./sms.service");
 const auth = require("./auth.service");
-const { AppError, unauthorized, notFound, conflict } = require("../utils/errors");
+const { AppError, unauthorized, notFound } = require("../utils/errors");
 
 const OTP_TTL_MS = 5 * 60_000;
 const RESEND_COOLDOWN_MS = 60_000;
@@ -164,108 +163,4 @@ async function requestAdminOtp(email) {
     return requestOtp({ email: destination, channel: "email", purpose: "admin" });
 }
 
-async function requestEmailChange(userId, input) {
-    const destination = input.email.trim().toLowerCase();
-    const currentUser = await User.findOne({ _id: userId, isActive: true }).select("email");
-    if (!currentUser)
-        throw unauthorized();
-    if (destination === currentUser.email.toLowerCase())
-        throw conflict("This is already the email address on your account.", "EMAIL_UNCHANGED");
-    if (destination === getConfig().OPS_ADMIN_EMAIL.toLowerCase())
-        throw conflict("This email is reserved for the platform administrator.", "EMAIL_RESERVED");
-    if (await User.findOne({ email: emailPattern(destination) }).select("_id"))
-        throw conflict("An account with this email already exists.", "EMAIL_IN_USE");
-
-    const filter = { channel: "email", destination, purpose: "email_change" };
-    const prior = await OtpChallenge.findOne(filter).select("resendAfter");
-    const now = new Date();
-    if (prior && prior.resendAfter > now)
-        throw new AppError(429, "Please wait before requesting another code.", "OTP_COOLDOWN");
-
-    const code = String(randomInt(100000, 1000000));
-    const challenge = {
-        ...filter,
-        codeHash: hashCode(destination, "email_change", code),
-        payload: { userId: userId.toString() },
-        attempts: 0,
-        resendAfter: new Date(now.getTime() + RESEND_COOLDOWN_MS),
-        expiresAt: new Date(now.getTime() + OTP_TTL_MS),
-        consumedAt: null,
-    };
-    const savedChallenge = await OtpChallenge.findOneAndUpdate(filter, { $set: challenge }, { upsert: true, new: true, runValidators: true });
-    try {
-        await sendOtpEmail({ to: destination, code, expiresInMinutes: 5 });
-    }
-    catch (error) {
-        await OtpChallenge.deleteOne({ _id: savedChallenge._id });
-        throw error;
-    }
-    return { message: "If the address can be used, a verification code has been sent." };
-}
-
-async function verifyEmailChange(userId, input) {
-    const destination = input.email.trim().toLowerCase();
-    const currentUser = await User.findOne({ _id: userId, isActive: true }).select("email");
-    if (!currentUser)
-        throw unauthorized();
-    if (destination === currentUser.email.toLowerCase())
-        throw conflict("This is already the email address on your account.", "EMAIL_UNCHANGED");
-    if (destination === getConfig().OPS_ADMIN_EMAIL.toLowerCase())
-        throw conflict("This email is reserved for the platform administrator.", "EMAIL_RESERVED");
-    if (await User.findOne({ email: emailPattern(destination) }).select("_id"))
-        throw conflict("An account with this email already exists.", "EMAIL_IN_USE");
-
-    const now = new Date();
-    const challenge = await OtpChallenge.findOneAndUpdate({
-        channel: "email",
-        destination,
-        purpose: "email_change",
-        "payload.userId": userId.toString(),
-        consumedAt: null,
-        expiresAt: { $gt: now },
-        attempts: { $lt: MAX_ATTEMPTS },
-    }, { $inc: { attempts: 1 } }, { new: true }).select("+codeHash");
-    if (!challenge)
-        throw unauthorized("The code is invalid, expired, or has reached its attempt limit.");
-
-    const candidateHash = hashCode(destination, "email_change", input.code);
-    if (!matchesCode(challenge.codeHash, candidateHash))
-        throw unauthorized("The code is incorrect.");
-    const consumed = await OtpChallenge.updateOne({
-        _id: challenge._id,
-        consumedAt: null,
-        attempts: challenge.attempts,
-    }, { $set: { consumedAt: now } });
-    if (consumed.modifiedCount !== 1)
-        throw unauthorized("This code has already been used.");
-
-    try {
-        const updatedUser = await User.findOneAndUpdate(
-            { _id: userId, isActive: true },
-            { $set: { email: destination } },
-            { new: true, runValidators: true },
-        );
-        if (!updatedUser)
-            throw unauthorized();
-        await Promise.all([
-            OtpChallenge.updateMany({
-                purpose: "email_change",
-                "payload.userId": userId.toString(),
-                consumedAt: null,
-            }, { $set: { consumedAt: now } }),
-            PasswordResetToken.updateMany({
-                userId,
-                usedAt: null,
-                revokedAt: null,
-            }, { $set: { revokedAt: now } }),
-        ]);
-        return auth.getCurrentUser(updatedUser._id);
-    }
-    catch (error) {
-        if (error && typeof error === "object" && "code" in error && error.code === 11000)
-            throw conflict("An account with this email already exists.", "EMAIL_IN_USE");
-        throw error;
-    }
-}
-
-module.exports = { requestOtp, verifyOtp, requestAdminOtp, requestEmailChange, verifyEmailChange, hashCode };
+module.exports = { requestOtp, verifyOtp, requestAdminOtp, hashCode };
