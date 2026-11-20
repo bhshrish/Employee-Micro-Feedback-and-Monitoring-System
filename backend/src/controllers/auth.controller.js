@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateProfile = exports.me = exports.logoutEverywhere = exports.logout = exports.refresh = exports.acceptInvitation = exports.acceptInvitationSession = exports.signin = exports.signup = exports.signupSession = exports.forgotPassword = exports.resetPassword = void 0;
+exports.updateProfile = exports.verifyEmailChange = exports.me = exports.logoutEverywhere = exports.logout = exports.refresh = exports.acceptInvitation = exports.acceptInvitationSession = exports.signin = exports.signup = exports.signupSession = exports.forgotPassword = exports.resetPassword = void 0;
 const env_1 = require("../config/env");
 const auth = __importStar(require("../services/auth.service"));
 const otp = require("../services/otp.service");
@@ -107,21 +107,11 @@ exports.me = (0, async_handler_1.asyncHandler)(async (req, res) => {
 exports.updateProfile = (0, async_handler_1.asyncHandler)(async (req, res) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
-    const { User } = await Promise.resolve().then(() => __importStar(require("../models/User")));
-    const update = {};
-    if (req.body.name !== undefined)
-        update.name = req.body.name;
-    if (req.body.phone !== undefined)
-        update.phone = req.body.phone;
-    if (req.body.settings?.idleThresholdMinutes !== undefined)
-        update["settings.idleThresholdMinutes"] = req.body.settings.idleThresholdMinutes;
-    for (const [key, value] of Object.entries(req.body.settings?.notifications ?? {})) {
-        update[`settings.notifications.${key}`] = value;
-    }
-    const user = await User.findOneAndUpdate({ _id: req.auth.userId, organizationId: req.auth.organizationId }, { $set: update }, { new: true, runValidators: true });
-    if (!user)
-        throw (0, errors_1.unauthorized)();
-    res.json({ user: await auth.getCurrentUser(user._id) });
+    res.json(await auth.updateProfile(req.auth.userId, req.body));
+});
+exports.verifyEmailChange = (0, async_handler_1.asyncHandler)(async (req, res) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.json(await auth.verifyEmailChange(req.body));
 });
 exports.forgotPassword = (0, async_handler_1.asyncHandler)(async (req, res) => {
     res.setHeader("Cache-Control", "no-store");

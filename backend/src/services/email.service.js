@@ -5,13 +5,21 @@ const { AppError } = require("../utils/errors");
 const { logger } = require("../utils/logger");
 
 function getTransporter(config) {
-    if (!config.SMTP_HOST || !config.SMTP_USER || !config.SMTP_PASS || !config.SMTP_FROM) {
+    const missingSettings = [
+        ["SMTP_HOST", config.SMTP_HOST],
+        ["SMTP_USER", config.SMTP_USER],
+        ["SMTP_PASS", config.SMTP_PASS],
+        ["SMTP_FROM", config.SMTP_FROM],
+    ].filter(([, value]) => !value).map(([name]) => name);
+    if (missingSettings.length > 0) {
         if (config.NODE_ENV !== "production")
             return null;
-        throw new AppError(503, "Email delivery is not configured.", "EMAIL_DELIVERY_UNAVAILABLE");
+        throw new AppError(
+            503,
+            `Email delivery is not configured. Missing: ${missingSettings.join(", ")}.`,
+            "EMAIL_DELIVERY_UNAVAILABLE",
+        );
     }
-
-    // MANUAL SETUP REQUIRED: configure SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, and SMTP_FROM using your email provider's SMTP settings.
     return nodemailer.createTransport({
         host: config.SMTP_HOST,
         port: config.SMTP_PORT || 587,
@@ -24,15 +32,21 @@ async function deliver({ to, subject, text }) {
     const config = getConfig();
     const transporter = getTransporter(config);
     if (!transporter) {
-        logger.info({ to, subject, text }, "Development email preview");
+        logger.info("Development email preview (SMTP is not configured)");
         return;
     }
-    await transporter.sendMail({
-        from: { name: config.SMTP_FROM_NAME || "CalmWork", address: config.SMTP_FROM },
-        to,
-        subject,
-        text,
-    });
+    try {
+        await transporter.sendMail({
+            from: { name: config.SMTP_FROM_NAME, address: config.SMTP_FROM },
+            to,
+            subject,
+            text,
+        });
+    }
+    catch (error) {
+        logger.error({ err: error }, "SMTP email delivery failed");
+        throw new AppError(502, "Email delivery failed.", "EMAIL_DELIVERY_FAILED");
+    }
 }
 
 async function sendOtpEmail({ to, code, expiresInMinutes }) {
@@ -61,4 +75,14 @@ async function sendPasswordResetEmail({ to, token }) {
     });
 }
 
-module.exports = { sendOtpEmail, sendCalendarReminder, sendPasswordResetEmail };
+async function sendEmailChangeVerification({ to, token }) {
+    const config = getConfig();
+    const verificationUrl = `${config.FRONTEND_URL.replace(/\/$/, "")}/verify-email-change?token=${encodeURIComponent(token)}`;
+    await deliver({
+        to,
+        subject: "Verify your CalmWork email address",
+        text: `You requested to change the email address on your CalmWork account.\n\nVerify this address using the link below. It expires in ${config.PASSWORD_RESET_TTL_MINUTES} minutes:\n\n${verificationUrl}\n\nIf you did not request this change, you can ignore this email.\n`,
+    });
+}
+
+module.exports = { sendOtpEmail, sendCalendarReminder, sendPasswordResetEmail, sendEmailChangeVerification };

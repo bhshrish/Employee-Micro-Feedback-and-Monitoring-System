@@ -25,7 +25,7 @@ export function setAdminToken(token) {
 }
 function isAuthPath(path) {
     return path.startsWith("/auth/otp/") ||
-        ["/auth/refresh", "/auth/signin", "/auth/login", "/auth/signup", "/auth/signup/session", "/auth/accept-invitation", "/auth/accept-invitation/session", "/auth/forgot-password", "/auth/reset-password"].includes(path) ||
+        ["/auth/refresh", "/auth/signin", "/auth/login", "/auth/signup", "/auth/signup/session", "/auth/accept-invitation", "/auth/accept-invitation/session", "/auth/forgot-password", "/auth/reset-password", "/auth/email-change/verify"].includes(path) ||
         path.startsWith("/operations/auth/otp/");
 }
 function apiError(status, code, message) {
@@ -150,6 +150,9 @@ export async function requestPasswordReset(email) {
 }
 export async function resetPassword(input) {
     return request("/auth/reset-password", { method: "POST", body: JSON.stringify(input) }, false);
+}
+export async function verifyEmailChange(token) {
+    return request("/auth/email-change/verify", { method: "POST", body: JSON.stringify({ token }) }, false);
 }
 export async function requestAdminOtp(email) {
     return request("/operations/auth/otp/request", { method: "POST", body: JSON.stringify({ email }) }, false);

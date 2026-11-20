@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.operationsTeamAssignmentSchema = exports.operationsTeamCreateSchema = exports.operationsStatusSchema = exports.operationsListQuerySchema = exports.operationsDateQuerySchema = exports.businessIdParamsSchema = exports.teamIdParamsSchema = exports.userIdParamsSchema = exports.memberIdParamsSchema = exports.alertIdParamsSchema = exports.sessionIdParamsSchema = exports.checkoutSchema = exports.alertUpdateSchema = exports.pulseTeamQuerySchema = exports.alertQuerySchema = exports.dashboardQuerySchema = exports.userRoleSchema = exports.reportFormatQuerySchema = exports.reportPreviewQuerySchema = exports.reportQuerySchema = exports.profileSchema = exports.reportIdParamsSchema = exports.reportGenerateSchema = exports.analyticsQuerySchema = exports.sessionSummaryQuerySchema = exports.historyQuerySchema = exports.activityTagsSchema = exports.idleActivitySchema = exports.activityHeartbeatSchema = exports.stopActivitySchema = exports.startActivitySchema = exports.updateMemberSchema = exports.createTeamSchema = exports.pulseSchema = exports.invitationCreateSchema = exports.invitationAcceptSchema = exports.signinSchema = exports.signupSchema = exports.forgotPasswordSchema = exports.resetPasswordSchema = void 0;
+exports.operationsTeamAssignmentSchema = exports.operationsTeamCreateSchema = exports.operationsStatusSchema = exports.operationsListQuerySchema = exports.operationsDateQuerySchema = exports.businessIdParamsSchema = exports.teamIdParamsSchema = exports.userIdParamsSchema = exports.memberIdParamsSchema = exports.alertIdParamsSchema = exports.sessionIdParamsSchema = exports.checkoutSchema = exports.alertUpdateSchema = exports.pulseTeamQuerySchema = exports.alertQuerySchema = exports.dashboardQuerySchema = exports.userRoleSchema = exports.reportFormatQuerySchema = exports.reportPreviewQuerySchema = exports.reportQuerySchema = exports.profileSchema = exports.emailChangeVerificationSchema = exports.reportIdParamsSchema = exports.reportGenerateSchema = exports.analyticsQuerySchema = exports.sessionSummaryQuerySchema = exports.historyQuerySchema = exports.activityTagsSchema = exports.idleActivitySchema = exports.activityHeartbeatSchema = exports.stopActivitySchema = exports.startActivitySchema = exports.updateMemberSchema = exports.createTeamSchema = exports.pulseSchema = exports.invitationCreateSchema = exports.invitationAcceptSchema = exports.signinSchema = exports.signupSchema = exports.forgotPasswordSchema = exports.resetPasswordSchema = void 0;
 const zod_1 = require("zod");
 const email = zod_1.z.string().trim().email().max(254);
 const password = zod_1.z.string().min(8).max(128);
@@ -93,6 +93,7 @@ exports.paidReportGenerateSchema = exports.reportGenerateSchema.extend({
 exports.reportIdParamsSchema = zod_1.z.object({ reportId: zod_1.z.string().regex(/^[a-f\d]{24}$/i) }).strict();
 exports.profileSchema = zod_1.z.object({
     name: zod_1.z.string().trim().min(2).max(100).optional(),
+    email: email.optional(),
     phone: zod_1.z.string().trim().regex(/^\+[1-9]\d{7,14}$/).nullable().optional(),
     settings: zod_1.z.object({
         idleThresholdMinutes: zod_1.z.number().int().min(1).max(30).optional(),
@@ -103,6 +104,7 @@ exports.profileSchema = zod_1.z.object({
         }).strict().optional(),
     }).strict().optional(),
 }).strict().refine((value) => Object.keys(value).length > 0, "Provide at least one field");
+exports.emailChangeVerificationSchema = zod_1.z.object({ token: zod_1.z.string().min(32).max(128) }).strict();
 exports.reportQuerySchema = zod_1.z.object({
     period: zod_1.z.enum(["today", "7d", "30d", "quarter"]).default("30d"),
     metrics: zod_1.z.string().max(200).default("Active time,Productivity,Burnout risk")

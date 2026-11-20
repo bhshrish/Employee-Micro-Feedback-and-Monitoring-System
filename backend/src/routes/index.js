@@ -67,6 +67,7 @@ const authRoutes = (0, express_1.Router)();
     authRoutes.post("/accept-invitation/session", (0, validate_1.validateBody)(schemas_1.invitationAcceptSchema), authController.acceptInvitationSession);
 authRoutes.post("/forgot-password", (0, validate_1.validateBody)(schemas_1.forgotPasswordSchema), authController.forgotPassword);
 authRoutes.post("/reset-password", (0, validate_1.validateBody)(schemas_1.resetPasswordSchema), authController.resetPassword);
+authRoutes.post("/email-change/verify", (0, validate_1.validateBody)(schemas_1.emailChangeVerificationSchema), authController.verifyEmailChange);
 authRoutes.post("/otp/request", (0, validate_1.validateBody)(schemas_1.otpRequestSchema), authController.requestOtp);
 authRoutes.post("/otp/verify", (0, validate_1.validateBody)(schemas_1.otpVerifySchema), authController.verifyOtp);
 authRoutes.post("/refresh", authController.refresh);

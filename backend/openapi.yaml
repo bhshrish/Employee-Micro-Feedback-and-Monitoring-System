@@ -60,7 +60,7 @@ paths:
       responses:
         "200": { description: Code requested; response does not disclose account existence }
         "400": { $ref: "#/components/responses/BadRequest" }
-        "429": { description: Resend cooldown or rate limit }
+        "429": { description: Code resend cooldown or rate limit }
   /auth/signup:
     post:
       tags: [Authentication]
@@ -175,6 +175,24 @@ paths:
       responses:
         "200": { description: Password changed; existing sessions are revoked }
         "401": { $ref: "#/components/responses/Unauthorized" }
+  /auth/email-change/verify:
+    post:
+      tags: [Authentication]
+      summary: Verify and apply a pending account email change
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [token]
+              properties:
+                token: { type: string, minLength: 32, maxLength: 128 }
+      responses:
+        "200": { description: Email address verified and updated }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /auth/otp/verify:
     post:
       tags: [Authentication]
@@ -230,7 +248,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
     patch:
       tags: [Authentication]
-      summary: Update the current user's name and preferences
+      summary: Update the current user's name, email, and preferences
       security: [{ bearerAuth: [] }]
       requestBody:
         required: true
@@ -240,6 +258,8 @@ paths:
       responses:
         "200": { description: Updated user }
         "400": { $ref: "#/components/responses/BadRequest" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /workspace/organization:
     get:
       tags: [Workspace]
@@ -285,7 +305,7 @@ paths:
     post:
       tags: [Workspace]
       summary: Create a seven-day, single-use team member invitation
-      description: Returns a one-time acceptance token because no outbound email provider is configured. Managers can invite only to their assigned team.
+      description: Returns a one-time acceptance token to share with the invitee; this endpoint does not send an invitation email. Managers can invite only to their assigned team.
       security: [{ bearerAuth: [] }]
       requestBody:
         required: true
@@ -1304,6 +1324,7 @@ components:
       additionalProperties: false
       properties:
         name: { type: string, minLength: 2, maxLength: 100 }
+        email: { type: string, format: email, maxLength: 254, description: A verification link must be confirmed before the sign-in email changes. }
         settings:
           type: object
           additionalProperties: false
