@@ -262,6 +262,43 @@ describe("PULSE API", () => {
         await request(app).post("/api/v1/auth/signin")
             .send({ email, password: "new-correct-password" }).expect(200);
     });
+    it("distinguishes forgot-password input validation from missing SMTP configuration", async () => {
+        const email = "smtp-reset@example.test";
+        await signup(email).expect(201);
+        const invalidEmail = await request(app).post("/api/v1/auth/forgot-password")
+            .send({ email: "not-an-email" }).expect(400);
+        assert.equal(invalidEmail.body.error.code, "VALIDATION_ERROR");
+        assert.match(JSON.stringify(invalidEmail.body.error.details), /email/);
+
+        const environmentKeys = [
+            "NODE_ENV", "MONGODB_URI", "FRONTEND_URL", "CORS_ORIGINS",
+            "SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_PASSWORD", "SMTP_FROM",
+        ];
+        const previousEnv = Object.fromEntries(environmentKeys.map((key) => [key, process.env[key]]));
+        Object.assign(process.env, {
+            NODE_ENV: "production",
+            MONGODB_URI: "mongodb+srv://cluster.example.test/test",
+            FRONTEND_URL: "https://frontend.example.test",
+            CORS_ORIGINS: "https://frontend.example.test",
+        });
+        for (const key of ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_PASSWORD", "SMTP_FROM"])
+            delete process.env[key];
+        try {
+            const missingSmtp = await request(app).post("/api/v1/auth/forgot-password")
+                .send({ email }).expect(503);
+            assert.equal(missingSmtp.body.error.code, "EMAIL_DELIVERY_UNAVAILABLE");
+            assert.match(missingSmtp.body.error.message, /SMTP_HOST/);
+            assert.doesNotMatch(missingSmtp.body.error.message, /password|secret/i);
+        }
+        finally {
+            for (const [key, value] of Object.entries(previousEnv)) {
+                if (value === undefined)
+                    delete process.env[key];
+                else
+                    process.env[key] = value;
+            }
+        }
+    });
     it("authenticates only the configured platform administrator and supports password reset", async () => {
         const adminEmail = process.env.OPS_ADMIN_EMAIL;
         const initialPassword = process.env.OPS_ADMIN_INITIAL_PASSWORD;

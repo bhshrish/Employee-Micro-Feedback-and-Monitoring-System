@@ -101,7 +101,20 @@ async function request(path, init = {}, canRefresh = true) {
         : await response.text();
     if (!response.ok) {
         const body = payload;
-        throw apiError(response.status, body.error?.code || "REQUEST_FAILED", body.error?.message || `Request failed (${response.status})`);
+        const validationDetails = body.error?.details;
+        const validationMessages = [
+            ...(Array.isArray(validationDetails?.formErrors) ? validationDetails.formErrors : []),
+            ...Object.entries(validationDetails?.fieldErrors || {})
+                .flatMap(([field, messages]) => Array.isArray(messages)
+                    ? messages.map((message) => `${field}: ${message}`)
+                    : []),
+        ];
+        const message = body.error?.message || `Request failed (${response.status})`;
+        throw apiError(
+            response.status,
+            body.error?.code || "REQUEST_FAILED",
+            validationMessages.length ? `${message} (${validationMessages.join("; ")})` : message,
+        );
     }
     return payload;
 }
