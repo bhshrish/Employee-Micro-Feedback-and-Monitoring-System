@@ -5,10 +5,20 @@ const { AppError } = require("../utils/errors");
 const { logger } = require("../utils/logger");
 
 function getTransporter(config) {
-    if (!config.SMTP_HOST || !config.SMTP_USER || !config.SMTP_PASS || !config.SMTP_FROM) {
+    const missingSettings = [
+        ["SMTP_HOST", config.SMTP_HOST],
+        ["SMTP_USER", config.SMTP_USER],
+        ["SMTP_PASS", config.SMTP_PASS],
+        ["SMTP_FROM", config.SMTP_FROM],
+    ].filter(([, value]) => !value).map(([name]) => name);
+    if (missingSettings.length > 0) {
         if (config.NODE_ENV !== "production")
             return null;
-        throw new AppError(503, "Email delivery is not configured.", "EMAIL_DELIVERY_UNAVAILABLE");
+        throw new AppError(
+            503,
+            `Email delivery is not configured. Missing: ${missingSettings.join(", ")}.`,
+            "EMAIL_DELIVERY_UNAVAILABLE",
+        );
     }
     return nodemailer.createTransport({
         host: config.SMTP_HOST,

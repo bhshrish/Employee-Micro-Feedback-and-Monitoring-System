@@ -820,7 +820,7 @@ describe("PULSE API", () => {
     });
     it("allows SMTP configuration to be omitted in development", async () => {
         const previousEnv = Object.fromEntries(
-            ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"].map((key) => [key, process.env[key]]),
+            ["NODE_ENV", "MONGODB_URI", "FRONTEND_URL", "CORS_ORIGINS", "SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"].map((key) => [key, process.env[key]]),
         );
         for (const key of Object.keys(previousEnv))
             delete process.env[key];
@@ -835,6 +835,42 @@ describe("PULSE API", () => {
         }
         finally {
             transportSpy.mockRestore();
+            for (const [key, value] of Object.entries(previousEnv)) {
+                if (value === undefined)
+                    delete process.env[key];
+                else
+                    process.env[key] = value;
+            }
+        }
+    });
+    it("identifies missing SMTP settings in production without exposing their values", async () => {
+        const previousEnv = Object.fromEntries(
+            ["NODE_ENV", "MONGODB_URI", "FRONTEND_URL", "CORS_ORIGINS", "SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"].map((key) => [key, process.env[key]]),
+        );
+        Object.assign(process.env, {
+            NODE_ENV: "production",
+            MONGODB_URI: "mongodb+srv://cluster.example.test/test",
+            FRONTEND_URL: "https://frontend.example.test",
+            CORS_ORIGINS: "https://frontend.example.test",
+            SMTP_HOST: "smtp.example.test",
+            SMTP_PORT: "587",
+            SMTP_USER: "",
+            SMTP_PASS: "test-password",
+            SMTP_FROM: "sender@example.test",
+        });
+        try {
+            await assert.rejects(sendOtpEmail({
+                to: "person@example.test",
+                code: "123456",
+                expiresInMinutes: 5,
+            }), (error) => {
+                assert.equal(error.code, "EMAIL_DELIVERY_UNAVAILABLE");
+                assert.match(error.message, /SMTP_USER/);
+                assert.doesNotMatch(error.message, /test-password/);
+                return true;
+            });
+        }
+        finally {
             for (const [key, value] of Object.entries(previousEnv)) {
                 if (value === undefined)
                     delete process.env[key];
