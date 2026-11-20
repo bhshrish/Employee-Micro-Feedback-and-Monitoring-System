@@ -29,6 +29,7 @@ import { OperationsAdmin } from "../src/models/OperationsAdmin";
 import { EmployeeTool } from "../src/models/EmployeeTool";
 import { migrateLegacyData } from "../src/legacy-migration";
 import { signin as createTestSession } from "../src/services/auth.service";
+import { sendOtpEmail } from "../src/services/email.service";
 import { hashCode } from "../src/services/otp.service";
 const nodemailer = createRequire(import.meta.url)("nodemailer");
 const app = createApp();
@@ -719,7 +720,7 @@ describe("PULSE API", () => {
         const auth = { Authorization: `Bearer ${account.body.accessToken}` };
         await signup("email-taken@example.test").expect(201);
         const previousEnv = Object.fromEntries(
-            ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"].map((key) => [key, process.env[key]]),
+            ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM", "SMTP_FROM_NAME"].map((key) => [key, process.env[key]]),
         );
         const sentMessages = [];
         const transport = {
@@ -735,6 +736,7 @@ describe("PULSE API", () => {
             SMTP_USER: "sender@example.test",
             SMTP_PASS: "test-password",
             SMTP_FROM: "sender@example.test",
+            SMTP_FROM_NAME: "CalmWork",
         });
         try {
             await request(app).patch("/api/v1/auth/me").set(auth)
@@ -752,7 +754,10 @@ describe("PULSE API", () => {
             assert.equal(pending.body.user.email, "email-owner@example.test");
             assert.equal(pending.body.emailChange.pendingEmail, "new.address@example.test");
             assert.equal(sentMessages.length, 1);
+            assert.deepEqual(sentMessages[0].from, { name: "CalmWork", address: "sender@example.test" });
             assert.equal(sentMessages[0].to, "new.address@example.test");
+            assert.equal(sentMessages[0].subject, "Verify your CalmWork email address");
+            assert.match(sentMessages[0].text, /Verify this address using the link below/);
 
             const verificationUrl = sentMessages[0].text.match(/https?:\/\/\S+/)?.[0];
             assert.ok(verificationUrl);
@@ -770,6 +775,63 @@ describe("PULSE API", () => {
             await request(app).post("/api/v1/auth/email-change/verify").send({ token }).expect(401);
             await request(app).post("/api/v1/auth/signin")
                 .send({ email: "new.address@example.test", password: "correct-horse-battery" }).expect(200);
+        }
+        finally {
+            transportSpy.mockRestore();
+            for (const [key, value] of Object.entries(previousEnv)) {
+                if (value === undefined)
+                    delete process.env[key];
+                else
+                    process.env[key] = value;
+            }
+        }
+    });
+    it("reports SMTP provider errors instead of treating email delivery as successful", async () => {
+        const previousEnv = Object.fromEntries(
+            ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"].map((key) => [key, process.env[key]]),
+        );
+        Object.assign(process.env, {
+            SMTP_HOST: "smtp.example.test",
+            SMTP_PORT: "587",
+            SMTP_USER: "sender@example.test",
+            SMTP_PASS: "test-password",
+            SMTP_FROM: "sender@example.test",
+        });
+        const transport = {
+            sendMail: vi.fn().mockRejectedValue(new Error("provider rejected message")),
+        };
+        const transportSpy = vi.spyOn(nodemailer, "createTransport").mockReturnValue(transport);
+        try {
+            await assert.rejects(sendOtpEmail({
+                to: "person@example.test",
+                code: "123456",
+                expiresInMinutes: 5,
+            }), { code: "EMAIL_DELIVERY_FAILED" });
+        }
+        finally {
+            transportSpy.mockRestore();
+            for (const [key, value] of Object.entries(previousEnv)) {
+                if (value === undefined)
+                    delete process.env[key];
+                else
+                    process.env[key] = value;
+            }
+        }
+    });
+    it("allows SMTP configuration to be omitted in development", async () => {
+        const previousEnv = Object.fromEntries(
+            ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"].map((key) => [key, process.env[key]]),
+        );
+        for (const key of Object.keys(previousEnv))
+            delete process.env[key];
+        const transportSpy = vi.spyOn(nodemailer, "createTransport");
+        try {
+            await sendOtpEmail({
+                to: "person@example.test",
+                code: "123456",
+                expiresInMinutes: 5,
+            });
+            assert.equal(transportSpy.mock.calls.length, 0);
         }
         finally {
             transportSpy.mockRestore();

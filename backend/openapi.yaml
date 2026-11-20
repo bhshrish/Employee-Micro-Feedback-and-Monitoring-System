@@ -305,7 +305,7 @@ paths:
     post:
       tags: [Workspace]
       summary: Create a seven-day, single-use team member invitation
-      description: Returns a one-time acceptance token because no outbound email provider is configured. Managers can invite only to their assigned team.
+      description: Returns a one-time acceptance token to share with the invitee; this endpoint does not send an invitation email. Managers can invite only to their assigned team.
       security: [{ bearerAuth: [] }]
       requestBody:
         required: true

@@ -10,8 +10,6 @@ function getTransporter(config) {
             return null;
         throw new AppError(503, "Email delivery is not configured.", "EMAIL_DELIVERY_UNAVAILABLE");
     }
-
-    // MANUAL SETUP REQUIRED: configure SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, and SMTP_FROM using your email provider's SMTP settings.
     return nodemailer.createTransport({
         host: config.SMTP_HOST,
         port: config.SMTP_PORT || 587,
@@ -24,15 +22,21 @@ async function deliver({ to, subject, text }) {
     const config = getConfig();
     const transporter = getTransporter(config);
     if (!transporter) {
-        logger.info({ to, subject, text }, "Development email preview");
+        logger.info("Development email preview (SMTP is not configured)");
         return;
     }
-    await transporter.sendMail({
-        from: { name: config.SMTP_FROM_NAME || "CalmWork", address: config.SMTP_FROM },
-        to,
-        subject,
-        text,
-    });
+    try {
+        await transporter.sendMail({
+            from: { name: config.SMTP_FROM_NAME, address: config.SMTP_FROM },
+            to,
+            subject,
+            text,
+        });
+    }
+    catch (error) {
+        logger.error({ err: error }, "SMTP email delivery failed");
+        throw new AppError(502, "Email delivery failed.", "EMAIL_DELIVERY_FAILED");
+    }
 }
 
 async function sendOtpEmail({ to, code, expiresInMinutes }) {
