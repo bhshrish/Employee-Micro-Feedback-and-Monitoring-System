@@ -25,6 +25,13 @@ export function PasswordRecoveryForm({ mode }) {
         event.preventDefault();
         setError("");
         setMessage("");
+        const emailInput = event.currentTarget.elements.namedItem("email");
+        if (!resetting && !emailInput?.validity.valid) {
+            setError(emailInput?.validity.valueMissing
+                ? "Enter your work email."
+                : "Enter a valid email address.");
+            return;
+        }
         if (resetting && !token) {
             setError("This reset link is invalid. Request a new password reset email.");
             return;
@@ -40,7 +47,7 @@ export function PasswordRecoveryForm({ mode }) {
                 setMessage("Your password has been reset. You can now sign in with your new password.");
             }
             else {
-                const result = await requestPasswordReset(email);
+                const result = await requestPasswordReset(email.trim());
                 setMessage(result.message || "If an account exists for this email, a password reset link has been sent.");
             }
         }
@@ -61,7 +68,7 @@ export function PasswordRecoveryForm({ mode }) {
                 : "Enter your work email and we’ll send a link to reset your password."}</p>
             {!message && <form onSubmit={submit} noValidate>
                 {!resetting
-                    ? <label>Work email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" autoCapitalize="none" required /></label>
+                    ? <label>Work email<input type="email" name="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" autoCapitalize="none" required /></label>
                     : <>
                         <label>New password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" minLength={8} maxLength={128} required /></label>
                         <label>Confirm new password<input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" minLength={8} maxLength={128} required /></label>
