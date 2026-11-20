@@ -854,7 +854,7 @@ describe("PULSE API", () => {
             CORS_ORIGINS: "https://frontend.example.test",
             SMTP_HOST: "smtp.example.test",
             SMTP_PORT: "587",
-            SMTP_USER: "",
+            SMTP_USER: "   ",
             SMTP_PASS: "test-password",
             SMTP_FROM: "sender@example.test",
         });

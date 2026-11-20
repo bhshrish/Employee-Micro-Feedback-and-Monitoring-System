@@ -60,7 +60,7 @@ paths:
       responses:
         "200": { description: Code requested; response does not disclose account existence }
         "400": { $ref: "#/components/responses/BadRequest" }
-        "429": { description: Resend cooldown or rate limit }
+        "429": { description: Code resend cooldown or rate limit }
   /auth/signup:
     post:
       tags: [Authentication]

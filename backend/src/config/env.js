@@ -24,15 +24,15 @@ const schema = zod_1.z.object({
     OPS_ADMIN_INITIAL_PASSWORD: zod_1.z.preprocess((value) => value === "" ? undefined : value, zod_1.z.string().min(12).optional()),
     MIN_PULSE_GROUP_SIZE: zod_1.z.coerce.number().int().min(5).default(5),
     PASSWORD_RESET_TTL_MINUTES: zod_1.z.coerce.number().int().min(5).max(10080).default(60),
-    SMTP_HOST: zod_1.z.string().optional(),
+    SMTP_HOST: zod_1.z.preprocess((value) => typeof value === "string" && value.trim() ? value.trim() : undefined, zod_1.z.string().optional()),
     SMTP_PORT: zod_1.z.coerce.number().int().min(1).max(65535).optional(),
-    SMTP_USER: zod_1.z.string().optional(),
+    SMTP_USER: zod_1.z.preprocess((value) => typeof value === "string" && value.trim() ? value.trim() : undefined, zod_1.z.string().optional()),
     SMTP_PASS: zod_1.z.preprocess((v) => {
         if (typeof v === "string" && v.trim()) return v.trim();
         if (typeof process.env.SMTP_PASSWORD === "string" && process.env.SMTP_PASSWORD.trim()) return process.env.SMTP_PASSWORD.trim();
         return undefined;
     }, zod_1.z.string().optional()),
-    SMTP_FROM: zod_1.z.string().email().optional(),
+    SMTP_FROM: zod_1.z.preprocess((value) => typeof value === "string" && value.trim() ? value.trim() : undefined, zod_1.z.string().email().optional()),
     SMTP_FROM_NAME: zod_1.z.string().default("CalmWork"),
     SMS_API_URL: zod_1.z.string().url().optional(),
     SMS_API_TOKEN: zod_1.z.string().optional(),
