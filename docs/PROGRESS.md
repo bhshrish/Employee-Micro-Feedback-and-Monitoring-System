@@ -2,15 +2,17 @@
 
 Paste this file at the start of any new AI session. Update it at the end of every step. Newest entries first within each section.
 
-Last updated: 2026-11-20
+Last updated: 2026-11-21
 
 ---
 
 ## 1. Current status
 
-- **Phase:** Documentation complete. Implementation not yet started against these docs.
-- **Next step:** Plan step **0.1 Repo hygiene** (see `06-IMPLEMENTATION-PLAN.md`).
-- **Live site:** https://employee-micro-feedback-and-monitor-omega.vercel.app/ (frontend only, mock data in `lib/api.ts`)
+- **Phase:** Step **0.1 Repo hygiene and TypeScript migration** is in progress.
+- **Current substep:** **0.1a.2 Remaining frontend**. The login/auth boundary, shared UI primitives, providers, admin helpers, hooks, and shared API client are TypeScript; strict frontend typecheck, lint, and production build pass.
+- **Next step:** Continue **0.1a.2** with the remaining frontend modules and routes; then migrate the backend in **0.1b** and complete combined checks in **0.1c**.
+- **Repository note:** The checked-out application already has a substantial frontend and Express/Mongoose backend; the initial implementation-plan baseline predates that code. Existing JavaScript remains enabled but unchecked until converted in its staged migration slice.
+- **Live site:** https://employee-micro-feedback-and-monitor-omega.vercel.app/
 - **Repo:** https://github.com/bhshrish/Employee-Micro-Feedback-and-Monitoring-System
 
 ## 2. Done
@@ -21,7 +23,7 @@ Last updated: 2026-11-20
 
 ## 3. In progress
 
-- (nothing yet)
+- Strict TypeScript migration, staged to keep each frontend/backend slice buildable.
 
 ## 4. Known problems / broken
 
@@ -62,6 +64,38 @@ Password for all: `Demo@12345`. Created only by `npm run seed` when `SEED_DEMO=t
 
 ## 7. Changelog
 
+### 2026-11-21 — Step 0.1a.1 Auth boundary
+- Built: Added a strict frontend TypeScript configuration, typed the sign-in/sign-up API and subscription context boundary, and converted the login route and `AuthForm`.
+- Files changed: `frontend/app/login/page.tsx`, `frontend/components/AuthForm.tsx`, `frontend/lib/api.d.ts`, `frontend/lib/subscription.d.ts`, frontend TypeScript/ESLint configuration, and package scripts/dependencies.
+- Tests: `npm run lint`, `npm run typecheck`, and `npm --workspace frontend run build` pass.
+- Manual steps for me: None.
+- Problems / follow-ups: Remaining frontend and backend JavaScript is not yet strict-typechecked; continue with steps 0.1a.2 and 0.1b.
+- Decisions: Split the original 0.1 migration into frontend and backend stages; further stage the frontend conversion to avoid leaving the application with hundreds of unresolved strict-type errors.
+
+### 2026-11-21 — Step 0.1a.2 Shared frontend primitives
+- Built: Converted the icon, logo, shared UI, admin helper, idle detector, and local-storage hook modules to TypeScript. Fixed strict types and React lint findings without weakening the configured checks.
+- Files changed: `frontend/components/Icon.tsx`, `Logo.tsx`, `UI.tsx`, `frontend/components/admin/adminHelpers.ts`, `frontend/hooks/useIdleDetector.ts`, and `useLocalStorage.ts`.
+- Tests: `npm --workspace frontend run typecheck`, `npm --workspace frontend run lint`, `npm --workspace frontend run build`, and `git diff --check` pass.
+- Manual steps for me: None.
+- Problems / follow-ups: The API client and remaining frontend modules are still JavaScript and are not yet strict-typechecked; continue 0.1a.2 in small slices.
+- Decisions: Keep the API client migration as a separate slice because it is imported across many frontend routes and components.
+
+### 2026-11-21 — Step 0.1a.2 Frontend providers
+- Built: Converted theme and subscription contexts to typed providers, including explicit theme and context value types. Updated API declarations for session restoration and sign-out.
+- Files changed: `frontend/lib/theme.tsx`, `frontend/lib/subscription.tsx`, and `frontend/lib/api.d.ts` (removed the former JavaScript providers and redundant subscription declaration).
+- Tests: `npm --workspace frontend run typecheck`, `npm --workspace frontend run lint`, `npm --workspace frontend run build`, and `git diff --check` pass.
+- Manual steps for me: None.
+- Problems / follow-ups: The shared API client and remaining frontend modules are still JavaScript; proceed with 0.1a.2.
+- Decisions: Keep API-client conversion separate because it is imported broadly across routes and components.
+
+### 2026-11-21 — Step 0.1a.2 Shared API client
+- Built: Converted the shared API client to TypeScript. Added typed auth/session and activity/analytics response boundaries, request input types, and explicit handling for endpoints that require a response body while preserving 204 behavior for no-content calls.
+- Files changed: Renamed `frontend/lib/api.js` to `frontend/lib/api.ts` and consolidated its auth-user declarations, removing the former `api.d.ts`.
+- Tests: `npm --workspace frontend run typecheck`, `npm --workspace frontend run lint`, `npm --workspace frontend run build`, and `git diff --check` pass. Confirmed no `any`, `@ts-nocheck`, or `ts-ignore` escapes in the migrated client.
+- Manual steps for me: None.
+- Problems / follow-ups: Remaining routes, components, and hooks are still JavaScript and are not yet strict-typechecked; continue 0.1a.2 in small slices.
+- Decisions: Keep the existing API endpoint behavior and centralized client while incrementally tightening response types.
+
 ### 2026-11-20
 - Added `docs/` with the 8 project documents.
 - Switched trial from 7 to 14 days; added invite-code employee onboarding and business-email rule to the spec.
@@ -80,9 +114,9 @@ Password for all: `Demo@12345`. Created only by `npm run seed` when `SEED_DEMO=t
 
 ## 8. Manual setup checklist (things the AI cannot do)
 
-- [ ] MongoDB Atlas cluster and `MONGODB_URI`
-- [ ] Vercel: two projects (frontend root, `backend/` root) and env vars
-- [ ] Resend account, verify sending domain, SMTP credentials
+- [X] MongoDB Atlas cluster and `MONGODB_URI`
+- [X] Vercel: two projects (frontend root, `backend/` root) and env vars
+- [X] Gmail account, verify sending domain, SMTP credentials
 - [ ] Razorpay test and live keys, webhook URL + secret
 - [ ] `CRON_SECRET` and Vercel Cron schedules
 - [ ] Brand SVG logo exported to `public/brand/`

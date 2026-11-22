@@ -2,14 +2,28 @@
   "name": "calmwork-frontend",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=20.19"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "lint": "eslint '**/*.{ts,tsx}'",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "next": "16.4.6",
     "react": "19.3.0",
     "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "eslint": "^10.15.0",
+    "eslint-config-next": "^16.4.6",
+    "prettier": "^3.10.1",
+    "typescript": "^6.0.3"
   }
 }

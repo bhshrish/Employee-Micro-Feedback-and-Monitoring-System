@@ -2,14 +2,20 @@
 
 Build in small steps. **One step per prompt/PR.** Each step lists a goal, what to build, and a "done when" check. Do not start the next step until the current one passes. Read `CLAUDE.md` and the relevant docs before each step.
 
-Starting point: frontend exists with mock `lib/api.ts`; the Express backend skeleton is in `backend/`.
+Starting point: the repository already contains a JavaScript Next.js frontend and an Express/Mongoose backend. The TypeScript migration is staged so each slice remains buildable.
 
 ---
 
 ## Milestone 0 — Foundation
 
-**0.1 Repo hygiene.** Add `docs/` (these 8 files), `.env.example` (commented), `.gitignore`, Prettier/ESLint, TypeScript strict in both projects, Conventional Commits.
-Done when: `npm run lint && npm run typecheck` pass in root and `backend/`.
+**0.1 Repo hygiene.** Confirm the docs, commented `.env.example` files, `.gitignore`, Prettier/ESLint, strict TypeScript, and Conventional Commit conventions. The existing JavaScript application is migrated incrementally:
+
+- **0.1a.1 Auth boundary:** migrate the login page and `AuthForm`; declare the auth API/context types. Done when the strict frontend typecheck, frontend lint, and production build pass.
+- **0.1a.2 Remaining frontend:** migrate the remaining routes, components, hooks, and API modules in buildable slices. Keep strict checking enabled for migrated TypeScript.
+- **0.1b Backend:** migrate backend source and tests to TypeScript and add strict backend typecheck/build scripts.
+- **0.1c Completion:** ensure root lint/typecheck run both projects and pass alongside backend tests.
+
+Do not begin milestone 0.2 until 0.1c passes.
 
 **0.2 Design tokens.** Add the color/radius/font tokens from `04-FRONTEND-GUIDELINES.md` to `globals.css` and `tailwind.config`. Load Figtree.
 Done when: a test page shows all tokens; no hex values elsewhere.

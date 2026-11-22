@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { signInWithPassword, signupWithSession } from "@/lib/api";
 import { useSubscription } from "@/lib/subscription";
@@ -8,12 +8,19 @@ import { Logo } from "./Logo";
 import { Icon } from "./Icon";
 import { FieldError } from "./UI";
 
-export function AuthForm() {
-    const [formMode, setFormMode] = useState("signin");
+type FormMode = "signin" | "signup";
+type AuthFormErrors = Partial<Record<"email" | "password" | "name" | "form", string>>;
+
+interface AuthFormProps {
+    initialMode?: FormMode;
+}
+
+export function AuthForm({ initialMode = "signin" }: AuthFormProps) {
+    const [formMode, setFormMode] = useState<FormMode>(initialMode);
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [errors, setErrors] = useState({});
+    const [errors, setErrors] = useState<AuthFormErrors>({});
     const [loading, setLoading] = useState(false);
     const { signIn, authenticated, hydrated } = useSubscription();
     const router = useRouter();
@@ -27,21 +34,14 @@ export function AuthForm() {
         }
     }, [hydrated, authenticated, router]);
 
-    useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        if (params.get("mode") === "signup") {
-            setFormMode("signup");
-        }
-    }, []);
-
-    const switchFormMode = (mode) => {
+    const switchFormMode = (mode: FormMode) => {
         setFormMode(mode);
         setErrors({});
     };
 
-    const submit = async (event) => {
+    const submit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        const next = {};
+        const next: AuthFormErrors = {};
         const trimmedEmail = email.trim();
 
         if (!/^\S+@\S+\.\S+$/.test(trimmedEmail))

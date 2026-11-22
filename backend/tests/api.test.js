@@ -1226,6 +1226,12 @@ describe("PULSE API", () => {
         await asAdmin("patch", `/api/v1/operations/businesses/${business._id}`).send({ isActive: false }).expect(200);
         await request(app).get("/api/v1/workspace/teams")
             .set("Authorization", `Bearer ${owner.body.accessToken}`).expect(401);
+        const inactiveSignIn = await request(app).post("/api/v1/auth/signin")
+            .send({ email: "platform-owner@example.test", password: "correct-horse-battery" }).expect(401);
+        assert.equal(inactiveSignIn.body.error.message, "This workspace is inactive");
+        await asAdmin("patch", `/api/v1/operations/businesses/${business._id}`).send({ isActive: true }).expect(200);
+        await request(app).post("/api/v1/auth/signin")
+            .send({ email: "platform-owner@example.test", password: "correct-horse-battery" }).expect(200);
         await asAdmin("post", "/api/v1/operations/auth/logout").expect(204);
     });
 

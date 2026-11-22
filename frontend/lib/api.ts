@@ -1,10 +1,123 @@
+export interface AuthUser {
+    id: string;
+    name: string;
+    email: string;
+    organizationId: string;
+    teamId: string | null;
+    role: "admin" | "manager" | "employee";
+    subscription: {
+        plan: string;
+        status: string;
+        trialEndsAt: string | Date;
+    };
+}
+
+interface HeatmapResponse {
+    teams: { teamId: string; name: string }[];
+    cells: UnknownRecord[];
+}
+
+interface PulseTeam {
+    teamId: string;
+    name: string;
+    mood: number | null;
+    stress: number | null;
+    workload: number | null;
+    burnoutScore: number | null;
+    exhaustion: number | null;
+    recovery: number | null;
+    control: number | null;
+    support: number | null;
+    participation: number;
+    responses: number;
+    trend: { mood: number }[];
+}
+
+interface PulseTeamsResponse {
+    minimumGroupSize: number;
+    teams: PulseTeam[];
+}
+
+interface AnalyticsTeamsResponse {
+    teams: { suppressed: boolean }[];
+}
+
+interface AlertsResponse {
+    alerts: {
+        _id: string;
+        title: string;
+        detail: string;
+        severity: string;
+        createdAt: string;
+        status: string;
+    }[];
+}
+
+interface ReportResponse {
+    report: {
+        downloadUrl: string;
+        filename?: string;
+    };
+}
+
+type UnknownRecord = Record<string, unknown>;
+
+interface ApiErrorResponse {
+    error?: {
+        code?: string;
+        message?: string;
+        details?: {
+            formErrors?: string[];
+            fieldErrors?: Record<string, string[]>;
+        };
+    };
+}
+
+interface AuthResponse {
+    user: AuthUser;
+    accessToken?: string;
+}
+
+interface AdminTokenResponse {
+    token?: string;
+}
+
+interface CurrentUserResponse {
+    user: AuthUser;
+}
+
+interface SessionActivity {
+    startedAt: string;
+    activeSeconds: number;
+    idleSeconds: number;
+    category: string;
+    status?: string;
+}
+
+interface DailyActivity {
+    date: string;
+    active: number;
+    idle: number;
+    productive: number;
+    neutral: number;
+}
+
+interface DashboardSnapshot {
+    sessions: SessionActivity[];
+    daily: DailyActivity[];
+}
+
+interface ApiRequestInit extends RequestInit {
+    responseType?: "blob";
+}
+
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1").replace(/\/$/, "");
-let refreshRequest = null;
-let dashboardRequest = null;
+let refreshRequest: Promise<boolean> | null = null;
+let dashboardRequest: Promise<DashboardSnapshot> | null = null;
 let currentAccessToken = typeof window !== "undefined" ? localStorage.getItem("calmwork:access-token") : null;
 let currentAdminToken = typeof window !== "undefined" ? localStorage.getItem("calmwork:admin-token") : null;
 
-export function setAccessToken(token) {
+export function setAccessToken(token: string | null | undefined): void {
     currentAccessToken = token || null;
     if (typeof window !== "undefined") {
         if (token)
@@ -14,7 +127,7 @@ export function setAccessToken(token) {
     }
 }
 
-export function setAdminToken(token) {
+export function setAdminToken(token: string | null | undefined): void {
     currentAdminToken = token || null;
     if (typeof window !== "undefined") {
         if (token)
@@ -23,15 +136,15 @@ export function setAdminToken(token) {
             localStorage.removeItem("calmwork:admin-token");
     }
 }
-function isAuthPath(path) {
+function isAuthPath(path: string): boolean {
     return path.startsWith("/auth/otp/") ||
         ["/auth/refresh", "/auth/signin", "/auth/login", "/auth/signup", "/auth/signup/session", "/auth/accept-invitation", "/auth/accept-invitation/session", "/auth/forgot-password", "/auth/reset-password", "/auth/email-change/verify"].includes(path) ||
         path.startsWith("/operations/auth/otp/");
 }
-function apiError(status, code, message) {
+function apiError(status: number, code: string, message: string): Error & { status: number; code: string } {
     return Object.assign(new Error(message), { status, code });
 }
-async function fetchApi(input, init) {
+async function fetchApi(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
     try {
         return await fetch(input, init);
     }
@@ -41,7 +154,7 @@ async function fetchApi(input, init) {
         throw apiError(0, "API_UNAVAILABLE", `Can't reach the CalmWork API at ${API_BASE}. Start MongoDB and run \`npm run api:dev\` after configuring backend/.env. For a remote API, set NEXT_PUBLIC_API_URL and allow this site's origin in CORS_ORIGINS.`);
     }
 }
-async function refreshAccessToken() {
+async function refreshAccessToken(): Promise<boolean> {
     if (refreshRequest)
         return refreshRequest;
     const pending = (async () => {
@@ -49,7 +162,7 @@ async function refreshAccessToken() {
             method: "POST",
             credentials: "include",
         });
-        const payload = await response.json().catch(() => ({}));
+        const payload = await response.json().catch(() => ({})) as ApiErrorResponse & { accessToken?: string };
         if (!response.ok) {
             if (response.status === 401) {
                 setAccessToken(null);
@@ -72,7 +185,13 @@ async function refreshAccessToken() {
             refreshRequest = null;
     }
 }
-async function request(path, init = {}, canRefresh = true) {
+function request(path: string, init: ApiRequestInit & { responseType: "blob" }, canRefresh?: boolean): Promise<Blob>;
+function request<T = UnknownRecord>(path: string, init?: ApiRequestInit, canRefresh?: boolean): Promise<T | undefined>;
+async function request<T = UnknownRecord>(
+    path: string,
+    init: ApiRequestInit = {},
+    canRefresh = true,
+): Promise<T | Blob | undefined> {
     const responseType = init.responseType;
     const requestInit = { ...init };
     delete requestInit.responseType;
@@ -96,18 +215,18 @@ async function request(path, init = {}, canRefresh = true) {
     if (responseType === "blob" && response.ok)
         return response.blob();
     const contentType = response.headers.get("content-type") || "";
-    const payload = contentType.includes("application/json")
+    const payload: unknown = contentType.includes("application/json")
         ? await response.json()
         : await response.text();
     if (!response.ok) {
-        const body = payload;
+        const body = typeof payload === "object" && payload !== null && !Array.isArray(payload)
+            ? payload as ApiErrorResponse
+            : {};
         const validationDetails = body.error?.details;
         const validationMessages = [
-            ...(Array.isArray(validationDetails?.formErrors) ? validationDetails.formErrors : []),
-            ...Object.entries(validationDetails?.fieldErrors || {})
-                .flatMap(([field, messages]) => Array.isArray(messages)
-                    ? messages.map((message) => `${field}: ${message}`)
-                    : []),
+            ...(validationDetails?.formErrors ?? []),
+            ...Object.entries(validationDetails?.fieldErrors ?? {})
+                .flatMap(([field, messages]) => messages.map((message) => `${field}: ${message}`)),
         ];
         const message = body.error?.message || `Request failed (${response.status})`;
         throw apiError(
@@ -116,13 +235,24 @@ async function request(path, init = {}, canRefresh = true) {
             validationMessages.length ? `${message} (${validationMessages.join("; ")})` : message,
         );
     }
-    return payload;
+    return payload as T;
 }
-export async function requestOtp(input) {
+
+async function requestRequired<T = UnknownRecord>(
+    path: string,
+    init: ApiRequestInit = {},
+    canRefresh = true,
+): Promise<T> {
+    const result = await request<T>(path, init, canRefresh);
+    if (result === undefined)
+        throw apiError(502, "EMPTY_RESPONSE", "The CalmWork API returned an empty response.");
+    return result;
+}
+export async function requestOtp(input: { email: string }) {
     return request("/auth/otp/request", { method: "POST", body: JSON.stringify(input) }, false);
 }
-export async function verifyOtp(input) {
-    const result = await request("/auth/otp/verify", {
+export async function verifyOtp(input: { email: string; code: string }): Promise<AuthUser> {
+    const result = await requestRequired<AuthResponse>("/auth/otp/verify", {
         method: "POST",
         body: JSON.stringify(input),
     }, false);
@@ -131,53 +261,53 @@ export async function verifyOtp(input) {
     localStorage.setItem("calmwork:auth", "true");
     return result.user;
 }
-export async function signup(input) {
+export async function signup(input: { name: string; email: string; password: string }) {
     return request("/auth/signup", { method: "POST", body: JSON.stringify(input) }, false);
 }
-export async function signupWithSession(input) {
-    const result = await request("/auth/signup/session", { method: "POST", body: JSON.stringify(input) }, false);
+export async function signupWithSession(input: { name: string; email: string; password: string }): Promise<AuthUser> {
+    const result = await requestRequired<AuthResponse>("/auth/signup/session", { method: "POST", body: JSON.stringify(input) }, false);
     if (result.accessToken)
         setAccessToken(result.accessToken);
     localStorage.setItem("calmwork:auth", "true");
     return result.user;
 }
-export async function signInWithPassword(input) {
-    const result = await request("/auth/signin", { method: "POST", body: JSON.stringify(input) }, false);
+export async function signInWithPassword(input: { email: string; password: string }): Promise<AuthUser> {
+    const result = await requestRequired<AuthResponse>("/auth/signin", { method: "POST", body: JSON.stringify(input) }, false);
     if (result.accessToken)
         setAccessToken(result.accessToken);
     localStorage.setItem("calmwork:auth", "true");
     return result.user;
 }
-export async function acceptInvitation(input) {
+export async function acceptInvitation(input: { email: string; code: string; name: string; password: string }) {
     return request("/auth/accept-invitation", { method: "POST", body: JSON.stringify(input) }, false);
 }
-export async function acceptInvitationWithSession(input) {
-    const result = await request("/auth/accept-invitation/session", { method: "POST", body: JSON.stringify(input) }, false);
+export async function acceptInvitationWithSession(input: { email: string; code: string; name: string; password: string }): Promise<AuthUser> {
+    const result = await requestRequired<AuthResponse>("/auth/accept-invitation/session", { method: "POST", body: JSON.stringify(input) }, false);
     if (result.accessToken)
         setAccessToken(result.accessToken);
     localStorage.setItem("calmwork:auth", "true");
     return result.user;
 }
-export async function requestPasswordReset(email) {
+export async function requestPasswordReset(email: string) {
     return request("/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) }, false);
 }
-export async function resetPassword(input) {
+export async function resetPassword(input: { token: string; password: string }) {
     return request("/auth/reset-password", { method: "POST", body: JSON.stringify(input) }, false);
 }
-export async function verifyEmailChange(token) {
+export async function verifyEmailChange(token: string) {
     return request("/auth/email-change/verify", { method: "POST", body: JSON.stringify({ token }) }, false);
 }
-export async function requestAdminOtp(email) {
+export async function requestAdminOtp(email: string) {
     return request("/operations/auth/otp/request", { method: "POST", body: JSON.stringify({ email }) }, false);
 }
-export async function verifyAdminOtp(email, code) {
-    const result = await request("/operations/auth/otp/verify", { method: "POST", body: JSON.stringify({ email, code }) }, false);
+export async function verifyAdminOtp(email: string, code: string) {
+    const result = await requestRequired<AdminTokenResponse>("/operations/auth/otp/verify", { method: "POST", body: JSON.stringify({ email, code }) }, false);
     if (result?.token)
         setAdminToken(result.token);
     return result;
 }
-export async function loginOperationsAdmin(email, password) {
-    const result = await request("/operations/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }, false);
+export async function loginOperationsAdmin(email: string, password: string) {
+    const result = await requestRequired<AdminTokenResponse>("/operations/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }, false);
     if (result?.token)
         setAdminToken(result.token);
     return result;
@@ -202,7 +332,7 @@ export async function getOperationsBusinesses(page = 1, q = "") {
         query.set("q", q);
     return request(`/operations/businesses?${query}`, {}, false);
 }
-export async function setOperationsBusinessActive(id, isActive) {
+export async function setOperationsBusinessActive(id: string, isActive: boolean) {
     return request(`/operations/businesses/${encodeURIComponent(id)}`, {
         method: "PATCH",
         body: JSON.stringify({ isActive }),
@@ -214,7 +344,7 @@ export async function getOperationsUsers(page = 1, q = "") {
         query.set("q", q);
     return request(`/operations/users?${query}`, {}, false);
 }
-export async function setOperationsUserActive(id, isActive) {
+export async function setOperationsUserActive(id: string, isActive: boolean) {
     return request(`/operations/users/${encodeURIComponent(id)}`, {
         method: "PATCH",
         body: JSON.stringify({ isActive }),
@@ -223,29 +353,29 @@ export async function setOperationsUserActive(id, isActive) {
 export async function getOperationsTeams() {
     return request("/operations/teams", {}, false);
 }
-export async function createOperationsTeam(organizationId, name) {
+export async function createOperationsTeam(organizationId: string, name: string) {
     return request("/operations/teams", {
         method: "POST",
         body: JSON.stringify({ organizationId, name }),
     }, false);
 }
-export async function archiveOperationsTeam(teamId) {
+export async function archiveOperationsTeam(teamId: string) {
     return request(`/operations/teams/${encodeURIComponent(teamId)}`, { method: "DELETE" }, false);
 }
-export async function assignOperationsTeam(userId, teamId) {
+export async function assignOperationsTeam(userId: string, teamId: string | null) {
     return request(`/operations/users/${encodeURIComponent(userId)}/team`, {
         method: "PATCH",
         body: JSON.stringify({ teamId }),
     }, false);
 }
-export async function getOperationsActivity(date) {
+export async function getOperationsActivity(date: string) {
     return request(`/operations/activity?date=${encodeURIComponent(date)}`, {}, false);
 }
-export async function getOperationsAttendance(date, page = 1) {
+export async function getOperationsAttendance(date: string, page = 1) {
     const query = new URLSearchParams({ date, page: String(page) });
     return request(`/operations/attendance?${query}`, {}, false);
 }
-export async function exportOperationsAttendance(date) {
+export async function exportOperationsAttendance(date: string) {
     const response = await fetchApi(`${API_BASE}/operations/attendance/export?date=${encodeURIComponent(date)}`, { credentials: "include" });
     if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
@@ -254,11 +384,11 @@ export async function exportOperationsAttendance(date) {
     return response.blob();
 }
 export async function getOperationsLeave() {
-    const result = await request("/operations/leave", {}, false);
+    const result = await requestRequired("/operations/leave", {}, false);
     return result.requests;
 }
-export async function decideOperationsLeave(toolId, status) {
-    const result = await request(`/operations/leave/${encodeURIComponent(toolId)}`, {
+export async function decideOperationsLeave(toolId: string, status: string) {
+    const result = await requestRequired(`/operations/leave/${encodeURIComponent(toolId)}`, {
         method: "PATCH",
         body: JSON.stringify({ status }),
     }, false);
@@ -270,16 +400,16 @@ export async function getWorkspaceTeams() {
 export async function getWorkspaceMembers() {
     return request("/workspace/members");
 }
-export async function createWorkspaceTeam(name) {
+export async function createWorkspaceTeam(name: string) {
     return request("/workspace/teams", { method: "POST", body: JSON.stringify({ name }) });
 }
-export async function inviteWorkspaceMember(email, teamId) {
+export async function inviteWorkspaceMember(email: string, teamId: string) {
     return request("/workspace/invitations", { method: "POST", body: JSON.stringify({ email, teamId }) });
 }
-export async function updateWorkspaceMember(memberId, input) {
+export async function updateWorkspaceMember(memberId: string, input: UnknownRecord) {
     return request(`/workspace/members/${encodeURIComponent(memberId)}`, { method: "PATCH", body: JSON.stringify(input) });
 }
-export async function archiveWorkspaceTeam(teamId) {
+export async function archiveWorkspaceTeam(teamId: string) {
     return request(`/workspace/teams/${encodeURIComponent(teamId)}`, { method: "DELETE" });
 }
 export async function getMyAttendance() {
@@ -292,48 +422,48 @@ export async function checkOutAttendance() {
     return request("/attendance/check-out", { method: "POST", body: JSON.stringify({}) });
 }
 export async function getToolPlanner() {
-    const result = await request("/tools/planner");
+    const result = await requestRequired("/tools/planner");
     return result.tasks;
 }
-export async function createToolPlanner(input) {
-    const result = await request("/tools/planner", { method: "POST", body: JSON.stringify(input) });
+export async function createToolPlanner(input: UnknownRecord) {
+    const result = await requestRequired("/tools/planner", { method: "POST", body: JSON.stringify(input) });
     return result.task;
 }
-export async function updateToolPlanner(toolId, input) {
-    const result = await request(`/tools/planner/${encodeURIComponent(toolId)}`, { method: "PATCH", body: JSON.stringify(input) });
+export async function updateToolPlanner(toolId: string, input: UnknownRecord) {
+    const result = await requestRequired(`/tools/planner/${encodeURIComponent(toolId)}`, { method: "PATCH", body: JSON.stringify(input) });
     return result.task;
 }
-export async function deleteToolPlanner(toolId) {
+export async function deleteToolPlanner(toolId: string) {
     return request(`/tools/planner/${encodeURIComponent(toolId)}`, { method: "DELETE" });
 }
 export async function getToolLeave() {
-    const result = await request("/tools/leave");
+    const result = await requestRequired("/tools/leave");
     return result.requests;
 }
-export async function createToolLeave(input) {
-    const result = await request("/tools/leave", { method: "POST", body: JSON.stringify(input) });
+export async function createToolLeave(input: UnknownRecord) {
+    const result = await requestRequired("/tools/leave", { method: "POST", body: JSON.stringify(input) });
     return result.request;
 }
-export async function decideToolLeave(toolId, status) {
-    const result = await request(`/tools/leave/${encodeURIComponent(toolId)}/decision`, {
+export async function decideToolLeave(toolId: string, status: string) {
+    const result = await requestRequired(`/tools/leave/${encodeURIComponent(toolId)}/decision`, {
         method: "PATCH",
         body: JSON.stringify({ status }),
     });
     return result.request;
 }
 export async function getToolCalendar() {
-    const result = await request("/tools/calendar");
+    const result = await requestRequired("/tools/calendar");
     return result.events;
 }
-export async function createToolCalendarEvent(input) {
-    const result = await request("/tools/calendar", { method: "POST", body: JSON.stringify(input) });
+export async function createToolCalendarEvent(input: UnknownRecord) {
+    const result = await requestRequired("/tools/calendar", { method: "POST", body: JSON.stringify(input) });
     return result.event;
 }
 export async function restoreSession() {
     if (localStorage.getItem("calmwork:auth") !== "true")
         return null;
     try {
-        const result = await request("/auth/me");
+        const result = await requestRequired<CurrentUserResponse>("/auth/me");
         return result.user;
     }
     catch (error) {
@@ -357,19 +487,19 @@ export async function signOut(everywhere = false) {
         localStorage.removeItem("calmwork:auth");
     }
 }
-export async function updateProfile(input) {
+export async function updateProfile(input: UnknownRecord) {
     return request("/auth/me", { method: "PATCH", body: JSON.stringify(input) });
 }
-function hours(seconds) {
+function hours(seconds: number): string {
     return `${(seconds / 3600).toFixed(1)}h`;
 }
-function minutes(seconds) {
+function minutes(seconds: number): string {
     return `${Math.round(seconds / 60)}m`;
 }
-async function getDashboardSnapshot() {
+async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
     if (dashboardRequest)
         return dashboardRequest;
-    const pending = request("/dashboard?range=30d");
+    const pending = requestRequired<DashboardSnapshot>("/dashboard?range=30d");
     dashboardRequest = pending;
     try {
         return await pending;
@@ -379,7 +509,7 @@ async function getDashboardSnapshot() {
             dashboardRequest = null;
     }
 }
-export async function getDashboardData(range) {
+export async function getDashboardData(range: "Today" | "7d" | "30d") {
     const allActivity = await getDashboardSnapshot();
     const now = new Date();
     const start = new Date(now);
@@ -486,11 +616,11 @@ export async function getDashboardData(range) {
         trend,
     };
 }
-export async function getHeatmapData(weeks, teamId) {
+export async function getHeatmapData(weeks: number, teamId?: string) {
     const query = new URLSearchParams({ weeks: String(weeks) });
     if (teamId)
         query.set("teamId", teamId);
-    const result = await request(`/analytics/heatmap?${query}`);
+    const result = await requestRequired<HeatmapResponse>(`/analytics/heatmap?${query}`);
     return {
         teams: result.teams.map((team) => ({ id: team.teamId, name: team.name })),
         cells: result.cells,
@@ -498,9 +628,9 @@ export async function getHeatmapData(weeks, teamId) {
 }
 export async function getTeamData() {
     const [scores, analytics, alerts, heatmap] = await Promise.all([
-        request("/pulse/teams"),
-        request("/analytics/teams"),
-        request("/alerts?status=open"),
+        requestRequired<PulseTeamsResponse>("/pulse/teams"),
+        requestRequired<AnalyticsTeamsResponse>("/analytics/teams"),
+        requestRequired<AlertsResponse>("/alerts?status=open"),
         getHeatmapData(6),
     ]);
     return {
@@ -533,31 +663,31 @@ export async function getTeamData() {
         heatmap: heatmap.cells,
     };
 }
-export async function updateAlert(id, status) {
+export async function updateAlert(id: string, status: string) {
     return request(`/alerts/${encodeURIComponent(id)}`, { method: "PATCH", body: JSON.stringify({ status }) });
 }
-export async function submitPulse(payload) {
+export async function submitPulse(payload: UnknownRecord) {
     return request("/pulse", { method: "POST", body: JSON.stringify(payload) });
 }
 export async function getPulseStatus() {
     return request("/pulse/me");
 }
-export async function getReportSummary(period, metrics) {
+export async function getReportSummary(period: string, metrics: string[]) {
     const periodKey = period.toLowerCase().replace("last ", "").replace(" days", "d").replace(" day", "d").replace("quarter", "quarter");
     const response = await request(`/reports/preview?period=${encodeURIComponent(periodKey)}&metrics=${encodeURIComponent(metrics.join(","))}`);
     return response;
 }
-function reportPeriodKey(period) {
+function reportPeriodKey(period: string): string {
     return period.toLowerCase().replace("last ", "").replace(" days", "d").replace(" day", "d");
 }
-export async function createReportOrder(period, metrics, format) {
+export async function createReportOrder(period: string, metrics: string[], format: string) {
     return request("/reports/orders", {
         method: "POST",
         body: JSON.stringify({ period: reportPeriodKey(period), metrics, format: format.toLowerCase() }),
     });
 }
-export async function downloadReport(period, metrics, format, payment) {
-    const result = await request("/reports/generate", {
+export async function downloadReport(period: string, metrics: string[], format: string, payment: UnknownRecord) {
+    const result = await requestRequired<ReportResponse>("/reports/generate", {
         method: "POST",
         body: JSON.stringify({
             period: reportPeriodKey(period),
@@ -571,35 +701,36 @@ export async function downloadReport(period, metrics, format, payment) {
     });
     return { blob, filename: result.report.filename || `calmwork-report.${format.toLowerCase()}` };
 }
-export async function startActivity(task, category) {
+export async function startActivity(task: string, category: string) {
     return request("/sessions/start", { method: "POST", body: JSON.stringify({ task, category }) });
 }
 export async function getOpenActivity() {
     const result = await getDashboardSnapshot();
     return result.sessions.find((item) => item.status === "running" || item.status === "paused") ?? null;
 }
-export async function pauseActivity(id) {
+export async function pauseActivity(id: string) {
     return request(`/sessions/${encodeURIComponent(id)}/pause`, { method: "POST" });
 }
-export async function resumeActivity(id) {
+export async function resumeActivity(id: string) {
     return request(`/sessions/${encodeURIComponent(id)}/resume`, { method: "POST" });
 }
-export async function stopActivity(id) {
+export async function stopActivity(id: string) {
     return request(`/sessions/${encodeURIComponent(id)}/stop`, { method: "POST", body: JSON.stringify({}) });
 }
-export async function setActivityIdle(id, idle) {
+export async function setActivityIdle(id: string, idle: boolean) {
     return request(`/sessions/${encodeURIComponent(id)}/idle`, { method: "POST", body: JSON.stringify({ idle }) });
 }
-export async function updateActivityCategory(id, category) {
+export async function updateActivityCategory(id: string, category: string) {
     return request(`/sessions/${encodeURIComponent(id)}/tags`, { method: "PATCH", body: JSON.stringify({ tags: [], category }) });
 }
-export async function updateActivityTask(id, task) {
+export async function updateActivityTask(id: string, task: string) {
     return request(`/sessions/${encodeURIComponent(id)}/tags`, { method: "PATCH", body: JSON.stringify({ tags: [], task }) });
 }
-export async function heartbeatActivity(id) {
+export async function heartbeatActivity(id: string) {
     return request(`/sessions/${encodeURIComponent(id)}/heartbeat`, { method: "POST" });
 }
-function adminQuery(params = {}) {
+type QueryValue = string | number | boolean | null | undefined;
+function adminQuery(params: Record<string, QueryValue> = {}): string {
     const query = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== "")
@@ -609,58 +740,58 @@ function adminQuery(params = {}) {
     return serialized ? `?${serialized}` : "";
 }
 export async function getAdminOverview() {
-    const result = await request("/admin/overview");
+    const result = await requestRequired("/admin/overview");
     return result.overview;
 }
-export async function getAdminMembers(params = {}) {
+export async function getAdminMembers(params: Record<string, QueryValue> = {}) {
     return request(`/admin/members${adminQuery(params)}`);
 }
-export async function updateAdminMember(userId, input) {
+export async function updateAdminMember(userId: string, input: UnknownRecord) {
     return request(`/admin/members/${encodeURIComponent(userId)}`, {
         method: "PATCH",
         body: JSON.stringify(input),
     });
 }
 export async function getAdminInvitations() {
-    const result = await request("/admin/invitations");
+    const result = await requestRequired("/admin/invitations");
     return result.invitations;
 }
-export async function createAdminInvitation(email, teamId, role) {
-    const result = await request("/admin/invitations", {
+export async function createAdminInvitation(email: string, teamId: string, role: string) {
+    const result = await requestRequired("/admin/invitations", {
         method: "POST",
         body: JSON.stringify({ email, teamId, role }),
     });
     return result.invitation;
 }
-export async function resendAdminInvitation(email) {
-    const result = await request(`/admin/invitations/${encodeURIComponent(email)}/resend`, { method: "POST" });
+export async function resendAdminInvitation(email: string) {
+    const result = await requestRequired(`/admin/invitations/${encodeURIComponent(email)}/resend`, { method: "POST" });
     return result.invitation;
 }
-export async function cancelAdminInvitation(invitationId) {
+export async function cancelAdminInvitation(invitationId: string) {
     return request(`/admin/invitations/${encodeURIComponent(invitationId)}`, { method: "DELETE" });
 }
 export async function getAdminTeams() {
-    const result = await request("/admin/teams");
+    const result = await requestRequired("/admin/teams");
     return result.teams;
 }
-export async function createAdminTeam(name) {
-    const result = await request("/admin/teams", { method: "POST", body: JSON.stringify({ name }) });
+export async function createAdminTeam(name: string) {
+    const result = await requestRequired("/admin/teams", { method: "POST", body: JSON.stringify({ name }) });
     return result.team;
 }
-export async function renameAdminTeam(teamId, name) {
-    const result = await request(`/admin/teams/${encodeURIComponent(teamId)}`, {
+export async function renameAdminTeam(teamId: string, name: string) {
+    const result = await requestRequired(`/admin/teams/${encodeURIComponent(teamId)}`, {
         method: "PATCH",
         body: JSON.stringify({ name }),
     });
     return result.team;
 }
-export async function archiveAdminTeam(teamId) {
+export async function archiveAdminTeam(teamId: string) {
     return request(`/admin/teams/${encodeURIComponent(teamId)}`, { method: "DELETE" });
 }
-export async function getAdminAlerts(params = {}) {
+export async function getAdminAlerts(params: Record<string, QueryValue> = {}) {
     return request(`/admin/alerts${adminQuery(params)}`);
 }
-export async function updateAdminAlert(alertId, status) {
+export async function updateAdminAlert(alertId: string, status: string) {
     return request(`/admin/alerts/${encodeURIComponent(alertId)}`, {
         method: "PATCH",
         body: JSON.stringify({ status }),
@@ -672,9 +803,9 @@ export async function getAdminReports(page = 1) {
 export async function getAdminSettings() {
     return request("/admin/settings");
 }
-export async function updateAdminSettings(input) {
+export async function updateAdminSettings(input: UnknownRecord) {
     return request("/admin/settings", { method: "PATCH", body: JSON.stringify(input) });
 }
-export async function getAdminAuditLogs(params = {}) {
+export async function getAdminAuditLogs(params: Record<string, QueryValue> = {}) {
     return request(`/admin/audit-logs${adminQuery(params)}`);
 }

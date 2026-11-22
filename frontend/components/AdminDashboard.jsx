@@ -11,6 +11,7 @@ import {
     getOperationsAdmin,
     getOperationsOverview,
     getOperationsBusinesses,
+    setOperationsBusinessActive,
     getOperationsUsers,
     getOperationsTeams,
     getOperationsActivity,
@@ -28,6 +29,7 @@ import { errorMessage, formatDate } from "./admin/adminHelpers";
 
 const SECTIONS = [
     { key: "overview", label: "Overview", icon: "chart" },
+    { key: "businesses", label: "Workspaces", icon: "users" },
     { key: "users", label: "Users", icon: "users" },
     { key: "teams", label: "Teams", icon: "users" },
     { key: "activity", label: "Activity", icon: "clock" },
@@ -69,6 +71,8 @@ export function AdminDashboard() {
         try {
             if (section === "overview")
                 setData(await getOperationsOverview());
+            else if (section === "businesses")
+                setData(await getOperationsBusinesses(page, search));
             else if (section === "users") {
                 const [users, teams] = await Promise.all([
                     getOperationsUsers(page, search),
@@ -141,6 +145,17 @@ export function AdminDashboard() {
         }
         catch (cause) {
             setError(cause instanceof Error ? cause.message : "Could not update user.");
+        }
+    };
+
+    const toggleBusiness = async (business) => {
+        try {
+            await setOperationsBusinessActive(business._id, !business.isActive);
+            await loadSection();
+            toast(`Workspace ${!business.isActive ? "reactivated" : "deactivated"}.`);
+        }
+        catch (cause) {
+            setError(errorMessage(cause, "Could not update workspace."));
         }
     };
 
@@ -309,6 +324,9 @@ export function AdminDashboard() {
                                             <button className="button button-outline" onClick={() => setSection("users")}>
                                                 <Icon name="users" size={16} style={{ marginRight: 8 }} /> Manage users
                                             </button>
+                                            <button className="button button-outline" onClick={() => setSection("businesses")}>
+                                                <Icon name="users" size={16} style={{ marginRight: 8 }} /> Manage workspaces
+                                            </button>
                                             <button className="button button-outline" onClick={() => setSection("teams")}>
                                                 <Icon name="users" size={16} style={{ marginRight: 8 }} /> Manage teams
                                             </button>
@@ -325,6 +343,57 @@ export function AdminDashboard() {
                         </>
                     )}
 
+                    {section === "businesses" && (
+                        <>
+                            <div className="admin-heading">
+                                <div><p className="section-label">Platform</p><h2>Workspaces</h2></div>
+                                <div className="admin-search">
+                                    <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search workspaces…" className="admin-search-input" />
+                                </div>
+                            </div>
+                            {loading ? <Skeleton lines={5} /> : (
+                                <section className="data-card admin-card">
+                                    <div className="table-scroll">
+                                        <table className="data-table">
+                                            <thead>
+                                                <tr><th>Workspace</th><th>Owner</th><th>Users</th><th>Teams</th><th>Status</th><th>Action</th></tr>
+                                            </thead>
+                                            <tbody>
+                                                {(data?.businesses ?? []).map((business) => (
+                                                    <tr key={business._id}>
+                                                        <td><strong>{business.name}</strong><br /><small style={{ color: "var(--muted)" }}>{formatDate(business.createdAt)}</small></td>
+                                                        <td>{business.owner?.name ?? "Owner unavailable"}<br /><small style={{ color: "var(--muted)" }}>{business.owner?.email ?? ""}</small></td>
+                                                        <td>{business.users}</td>
+                                                        <td>{business.teams}</td>
+                                                        <td><span className={`admin-status ${business.isActive ? "active" : "inactive"}`}>{business.isActive ? "Active" : "Inactive"}</span></td>
+                                                        <td>
+                                                            <button
+                                                                className="button button-outline button-small"
+                                                                onClick={() => void toggleBusiness(business)}
+                                                                disabled={loading}
+                                                            >
+                                                                {business.isActive ? "Deactivate" : "Reactivate"}
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                {(data?.businesses ?? []).length === 0 && (
+                                                    <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--muted)", padding: 30 }}>No workspaces found.</td></tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    {(data?.totalPages ?? 1) > 1 && (
+                                        <div className="admin-pagination">
+                                            <button className="button button-outline button-small" disabled={page <= 1 || loading} onClick={() => setPage((p) => p - 1)}>Previous</button>
+                                            <span>Page {page} of {data.totalPages}</span>
+                                            <button className="button button-outline button-small" disabled={page >= data.totalPages || loading} onClick={() => setPage((p) => p + 1)}>Next</button>
+                                        </div>
+                                    )}
+                                </section>
+                            )}
+                        </>
+                    )}
 
                     {section === "users" && (
                         <>
