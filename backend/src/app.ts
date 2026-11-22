@@ -7,19 +7,13 @@ import cors from "cors";
 import helmet from "helmet";
 import pinoHttp from "pino-http";
 import rateLimit from "express-rate-limit";
-import { createRequire } from "node:module";
-import type { RequestHandler, Router } from "express";
 import { getConfig } from "./config/env";
 import { connectDatabase } from "./db";
 import { logger } from "./utils/logger";
-const require = createRequire(import.meta.url);
-const { notFoundHandler, errorHandler } = require("./middleware/errors") as {
-    notFoundHandler: RequestHandler;
-    errorHandler: (error: unknown, req: Request, res: Response, next: NextFunction) => void;
-};
-const { sanitizeBody } = require("./middleware/validate") as { sanitizeBody: RequestHandler };
-const routes = require("./routes").default as Router;
-const { webhook } = require("./controllers/billing.controller") as { webhook: RequestHandler };
+import { notFoundHandler, errorHandler } from "./middleware/errors";
+import { sanitizeBody } from "./middleware/validate";
+import routes from "./routes";
+import { webhook } from "./controllers/billing.controller";
 
 declare module "express-serve-static-core" {
     interface Request {

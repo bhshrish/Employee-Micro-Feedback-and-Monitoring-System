@@ -2,7 +2,7 @@ const clamp = (value) => Math.min(100, Math.max(0, value));
 const normalize = (value) => clamp(((value - 1) / 4) * 100);
 const severityFor = (score) => score >= 65 ? "high" : score >= 40 ? "medium" : "low";
 
-function calculateResponseBurnoutScore(answers) {
+export function calculateResponseBurnoutScore(answers) {
     const components = {
         mood: Math.round(normalize(6 - answers.mood)),
         stress: Math.round(normalize(answers.stress)),
@@ -21,7 +21,7 @@ function calculateResponseBurnoutScore(answers) {
 }
 
 
-function calculateBurnoutScore(metrics) {
+export function calculateBurnoutScore(metrics) {
     const stressRisk = normalize(metrics.stress);
     const reportedWorkloadRisk = normalize(metrics.workload);
     const workloadRisk = metrics.operationalWorkload === undefined

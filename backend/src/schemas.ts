@@ -81,12 +81,6 @@ export const reportGenerateSchema = z.object({
         .default(["Active time", "Productivity", "Burnout risk"]),
     format: z.enum(["csv", "pdf"]).default("pdf"),
 }).strict();
-export const reportPaymentOrderSchema = reportGenerateSchema;
-export const paidReportGenerateSchema = reportGenerateSchema.extend({
-    orderId: z.string().min(1).max(128),
-    paymentId: z.string().min(1).max(128),
-    signature: z.string().regex(/^[a-f\d]{64}$/i),
-}).strict();
 export const reportIdParamsSchema = z.object({ reportId: z.string().regex(/^[a-f\d]{24}$/i) }).strict();
 export const profileSchema = z.object({
     name: z.string().trim().min(2).max(100).optional(),

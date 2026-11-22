@@ -4,7 +4,7 @@ const User_1 = require("../models/User");
 const PulseResponse_1 = require("../models/PulseResponse");
 const TeamActivity_1 = require("../models/TeamActivity");
 const week_1 = require("../utils/week");
-async function reportSummary(organizationId: string, period: string, metrics, minResponses: number = 5, teamId: string) {
+export async function reportSummary(organizationId: string, period: string, metrics, minResponses: number = 5, teamId: string) {
     const { start, end } = (0, week_1.dateRange)(period);
     const pulseRange = (0, week_1.pulseWeekRange)(period);
     const [activity, pulse] = await Promise.all([
@@ -59,7 +59,7 @@ async function reportSummary(organizationId: string, period: string, metrics, mi
         generatedAt: new Date().toISOString(),
     };
 }
-async function exportReport(organizationId: string, period: string, metrics, format: string, minResponses: number = 5, teamId: string) {
+export async function exportReport(organizationId: string, period: string, metrics, format: string, minResponses: number = 5, teamId: string) {
     const summary = await reportSummary(organizationId, period, metrics, minResponses, teamId);
     const rows = [["Period", summary.period]];
     const selected = {

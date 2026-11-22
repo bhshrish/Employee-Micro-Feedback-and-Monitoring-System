@@ -31,7 +31,6 @@ const nav: NavigationItem[] = [
     { href: "/monitoring", label: "Burnout monitor", icon: "pulse" },
     { href: "/attendance", label: "Attendance", icon: "calendar" },
     { href: "/tools", label: "Tools", icon: "calendar" },
-    { href: "/people", label: "People", icon: "users" },
     { href: "/reports", label: "Reports", icon: "chart" },
     { href: "/settings", label: "Settings", icon: "settings" },
 ];
@@ -61,8 +60,6 @@ function AppFrame({ children }: AppFrameProps) {
             return user?.role === "admin" || user?.role === "manager";
         if (item.href === "/monitoring")
             return user?.role === "admin" || user?.role === "manager";
-        if (item.href === "/people")
-            return user?.role === "admin";
         return true;
     });
     return <div className="app-layout">

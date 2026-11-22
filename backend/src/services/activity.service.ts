@@ -1,7 +1,7 @@
 const TeamActivity_1 = require("../models/TeamActivity");
 const errors_1 = require("../utils/errors");
 const week_1 = require("../utils/week");
-async function startActivity(scope, input) {
+export async function startActivity(scope, input) {
     const running = await TeamActivity_1.TeamActivity.findOne({ userId: scope.userId, status: { $in: ["running", "paused"] } });
     if (running)
         throw (0, errors_1.badRequest)("Stop the current activity session before starting another", "SESSION_ALREADY_OPEN");
@@ -15,13 +15,13 @@ async function startActivity(scope, input) {
         openSessionUserId: scope.userId,
     });
 }
-async function heartbeatActivity(userId: string, organizationId: string, sessionId: string) {
+export async function heartbeatActivity(userId: string, organizationId: string, sessionId: string) {
     const session = await TeamActivity_1.TeamActivity.findOneAndUpdate({ _id: sessionId, userId, organizationId, status: "running" }, { $set: { heartbeatAt: new Date() } }, { new: true });
     if (!session)
         throw (0, errors_1.notFound)("Running activity session not found");
     return session;
 }
-async function setActivityIdle(userId: string, organizationId: string, sessionId: string, idle: boolean) {
+export async function setActivityIdle(userId: string, organizationId: string, sessionId: string, idle: boolean) {
     const session = await TeamActivity_1.TeamActivity.findOne({ _id: sessionId, userId, organizationId });
     if (!session)
         throw (0, errors_1.notFound)("Activity session not found");
@@ -38,7 +38,7 @@ async function setActivityIdle(userId: string, organizationId: string, sessionId
     await session.save();
     return session;
 }
-async function setActivityTags(userId: string, organizationId: string, sessionId: string, input) {
+export async function setActivityTags(userId: string, organizationId: string, sessionId: string, input) {
     const session = await TeamActivity_1.TeamActivity.findOne({ _id: sessionId, userId, organizationId, status: { $ne: "stopped" } });
     if (!session)
         throw (0, errors_1.notFound)("Active activity session not found");
@@ -51,7 +51,7 @@ async function setActivityTags(userId: string, organizationId: string, sessionId
     await session.save();
     return session;
 }
-async function pauseActivity(userId: string, organizationId: string, sessionId: string) {
+export async function pauseActivity(userId: string, organizationId: string, sessionId: string) {
     const session = await TeamActivity_1.TeamActivity.findOne({ _id: sessionId, userId, organizationId });
     if (!session)
         throw (0, errors_1.notFound)("Activity session not found");
@@ -66,7 +66,7 @@ async function pauseActivity(userId: string, organizationId: string, sessionId: 
     await session.save();
     return session;
 }
-async function resumeActivity(userId: string, organizationId: string, sessionId: string) {
+export async function resumeActivity(userId: string, organizationId: string, sessionId: string) {
     const session = await TeamActivity_1.TeamActivity.findOne({ _id: sessionId, userId, organizationId });
     if (!session)
         throw (0, errors_1.notFound)("Activity session not found");
@@ -79,7 +79,7 @@ async function resumeActivity(userId: string, organizationId: string, sessionId:
     await session.save();
     return session;
 }
-async function finishActivity(userId: string, organizationId: string, sessionId: string) {
+export async function finishActivity(userId: string, organizationId: string, sessionId: string) {
     const session = await TeamActivity_1.TeamActivity.findOne({ _id: sessionId, userId, organizationId });
     if (!session)
         throw (0, errors_1.notFound)("Activity session not found");
@@ -105,7 +105,7 @@ async function finishActivity(userId: string, organizationId: string, sessionId:
     await session.save();
     return session;
 }
-async function activityHistory(userId: string, organizationId: string, query) {
+export async function activityHistory(userId: string, organizationId: string, query) {
     const filter = {
         userId,
         organizationId,
@@ -135,7 +135,7 @@ async function activityHistory(userId: string, organizationId: string, query) {
         pagination: { page: query.page, limit: query.limit, total, pages: Math.ceil(total / query.limit) },
     };
 }
-async function dashboard(userId: string, organizationId: string, range) {
+export async function dashboard(userId: string, organizationId: string, range) {
     const { start, end } = (0, week_1.dateRange)(range);
     const sessions = await TeamActivity_1.TeamActivity.find({ userId, organizationId, startedAt: { $gte: start, $lte: end } }).lean();
     const now = Date.now();

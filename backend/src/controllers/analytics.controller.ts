@@ -33,7 +33,7 @@ async function teamScope(req: ControllerRequest, requested?: string): Promise<im
     }
     return teamId ? new mongoose_1.Types.ObjectId(teamId) : undefined;
 }
-exports.trends = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+export const trends = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
     const query = req.validatedQuery;
@@ -44,7 +44,7 @@ exports.trends = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest
         trends: await pulse.analyticsTrends(req.auth.organizationId, teamId, query.weeks, minGroupSize),
     });
 });
-exports.heatmap = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+export const heatmap = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
     const query = req.validatedQuery;
@@ -63,7 +63,7 @@ exports.heatmap = (0, async_handler_1.asyncHandler)(async (req: ControllerReques
             .filter((cell) => teamIds.has(cell.teamId)),
     });
 });
-exports.teams = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+export const teams = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
     const teamId = await teamScope(req);
@@ -71,7 +71,7 @@ exports.teams = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest,
     const teams = await pulse.analyticsTeams(req.auth.organizationId, minGroupSize, teamId);
     res.json({ minimumGroupSize: minGroupSize, teams, data: { minimumGroupSize: minGroupSize, teams } });
 });
-exports.teamTrend = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+export const teamTrend = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
     const id = req.params.teamId;

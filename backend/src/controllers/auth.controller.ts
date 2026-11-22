@@ -53,60 +53,60 @@ function clearSessionCookies(res: Response): void {
     res.clearCookie(cookieName, { ...cookieOptions("/api/v1/auth"), maxAge: undefined });
     res.clearCookie(accessCookieName, { ...cookieOptions("/api/v1"), maxAge: undefined });
 }
-exports.signup = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+export const signup = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     res.setHeader("Cache-Control", "no-store");
     res.status(201).json({ user: await auth.signup(req.body) });
 });
-exports.acceptInvitation = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+export const acceptInvitation = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     const user = await auth.acceptInvitation(req.body);
     res.setHeader("Cache-Control", "no-store");
     res.status(201).json({ user });
 });
-exports.refresh = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+export const refresh = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     const raw = req.cookies?.[cookieName];
     if (!raw)
         throw (0, errors_1.unauthorized)("Refresh cookie is required");
     setSession(res, await auth.rotateRefreshToken(raw), 200, true);
 });
-exports.logout = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+export const logout = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     await auth.revokeRefreshToken(req.cookies?.[cookieName]);
     clearSessionCookies(res);
     res.status(204).end();
 });
-exports.logoutEverywhere = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+export const logoutEverywhere = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
     await auth.revokeAllRefreshTokens(req.auth.userId);
     clearSessionCookies(res);
     res.status(204).end();
 });
-exports.me = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+export const me = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
     res.json({ user: await auth.getCurrentUser(req.auth.userId) });
 });
-exports.updateProfile = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+export const updateProfile = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
     res.json(await auth.updateProfile(req.auth.userId, req.body));
 });
-exports.verifyEmailChange = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+export const verifyEmailChange = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     res.setHeader("Cache-Control", "no-store");
     res.json(await auth.verifyEmailChange(req.body));
 });
-exports.forgotPassword = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+export const forgotPassword = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     res.setHeader("Cache-Control", "no-store");
     res.status(200).json(await auth.forgotPassword(req.body));
 });
-exports.resetPassword = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+export const resetPassword = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     res.setHeader("Cache-Control", "no-store");
     res.status(200).json(await auth.resetPassword(req.body));
 });
-exports.requestOtp = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+export const requestOtp = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     res.setHeader("Cache-Control", "no-store");
     res.status(200).json(await otp.requestOtp(req.body));
 });
-exports.verifyOtp = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+export const verifyOtp = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     const result = await otp.verifyOtp(req.body);
     res.setHeader("Cache-Control", "no-store");
     setSession(res, result, 200, false);

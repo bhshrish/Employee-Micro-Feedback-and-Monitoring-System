@@ -1,17 +1,14 @@
 import "dotenv/config";
 import mongoose from "mongoose";
 import type { Request, Response } from "express";
-import { createRequire } from "node:module";
 import app, { ensureDatabaseConnected } from "./app";
 import { getConfig } from "./config/env";
 import { logger } from "./utils/logger";
+import { startAlertJobs } from "./jobs/alerts";
+import { startTrialExpirationJob } from "./jobs/subscriptions";
+import { startReminderJob } from "./jobs/reminders";
 
 interface ScheduledJob { stop: () => void }
-const require = createRequire(import.meta.url);
-const { startAlertJobs } = require("./jobs/alerts") as { startAlertJobs: () => ScheduledJob };
-const { startTrialExpirationJob } = require("./jobs/subscriptions") as { startTrialExpirationJob: () => ScheduledJob };
-const { startReminderJob } = require("./jobs/reminders") as { startReminderJob: () => ScheduledJob };
-
 function handler(req: Request, res: Response): void {
     app(req, res);
 }
@@ -35,8 +32,8 @@ async function main(): Promise<void> {
     process.once("SIGINT", shutdown);
 }
 
-module.exports = handler;
-if (require.main === module) {
+export default handler;
+if (process.env.NODE_ENV !== "test") {
     void main().catch((error: unknown) => {
         logger.fatal({ err: error }, "CalmWork API failed to start");
         process.exitCode = 1;

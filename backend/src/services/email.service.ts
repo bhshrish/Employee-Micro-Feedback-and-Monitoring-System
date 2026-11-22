@@ -3,7 +3,7 @@ const { getConfig } = require("../config/env");
 const { AppError } = require("../utils/errors");
 const { logger } = require("../utils/logger");
 
-function getTransporter(config) {
+export function getTransporter(config) {
     const missingSettings = [
         ["SMTP_HOST", config.SMTP_HOST],
         ["SMTP_USER", config.SMTP_USER],
@@ -27,7 +27,7 @@ function getTransporter(config) {
     });
 }
 
-async function deliver({ to, subject, text }) {
+export async function deliver({ to, subject, text }) {
     const config = getConfig();
     const transporter = getTransporter(config);
     if (!transporter) {
@@ -48,7 +48,7 @@ async function deliver({ to, subject, text }) {
     }
 }
 
-async function sendOtpEmail({ to, code: string, expiresInMinutes }) {
+export async function sendOtpEmail({ to, code: string, expiresInMinutes }) {
     await deliver({
         to,
         subject: "Your CalmWork verification code",
@@ -56,7 +56,7 @@ async function sendOtpEmail({ to, code: string, expiresInMinutes }) {
     });
 }
 
-async function sendCalendarReminder({ to, name: string, title, startsAt, description }) {
+export async function sendCalendarReminder({ to, name: string, title, startsAt, description }) {
     await deliver({
         to,
         subject: `Reminder: ${title}`,
@@ -64,7 +64,7 @@ async function sendCalendarReminder({ to, name: string, title, startsAt, descrip
     });
 }
 
-async function sendPasswordResetEmail({ to, token }) {
+export async function sendPasswordResetEmail({ to, token }) {
     const config = getConfig();
     const resetUrl = `${config.FRONTEND_URL.replace(/\/$/, "")}/reset-password?token=${encodeURIComponent(token)}`;
     await deliver({
@@ -74,7 +74,7 @@ async function sendPasswordResetEmail({ to, token }) {
     });
 }
 
-async function sendEmailChangeVerification({ to, token }) {
+export async function sendEmailChangeVerification({ to, token }) {
     const config = getConfig();
     const verificationUrl = `${config.FRONTEND_URL.replace(/\/$/, "")}/verify-email-change?token=${encodeURIComponent(token)}`;
     await deliver({

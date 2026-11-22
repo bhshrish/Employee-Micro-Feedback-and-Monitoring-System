@@ -17,13 +17,13 @@ import * as async_handler_1 from "../utils/async-handler";
 import * as pulse from "../services/pulse.service";
 import * as workspace from "../services/workspace.service";
 import * as errors_1 from "../utils/errors";
-exports.submit = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+export const submit = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
     const result = await pulse.submitPulse(req.auth, req.body);
     res.status(201).json({ ...result, data: result });
 });
-exports.submissionStatus = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+export const submissionStatus = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
     const receipt = await pulse.hasSubmitted(req.auth.userId);
@@ -33,7 +33,7 @@ exports.submissionStatus = (0, async_handler_1.asyncHandler)(async (req: Control
     };
     res.json({ ...result, data: result });
 });
-exports.teamScores = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+export const teamScores = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
     const query = req.validatedQuery;
@@ -47,7 +47,7 @@ exports.teamScores = (0, async_handler_1.asyncHandler)(async (req: ControllerReq
     const teams = await pulse.teamPulse(req.auth.organizationId, teamId, minGroupSize);
     res.json({ teams, minimumGroupSize: minGroupSize, data: { teams, minimumGroupSize: minGroupSize } });
 });
-exports.alerts = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+export const alerts = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
     const query = req.validatedQuery;
@@ -57,7 +57,7 @@ exports.alerts = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest
     const alerts = await pulse.listAlerts(req.auth.organizationId, query.status, teamId);
     res.json({ alerts });
 });
-exports.updateAlert = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+export const updateAlert = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
     const teamId = req.auth.role === "admin" ? undefined : req.auth.teamId ?? undefined;

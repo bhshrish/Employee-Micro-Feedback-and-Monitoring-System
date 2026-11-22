@@ -3,7 +3,7 @@ const { EmployeeTool } = require("../models/EmployeeTool");
 const { sendCalendarReminder } = require("../services/email.service");
 const { logger } = require("../utils/logger");
 
-async function deliverDueReminders() {
+export async function deliverDueReminders() {
     const now = new Date();
     const staleClaim = new Date(now.getTime() - 5 * 60_000);
     const due = await EmployeeTool.find({
@@ -47,13 +47,10 @@ async function deliverDueReminders() {
         }
     }
 }
-
-function startReminderJob() {
+export function startReminderJob() {
     return cron.schedule("* * * * *", () => {
         void deliverDueReminders().catch((error) => {
             logger.error({ err: error }, "Calendar reminder job failed");
         });
     });
 }
-
-module.exports = { startReminderJob, deliverDueReminders };
