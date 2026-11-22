@@ -5,13 +5,13 @@ const Invitation_1 = require("../models/Invitation");
 const node_crypto_1 = require("node:crypto");
 const env_1 = require("../config/env");
 const errors_1 = require("../utils/errors");
-async function listTeams(organizationId: string) {
+export async function listTeams(organizationId: string) {
     return Team_1.Team.find({ organizationId, archivedAt: null }).sort({ name: 1 }).lean();
 }
-async function createTeam(organizationId: string, name: string) {
+export async function createTeam(organizationId: string, name: string) {
     return Team_1.Team.create({ organizationId, name });
 }
-async function archiveTeam(organizationId: string, teamId: string) {
+export async function archiveTeam(organizationId: string, teamId: string) {
     if (!mongoose_1.Types.ObjectId.isValid(teamId))
         throw (0, errors_1.notFound)("Team not found");
     if (!await Team_1.Team.exists({ _id: teamId, organizationId, archivedAt: null }))
@@ -23,7 +23,7 @@ async function archiveTeam(organizationId: string, teamId: string) {
         throw (0, errors_1.notFound)("Team not found");
     return team;
 }
-async function createInvitation(organizationId: string, inviterId: string, email: string, teamId: string) {
+export async function createInvitation(organizationId: string, inviterId: string, email: string, teamId: string) {
     if (email.trim().toLowerCase() === env_1.getConfig().OPS_ADMIN_EMAIL.toLowerCase())
         throw (0, errors_1.badRequest)("This email is reserved for the platform administrator");
     if (!mongoose_1.Types.ObjectId.isValid(teamId))
@@ -40,11 +40,11 @@ async function createInvitation(organizationId: string, inviterId: string, email
     await Invitation_1.Invitation.create({ organizationId, teamId, inviterId, email, tokenHash, expiresAt });
     return { email, teamId: teamId.toString(), expiresAt, token: rawToken };
 }
-async function listMembers(organizationId: string, teamId: string) {
+export async function listMembers(organizationId: string, teamId: string) {
     const users = await User_1.User.find({ organizationId, ...(teamId ? { teamId } : {}) }).select("name email role teamId createdAt").populate("teamId", "name").sort({ name: 1 }).lean();
     return users;
 }
-async function updateMember(organizationId: string, actorId: string, memberId: string, input) {
+export async function updateMember(organizationId: string, actorId: string, memberId: string, input) {
     if (!mongoose_1.Types.ObjectId.isValid(memberId))
         throw (0, errors_1.notFound)("Member not found");
     if (actorId.toString() === memberId && input.role)
@@ -66,7 +66,7 @@ async function updateMember(organizationId: string, actorId: string, memberId: s
         throw (0, errors_1.notFound)("Member not found");
     return user;
 }
-async function ensureTeamAccess(organizationId: string, teamId: string, actorTeamId: string, canViewAll: boolean) {
+export async function ensureTeamAccess(organizationId: string, teamId: string, actorTeamId: string, canViewAll: boolean) {
     if (!mongoose_1.Types.ObjectId.isValid(teamId))
         throw (0, errors_1.notFound)("Team not found");
     const team = await Team_1.Team.findOne({ _id: teamId, organizationId, archivedAt: null }).lean();

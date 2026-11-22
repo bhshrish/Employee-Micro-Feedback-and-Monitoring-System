@@ -11,10 +11,10 @@ interface StatusError extends Error {
     code: string;
     details?: unknown;
 }
-const notFoundHandler = (req: ErrorRequest, _res: Response, next: NextFunction): void => {
+export const notFoundHandler = (req: ErrorRequest, _res: Response, next: NextFunction): void => {
     next(new errors_1.AppError(404, `Route ${req.method} ${req.path} not found`, "NOT_FOUND"));
 };
-const errorHandler = (error: unknown, req: ErrorRequest, res: Response, _next: NextFunction): void => {
+export const errorHandler = (error: unknown, req: ErrorRequest, res: Response, _next: NextFunction): void => {
     let normalized = error;
     if (!(error instanceof errors_1.AppError) &&
         error instanceof Error &&

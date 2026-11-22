@@ -6,11 +6,12 @@ import * as mongoose_1 from "mongoose";
 import * as env_1 from "../config/env";
 import * as User_1 from "../models/User";
 import * as OperationsAdmin_1 from "../models/OperationsAdmin";
+import { Organization } from "../models/Organization";
 import * as errors_1 from "../utils/errors";
 interface AuthContext {
-    userId: Types.ObjectId;
-    organizationId: Types.ObjectId;
-    teamId: Types.ObjectId | null;
+    userId: Types.ObjectId | string;
+    organizationId: Types.ObjectId | string;
+    teamId: Types.ObjectId | string | null;
     role: "employee" | "manager" | "admin";
 }
 
@@ -30,7 +31,7 @@ interface AccessPayload extends JwtPayload {
     sub: string;
 }
 
-async function requireOperationsAdmin(req: AuthenticatedRequest, _res: Response, next: NextFunction): Promise<void> {
+export async function requireOperationsAdmin(req: AuthenticatedRequest, _res: Response, next: NextFunction): Promise<void> {
     try {
         const header = req.get("authorization");
         const token = req.cookies?.calmwork_operations || (header?.startsWith("Bearer ") ? header.slice(7) : null);
@@ -60,7 +61,7 @@ async function requireOperationsAdmin(req: AuthenticatedRequest, _res: Response,
         next(error);
     }
 }
-async function authenticate(req: AuthenticatedRequest, _res: Response, next: NextFunction): Promise<void> {
+export async function authenticate(req: AuthenticatedRequest, _res: Response, next: NextFunction): Promise<void> {
     try {
         const header = req.get("authorization");
         const token = req.cookies?.calmwork_access || (header?.startsWith("Bearer ") ? header.slice(7) : null);
@@ -78,7 +79,6 @@ async function authenticate(req: AuthenticatedRequest, _res: Response, next: Nex
         const user = await User_1.User.findById(accessPayload.sub).select("organizationId teamId role isActive subscription.status subscription.trialEndsAt");
         if (!user || !user.isActive)
             throw (0, errors_1.unauthorized)();
-        import { Organization } from "../models/Organization";
         if (!await Organization.exists({ _id: user.organizationId, isActive: { $ne: false } }))
             throw (0, errors_1.unauthorized)("This business workspace is inactive");
         req.auth = {
@@ -97,7 +97,7 @@ async function authenticate(req: AuthenticatedRequest, _res: Response, next: Nex
         next(error);
     }
 }
-function requireRole(...roles: Array<"employee" | "manager" | "admin">): RequestHandler {
+export function requireRole(...roles: Array<"employee" | "manager" | "admin">): RequestHandler {
     return (req: AuthenticatedRequest, _res: Response, next: NextFunction): void => {
         if (!req.auth || !roles.includes(req.auth.role)) {
             next((0, errors_1.forbidden)());
@@ -106,7 +106,7 @@ function requireRole(...roles: Array<"employee" | "manager" | "admin">): Request
         next();
     };
 }
-async function requireEntitlement(req: AuthenticatedRequest, _res: Response, next: NextFunction): Promise<void> {
+export async function requireEntitlement(req: AuthenticatedRequest, _res: Response, next: NextFunction): Promise<void> {
     try {
         if (!req.auth)
             throw (0, errors_1.unauthorized)();
@@ -116,7 +116,7 @@ async function requireEntitlement(req: AuthenticatedRequest, _res: Response, nex
         next(error);
     }
 }
-function requirePlan(...plans: Array<"Starter" | "Team" | "Business">): RequestHandler {
+export function requirePlan(...plans: Array<"Starter" | "Team" | "Business">): RequestHandler {
     return async (req: AuthenticatedRequest, _res: Response, next: NextFunction): Promise<void> => {
         try {
             if (!req.auth)

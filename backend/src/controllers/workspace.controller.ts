@@ -16,18 +16,18 @@ interface ControllerRequest extends Request {
 import * as async_handler_1 from "../utils/async-handler";
 import * as workspace from "../services/workspace.service";
 import * as errors_1 from "../utils/errors";
-exports.teams = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+export const teams = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
     res.json({ teams: await workspace.listTeams(req.auth.organizationId) });
 });
-exports.createTeam = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+export const createTeam = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
     const team = await workspace.createTeam(req.auth.organizationId, req.body.name);
     res.status(201).json({ team });
 });
-exports.inviteMember = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+export const inviteMember = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
     if (req.auth.role === "manager" && req.auth.teamId?.toString() !== req.body.teamId) {
@@ -42,7 +42,7 @@ exports.inviteMember = (0, async_handler_1.asyncHandler)(async (req: ControllerR
     };
     res.status(201).json({ invitation: result, data: { invitation: result } });
 });
-exports.members = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+export const members = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
     const teamId = req.auth.role === "admin" ? undefined : req.auth.teamId ?? undefined;
@@ -50,13 +50,13 @@ exports.members = (0, async_handler_1.asyncHandler)(async (req: ControllerReques
         throw (0, errors_1.forbidden)("A manager must be assigned to a team");
     res.json({ members: await workspace.listMembers(req.auth.organizationId, teamId) });
 });
-exports.updateMember = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+export const updateMember = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
     const member = await workspace.updateMember(req.auth.organizationId, req.auth.userId, req.params.memberId ?? req.params.userId, req.body);
     res.json({ member });
 });
-exports.archiveTeam = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+export const archiveTeam = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
     const team = await workspace.archiveTeam(req.auth.organizationId, req.params.teamId);

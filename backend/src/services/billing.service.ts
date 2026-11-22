@@ -1,16 +1,15 @@
-const { createHmac, createHash, randomUUID, timingSafeEqual } = require("node:crypto");
+const { createHmac, createHash, timingSafeEqual } = require("node:crypto");
 const { getConfig } = require("../config/env");
 const { ProcessedWebhook } = require("../models/ProcessedWebhook");
 const { User } = require("../models/User");
 const { Organization } = require("../models/Organization");
 const { Invoice } = require("../models/Invoice");
-const { ReportPayment } = require("../models/ReportPayment");
 const { AppError, badRequest, conflict, forbidden, notFound } = require("../utils/errors");
 
 const PLAN_NAMES = ["Starter", "Team", "Business"];
 const CYCLES = ["monthly", "yearly"];
 
-async function billingOwner(userId: string) {
+export async function billingOwner(userId: string) {
     const member = await User.findById(userId).select("organizationId");
     if (!member)
         throw notFound();
@@ -23,13 +22,13 @@ async function billingOwner(userId: string) {
     return owner;
 }
 
-async function updateWorkspaceSubscription(organizationId: string, updates) {
+export async function updateWorkspaceSubscription(organizationId: string, updates) {
     const result = await User.updateMany({ organizationId }, { $set: updates });
     if (!result.matchedCount)
         throw new Error("Workspace billing account was not found");
 }
 
-function planId(plan: string, cycle: string) {
+export function planId(plan: string, cycle: string) {
     // MANUAL SETUP REQUIRED: create every recurring plan in Razorpay and set its ID in backend/.env.
     const id = getConfig()[`RAZORPAY_PLAN_${plan.toUpperCase()}_${cycle.toUpperCase()}`];
     if (!id)
@@ -37,14 +36,14 @@ function planId(plan: string, cycle: string) {
     return id;
 }
 
-function razorpayCredentials() {
+export function razorpayCredentials() {
     const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } = getConfig();
     if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET)
         throw new AppError(503, "Razorpay billing is not configured.", "BILLING_NOT_CONFIGURED");
     return { keyId: RAZORPAY_KEY_ID, keySecret: RAZORPAY_KEY_SECRET };
 }
 
-async function razorpayRequest(path: string, { method = "GET", body } = {}) {
+export async function razorpayRequest(path: string, { method = "GET", body } = {}) {
     const { keyId, keySecret } = razorpayCredentials();
     let response;
     try {
@@ -69,7 +68,7 @@ async function razorpayRequest(path: string, { method = "GET", body } = {}) {
     return payload;
 }
 
-async function createCheckout(userId: string, plan: string, cycle: string) {
+export async function createCheckout(userId: string, plan: string, cycle: string) {
     if (!PLAN_NAMES.includes(plan) || !CYCLES.includes(cycle))
         throw badRequest("Selected plan or billing cycle is invalid");
     const user = await billingOwner(userId);
@@ -103,70 +102,7 @@ async function createCheckout(userId: string, plan: string, cycle: string) {
     return { checkoutUrl: subscription.short_url, subscriptionId: subscription.id };
 }
 
-async function createReportOrder(userId: string, organizationId: string, { period, metrics, format }) {
-    const user = await User.findOne({ _id: userId, organizationId }).select("_id");
-    if (!user)
-        throw notFound();
-    const config = getConfig();
-    if (!config.RAZORPAY_KEY_ID || !config.RAZORPAY_KEY_SECRET)
-        throw new AppError(503, "Razorpay billing is not configured.", "BILLING_NOT_CONFIGURED");
-    const receipt = `report_${randomUUID().replace(/-/g, "").slice(0, 32)}`;
-    const order = await razorpayRequest("/orders", {
-        method: "POST",
-        body: {
-            amount: 9900,
-            currency: "INR",
-            receipt,
-            notes: { userId: String(userId), organizationId: String(organizationId) },
-        },
-    });
-    if (!order.id || order.amount !== 9900 || order.currency !== "INR")
-        throw new AppError(502, "Razorpay did not return the expected report order.", "BILLING_PROVIDER_ERROR");
-    await ReportPayment.create({
-        userId,
-        organizationId,
-        orderId: order.id,
-        amount: 9900,
-        currency: "INR",
-        period,
-        metrics,
-        format,
-        status: "pending",
-    });
-    return {
-        order: { id: order.id, amount: order.amount, currency: order.currency },
-        keyId: config.RAZORPAY_KEY_ID,
-    };
-}
-
-async function verifyReportPayment(userId: string, organizationId: string, { orderId, paymentId: string, signature }) {
-    const { keySecret } = razorpayCredentials();
-    const expected = createHmac("sha256", keySecret).update(`${orderId}|${paymentId}`).digest();
-    const actual = Buffer.from(signature, "hex");
-    if (actual.length !== expected.length || !timingSafeEqual(actual, expected))
-        throw badRequest("Invalid report payment signature");
-    const reportPayment = await ReportPayment.findOne({
-        userId,
-        organizationId,
-        orderId,
-        $or: [{ status: "pending" }, { status: "paid", paymentId }],
-    });
-    if (!reportPayment)
-        throw notFound("Report payment order not found");
-    const payment = await razorpayRequest(`/payments/${encodeURIComponent(paymentId)}`);
-    if (payment.order_id !== orderId || payment.amount !== reportPayment.amount ||
-        payment.currency !== reportPayment.currency || payment.status !== "captured") {
-        throw badRequest("The report payment has not been captured");
-    }
-    if (reportPayment.status === "pending") {
-        reportPayment.status = "paid";
-        reportPayment.paymentId = paymentId;
-        await reportPayment.save();
-    }
-    return reportPayment;
-}
-
-async function cancelSubscription(userId: string) {
+export async function cancelSubscription(userId: string) {
     const user = await billingOwner(userId);
     const subscriptionId = user.subscription.razorpaySubscriptionId;
     if (!subscriptionId)
@@ -183,7 +119,7 @@ async function cancelSubscription(userId: string) {
     return { status: subscription.status, cancelAtPeriodEnd: true, currentPeriodEnd };
 }
 
-async function invoices(userId: string) {
+export async function invoices(userId: string) {
     const user = await billingOwner(userId);
     const records = await Invoice.find({ organizationId: user.organizationId })
         .select("-organizationId -__v")
@@ -201,7 +137,7 @@ async function invoices(userId: string) {
     }));
 }
 
-function plans() {
+export function plans() {
     const config = getConfig();
     return PLAN_NAMES.map((name) => ({
         name,
@@ -218,7 +154,7 @@ function plans() {
     }));
 }
 
-async function subscription(userId: string) {
+export async function subscription(userId: string) {
     const user = await billingOwner(userId);
     const value = user.subscription.toObject();
     if (value.status === "trialing" && value.trialEndsAt <= new Date()) {
@@ -234,7 +170,7 @@ async function subscription(userId: string) {
     };
 }
 
-function verifyRazorpaySignature(payload, signature: string) {
+export function verifyRazorpaySignature(payload, signature: string) {
     const secret = getConfig().RAZORPAY_WEBHOOK_SECRET;
     if (!secret)
         throw forbidden("Razorpay webhook is not configured");
@@ -258,7 +194,7 @@ function verifyRazorpaySignature(payload, signature: string) {
     }
 }
 
-async function persistPayment(organizationId: string, payment) {
+export async function persistPayment(organizationId: string, payment) {
     if (!payment?.id)
         return;
     await Invoice.findOneAndUpdate({ organizationId, providerInvoiceId: payment.id }, {
@@ -278,7 +214,7 @@ async function persistPayment(organizationId: string, payment) {
     }, { upsert: true, new: true, setDefaultsOnInsert: true });
 }
 
-async function processRazorpayEvent(event, eventId) {
+export async function processRazorpayEvent(event, eventId) {
     try {
         await ProcessedWebhook.create({ eventId, eventType: event.event });
     }
@@ -334,8 +270,6 @@ async function processRazorpayEvent(event, eventId) {
 
 module.exports = {
     createCheckout,
-    createReportOrder,
-    verifyReportPayment,
     cancelSubscription,
     invoices,
     plans,

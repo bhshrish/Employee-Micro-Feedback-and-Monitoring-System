@@ -1,10 +1,5 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import type { ZodType } from "zod";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.sanitizeBody = sanitizeBody;
-exports.validateBody = validateBody;
-exports.validateQuery = validateQuery;
-exports.validateParams = validateParams;
 import * as errors_1 from "../utils/errors";
 const unsafeKeys = new Set(["__proto__", "prototype", "constructor"]);
 function assertSafe(value: unknown): void {
@@ -16,7 +11,7 @@ function assertSafe(value: unknown): void {
         assertSafe(nested);
     }
 }
-function sanitizeBody(req: Request, _res: Response, next: NextFunction): void {
+export function sanitizeBody(req: Request, _res: Response, next: NextFunction): void {
     try {
         assertSafe(req.body);
         next();
@@ -25,7 +20,7 @@ function sanitizeBody(req: Request, _res: Response, next: NextFunction): void {
         next(error);
     }
 }
-function validateBody(schema: ZodType): RequestHandler {
+export function validateBody(schema: ZodType): RequestHandler {
     return (req: Request, _res: Response, next: NextFunction): void => {
         const result = schema.safeParse(req.body);
         if (!result.success) {
@@ -36,7 +31,7 @@ function validateBody(schema: ZodType): RequestHandler {
         next();
     };
 }
-function validateQuery(schema: ZodType): RequestHandler {
+export function validateQuery(schema: ZodType): RequestHandler {
     return (req: Request, _res: Response, next: NextFunction): void => {
         const result = schema.safeParse(req.query);
         if (!result.success) {
@@ -47,7 +42,7 @@ function validateQuery(schema: ZodType): RequestHandler {
         next();
     };
 }
-function validateParams(schema: ZodType): RequestHandler {
+export function validateParams(schema: ZodType): RequestHandler {
     return (req: Request, _res: Response, next: NextFunction): void => {
         const result = schema.safeParse(req.params);
         if (!result.success) {

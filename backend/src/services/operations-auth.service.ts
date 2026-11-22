@@ -6,7 +6,7 @@ const { unauthorized, AppError } = require("../utils/errors");
 const ADMIN_ID = "platform-admin";
 const BCRYPT_ROUNDS = 12;
 
-async function getOperationsAdmin() {
+export async function getOperationsAdmin() {
     const config = getConfig();
     let admin = await OperationsAdmin.findById(ADMIN_ID).select("+passwordHash");
     if (!admin) {
@@ -37,7 +37,7 @@ async function getOperationsAdmin() {
     return admin;
 }
 
-async function signInOperationsAdmin({ email, password }) {
+export async function signInOperationsAdmin({ email, password }) {
     const config = getConfig();
     if (email.trim().toLowerCase() !== config.OPS_ADMIN_EMAIL.toLowerCase())
         throw unauthorized("Email or password is incorrect");
@@ -47,7 +47,7 @@ async function signInOperationsAdmin({ email, password }) {
     return admin;
 }
 
-async function getOperationsAdminProfile() {
+export async function getOperationsAdminProfile() {
     const admin = await getOperationsAdmin();
     return { name: admin.name, email: admin.email, username: "admin" };
 }

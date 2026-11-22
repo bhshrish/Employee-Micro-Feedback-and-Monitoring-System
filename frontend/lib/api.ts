@@ -753,20 +753,13 @@ export async function getReportSummary(period: string, metrics: string[]) {
 function reportPeriodKey(period: string): string {
     return period.toLowerCase().replace("last ", "").replace(" days", "d").replace(" day", "d");
 }
-export async function createReportOrder(period: string, metrics: string[], format: string) {
-    return request("/reports/orders", {
-        method: "POST",
-        body: JSON.stringify({ period: reportPeriodKey(period), metrics, format: format.toLowerCase() }),
-    });
-}
-export async function downloadReport(period: string, metrics: string[], format: string, payment: UnknownRecord) {
+export async function downloadReport(period: string, metrics: string[], format: string) {
     const result = await requestRequired<ReportResponse>("/reports/generate", {
         method: "POST",
         body: JSON.stringify({
             period: reportPeriodKey(period),
             metrics,
             format: format.toLowerCase(),
-            ...payment,
         }),
     });
     const blob = await request(result.report.downloadUrl, {

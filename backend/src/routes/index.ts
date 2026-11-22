@@ -179,8 +179,7 @@ reportRoutes.use(auth_1.authenticate);
 reportRoutes.get("/preview", (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateQuery)(schemas_1.reportQuerySchema), reportController.preview);
 reportRoutes.post("/preview", (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateBody)(schemas_1.reportGenerateSchema), reportController.previewPost);
 reportRoutes.get("/summary", (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateQuery)(schemas_1.reportQuerySchema), reportController.summary);
-reportRoutes.post("/orders", (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateBody)(schemas_1.reportPaymentOrderSchema), reportController.createOrder);
-reportRoutes.post("/generate", (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateBody)(schemas_1.paidReportGenerateSchema), reportController.generate);
+reportRoutes.post("/generate", (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateBody)(schemas_1.reportGenerateSchema), reportController.generate);
 reportRoutes.get("/:reportId/download", (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateParams)(schemas_1.reportIdParamsSchema), (0, validate_1.validateQuery)(schemas_1.reportFormatQuerySchema), reportController.downloadGenerated);
 reportRoutes.get("/:reportId", (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateParams)(schemas_1.reportIdParamsSchema), reportController.downloadGenerated);
 api.use("/reports", reportRoutes);
@@ -196,4 +195,4 @@ api.get("/alerts/:alertId", auth_1.authenticate, activeWorkspace, teamFeature, (
         throw (0, errors_1.notFound)("Alert not found");
     res.json({ alert });
 }));
-exports.default = api;
+export default api;

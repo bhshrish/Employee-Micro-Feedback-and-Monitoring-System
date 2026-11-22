@@ -10,12 +10,12 @@ const errors_1 = require("../utils/errors");
 const week_1 = require("../utils/week");
 const burnout_1 = require("./burnout");
 const logger_1 = require("../utils/logger");
-function groupBurnoutScore(group, minResponses: number) {
+export function groupBurnoutScore(group, minResponses: number) {
     if (group.scoredResponses >= minResponses)
         return Math.round(group.burnoutScore);
     return Math.round(((group.stress + group.workload + (6 - group.mood)) / 15) * 100);
 }
-function groupBurnoutComponents(group, minResponses: number) {
+export function groupBurnoutComponents(group, minResponses: number) {
     if (group.scoredResponses < minResponses)
         return undefined;
     return {
@@ -40,7 +40,7 @@ const pulseAggregateFields = {
     control: { $avg: "$control" },
     support: { $avg: "$support" },
 };
-async function submitPulse(scope, input) {
+export async function submitPulse(scope, input) {
     if (!scope.teamId)
         throw (0, errors_1.notFound)("Assign a team before submitting the weekly pulse");
     if (!await Team_1.Team.exists({ _id: scope.teamId, organizationId: scope.organizationId, archivedAt: null })) {
@@ -91,11 +91,11 @@ async function submitPulse(scope, input) {
     }
     return { submitted: true, submittedAt: new Date().toISOString(), weekStart: week.toISOString(), burnoutMetrics };
 }
-async function hasSubmitted(userId: string) {
+export async function hasSubmitted(userId: string) {
     return PulseReceipt_1.PulseReceipt.findOne({ userId, weekStart: (0, week_1.weekStart)() })
         .select("burnoutMetrics").lean();
 }
-async function teamPulse(organizationId: string, teamId: string, minResponses: number = 5) {
+export async function teamPulse(organizationId: string, teamId: string, minResponses: number = 5) {
     const currentWeek = (0, week_1.weekStart)();
     const teams = await Team_1.Team.find({
         organizationId,
@@ -141,13 +141,13 @@ async function teamPulse(organizationId: string, teamId: string, minResponses: n
     }
     return result;
 }
-async function listAlerts(organizationId: string, status: string, teamId: string) {
+export async function listAlerts(organizationId: string, status: string, teamId: string) {
     return Alert_1.Alert.find({ organizationId, ...(status ? { status } : {}), ...(teamId ? { teamId } : {}) })
         .populate("teamId", "name")
         .sort({ createdAt: -1 })
         .lean();
 }
-async function updateAlert(organizationId: string, alertId: string, status: string, acknowledgedBy: string, teamId: string) {
+export async function updateAlert(organizationId: string, alertId: string, status: string, acknowledgedBy: string, teamId: string) {
     if (!mongoose_1.Types.ObjectId.isValid(alertId))
         throw (0, errors_1.notFound)("Alert not found");
     const alert = await Alert_1.Alert.findOneAndUpdate({ _id: alertId, organizationId, ...(teamId ? { teamId } : {}) }, { $set: { status, acknowledgedBy: status === "acknowledged" ? acknowledgedBy : null } }, { new: true });
@@ -155,7 +155,7 @@ async function updateAlert(organizationId: string, alertId: string, status: stri
         throw (0, errors_1.notFound)("Alert not found");
     return alert;
 }
-async function teamOperationalWorkload(organizationId: string, teamId: string, week: Date) {
+export async function teamOperationalWorkload(organizationId: string, teamId: string, week: Date) {
     const members = await User_1.User.find({ organizationId, teamId, isActive: { $ne: false } }).select("_id").lean();
     if (!members.length)
         return null;
@@ -197,7 +197,7 @@ async function teamOperationalWorkload(organizationId: string, teamId: string, w
         leaveDays: Number(leaveDays.toFixed(2)),
     };
 }
-async function scoreTeamAlerts(organizationId: string, configuredMinResponses: number) {
+export async function scoreTeamAlerts(organizationId: string, configuredMinResponses: number) {
     const minResponses = configuredMinResponses ?? await organizationMinGroupSize(organizationId);
     const week = (0, week_1.weekStart)();
     const priorWeek = new Date(week.getTime() - 7 * 86_400_000);
@@ -295,7 +295,7 @@ async function scoreTeamAlerts(organizationId: string, configuredMinResponses: n
     }
     return created;
 }
-async function analyticsTrends(organizationId: string, teamId: string, weeks, minResponses: number) {
+export async function analyticsTrends(organizationId: string, teamId: string, weeks, minResponses: number) {
     const start = (0, week_1.weekStart)();
     start.setUTCDate(start.getUTCDate() - (weeks - 1) * 7);
     const teams = await Team_1.Team.find({
@@ -328,7 +328,7 @@ async function analyticsTrends(organizationId: string, teamId: string, weeks, mi
     }
     return results;
 }
-async function analyticsHeatmap(organizationId: string, teamId: string, weeks, minResponses: number) {
+export async function analyticsHeatmap(organizationId: string, teamId: string, weeks, minResponses: number) {
     const start = (0, week_1.weekStart)();
     start.setUTCDate(start.getUTCDate() - (weeks - 1) * 7);
     const rows = await PulseResponse_1.PulseResponse.aggregate([
@@ -357,12 +357,12 @@ async function analyticsHeatmap(organizationId: string, teamId: string, weeks, m
         riskScore: groupBurnoutScore(entry, minResponses),
     }));
 }
-async function organizationMinGroupSize(organizationId: string) {
+export async function organizationMinGroupSize(organizationId: string) {
     const organization = await Organization_1.Organization.findOne({ _id: organizationId })
         .select("minGroupSize").lean();
     return organization?.minGroupSize ?? 5;
 }
-async function analyticsTeams(organizationId: string, minResponses: number, teamId: string) {
+export async function analyticsTeams(organizationId: string, minResponses: number, teamId: string) {
     const teams = await Team_1.Team.find({
         organizationId,
         archivedAt: null,
@@ -396,7 +396,7 @@ async function analyticsTeams(organizationId: string, minResponses: number, team
         };
     }));
 }
-async function analyticsTeamTrend(organizationId: string, teamId: string, weeks, minResponses: number) {
+export async function analyticsTeamTrend(organizationId: string, teamId: string, weeks, minResponses: number) {
     const start = (0, week_1.weekStart)();
     start.setUTCDate(start.getUTCDate() - (weeks - 1) * 7);
     const rows = await PulseResponse_1.PulseResponse.aggregate([

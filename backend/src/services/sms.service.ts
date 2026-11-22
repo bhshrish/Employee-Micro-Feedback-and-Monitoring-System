@@ -1,7 +1,7 @@
 const { getConfig } = require("../config/env");
 const { AppError } = require("../utils/errors");
 
-async function sendSms({ to, message }) {
+export async function sendSms({ to, message }) {
     const { SMS_API_URL, SMS_API_TOKEN } = getConfig();
     if (!SMS_API_URL || !SMS_API_TOKEN)
         throw new AppError(503, "SMS delivery is not configured.", "SMS_DELIVERY_UNAVAILABLE");

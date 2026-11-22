@@ -16,7 +16,7 @@ interface ControllerRequest extends Request {
 import * as async_handler_1 from "../utils/async-handler";
 import * as errors_1 from "../utils/errors";
 import * as Attendance_1 from "../models/Attendance";
-exports.current = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+export const current = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
     const from = new Date();
@@ -27,7 +27,7 @@ exports.current = (0, async_handler_1.asyncHandler)(async (req: ControllerReques
     ]);
     res.json({ current, records });
 });
-exports.checkIn = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+export const checkIn = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
     if (await Attendance_1.Attendance.exists({ userId: req.auth.userId, checkedOutAt: null }))
@@ -46,7 +46,7 @@ exports.checkIn = (0, async_handler_1.asyncHandler)(async (req: ControllerReques
         throw error;
     }
 });
-exports.checkOut = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+export const checkOut = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
     const open = await Attendance_1.Attendance.findOne({ userId: req.auth.userId, checkedOutAt: null }).select("_id checkedInAt");

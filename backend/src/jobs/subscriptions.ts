@@ -5,7 +5,7 @@ async function expireTrials(now = new Date()) {
     const result = await User_1.User.updateMany({ "subscription.status": "trialing", "subscription.trialEndsAt": { $lte: now } }, { $set: { "subscription.status": "trial_expired" } });
     return result.modifiedCount;
 }
-function startTrialExpirationJob() {
+export function startTrialExpirationJob() {
     return node_cron_1.schedule("*/15 * * * *", async () => {
         try {
             const count = await expireTrials();

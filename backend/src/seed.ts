@@ -1,13 +1,11 @@
 import "dotenv/config";
-import { createRequire } from "node:module";
+import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
 import { getConfig } from "./config/env";
 import { Organization } from "./models/Organization";
 import { Team } from "./models/Team";
 import { User } from "./models/User";
 
-const require = createRequire(import.meta.url);
-const bcrypt = require("bcryptjs") as { hash: (password: string, rounds: number) => Promise<string> };
 
 async function seed(): Promise<void> {
     const email = process.env.SEED_EMAIL?.trim();

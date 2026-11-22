@@ -8,7 +8,7 @@ const TeamActivity_1 = require("../models/TeamActivity");
 const Attendance_1 = require("../models/Attendance");
 const EmployeeTool_1 = require("../models/EmployeeTool");
 const RefreshToken_1 = require("../models/RefreshToken");
-async function operationsOverview() {
+export async function operationsOverview() {
     const start = new Date();
     start.setUTCHours(0, 0, 0, 0);
     const end = new Date(start.getTime() + 86_400_000);
@@ -35,11 +35,11 @@ async function operationsOverview() {
     };
 }
 
-function escapeRegex(value) {
+export function escapeRegex(value) {
     return new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
 }
 
-async function listBusinesses({ page, q }) {
+export async function listBusinesses({ page, q }) {
     const match = q ? { name: escapeRegex(q) } : {};
     return Organization_1.Organization.aggregate([
         { $match: match },
@@ -53,7 +53,7 @@ async function listBusinesses({ page, q }) {
     ]);
 }
 
-async function setBusinessActive(id: string, isActive: boolean) {
+export async function setBusinessActive(id: string, isActive: boolean) {
     if (!mongoose_1.Types.ObjectId.isValid(id))
         throw (0, errors_1.notFound)("Business not found");
     const business = await Organization_1.Organization.findByIdAndUpdate(id, { $set: { isActive } }, { new: true }).select("name isActive");
@@ -62,7 +62,7 @@ async function setBusinessActive(id: string, isActive: boolean) {
     return business;
 }
 
-async function listUsers({ page, q: string, role }) {
+export async function listUsers({ page, q: string, role }) {
     const filter = {};
     if (role)
         filter.role = role;
@@ -79,7 +79,7 @@ async function listUsers({ page, q: string, role }) {
     return { users: users.map((user) => ({ ...user, isActive: user.isActive !== false })), total, page, totalPages: Math.ceil(total / 50) };
 }
 
-async function setUserActive(id: string, isActive: boolean) {
+export async function setUserActive(id: string, isActive: boolean) {
     if (!mongoose_1.Types.ObjectId.isValid(id))
         throw (0, errors_1.notFound)("User not found");
     const user = await User_1.User.findByIdAndUpdate(id, { $set: { isActive } }, { new: true })
@@ -92,17 +92,17 @@ async function setUserActive(id: string, isActive: boolean) {
     return user;
 }
 
-async function listTeams() {
+export async function listTeams() {
     return Team_1.Team.find({ archivedAt: null }).populate("organizationId", "name isActive").sort({ name: 1 }).lean();
 }
 
-async function createTeam(organizationId: string, name: string) {
+export async function createTeam(organizationId: string, name: string) {
     if (!mongoose_1.Types.ObjectId.isValid(organizationId) || !await Organization_1.Organization.exists({ _id: organizationId, isActive: { $ne: false } }))
         throw (0, errors_1.notFound)("Active business not found");
     return Team_1.Team.create({ organizationId, name });
 }
 
-async function archiveTeam(id: string) {
+export async function archiveTeam(id: string) {
     if (!mongoose_1.Types.ObjectId.isValid(id))
         throw (0, errors_1.notFound)("Team not found");
     const team = await Team_1.Team.findOne({ _id: id, archivedAt: null });
@@ -115,7 +115,7 @@ async function archiveTeam(id: string) {
     return team;
 }
 
-async function assignUserTeam(userId: string, teamId: string) {
+export async function assignUserTeam(userId: string, teamId: string) {
     if (!mongoose_1.Types.ObjectId.isValid(userId))
         throw (0, errors_1.notFound)("User not found");
     const user = await User_1.User.findById(userId).select("organizationId");
@@ -130,7 +130,7 @@ async function assignUserTeam(userId: string, teamId: string) {
         .populate("organizationId", "name").populate("teamId", "name");
 }
 
-function utcDay(date: Date) {
+export function utcDay(date: Date) {
     const start = new Date(`${date}T00:00:00.000Z`);
     if (Number.isNaN(start.getTime()) || start.toISOString().slice(0, 10) !== date)
         throw (0, errors_1.badRequest)("Date must be a valid YYYY-MM-DD calendar date", "INVALID_DATE");
@@ -139,7 +139,7 @@ function utcDay(date: Date) {
     return { start, end };
 }
 
-async function activitySummary(date: Date) {
+export async function activitySummary(date: Date) {
     const { start, end } = utcDay(date);
     return TeamActivity_1.TeamActivity.aggregate([
         { $match: { startedAt: { $gte: start, $lt: end } } },
@@ -150,7 +150,7 @@ async function activitySummary(date: Date) {
     ]);
 }
 
-async function attendanceDashboard(date: Date, page: number) {
+export async function attendanceDashboard(date: Date, page: number) {
     const { start, end } = utcDay(date);
     const now = new Date();
     const match = { checkedInAt: { $gte: start, $lt: end } };
@@ -182,14 +182,14 @@ async function attendanceDashboard(date: Date, page: number) {
     };
 }
 
-function csvCell(value) {
+export function csvCell(value) {
     let text = value == null ? "" : String(value);
     if (/^[=+\-@\t\r]/.test(text))
         text = `'${text}`;
     return `"${text.replaceAll("\"", "\"\"")}"`;
 }
 
-async function attendanceCsv(date: Date) {
+export async function attendanceCsv(date: Date) {
     const { start, end } = utcDay(date);
     const records = await Attendance_1.Attendance.find({ checkedInAt: { $gte: start, $lt: end } })
         .sort({ checkedInAt: 1 })
@@ -208,7 +208,7 @@ async function attendanceCsv(date: Date) {
     return rows.map((row) => row.map(csvCell).join(",")).join("\r\n");
 }
 
-async function leaveApplications() {
+export async function leaveApplications() {
     return EmployeeTool_1.EmployeeTool.find({ kind: "leave_request" })
         .populate("userId", "name email")
         .populate("organizationId", "name")
@@ -217,7 +217,7 @@ async function leaveApplications() {
         .lean();
 }
 
-async function decideLeaveApplication(requestId: string, status: string) {
+export async function decideLeaveApplication(requestId: string, status: string) {
     if (!mongoose_1.Types.ObjectId.isValid(requestId))
         throw (0, errors_1.notFound)("Leave application not found");
     const request = await EmployeeTool_1.EmployeeTool.findOneAndUpdate({

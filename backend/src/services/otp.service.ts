@@ -13,7 +13,7 @@ const OTP_TTL_MS = 5 * 60_000;
 const RESEND_COOLDOWN_MS = 60_000;
 const MAX_ATTEMPTS = 5;
 
-function normalizeDestination(input) {
+export function normalizeDestination(input) {
     const channel = input.channel || "email";
     if (channel === "email")
         return { channel, destination: input.email.trim().toLowerCase() };
@@ -23,27 +23,27 @@ function normalizeDestination(input) {
     return { channel, destination };
 }
 
-function emailPattern(email: string) {
+export function emailPattern(email: string) {
     return new RegExp(`^${email.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
 }
 
-function hashCode(destination, purpose: string, code: string, channel: string = "email") {
+export function hashCode(destination, purpose: string, code: string, channel: string = "email") {
     return createHmac("sha256", getConfig().JWT_REFRESH_SECRET)
         .update(`${channel}:${purpose}:${destination}:${code}`)
         .digest("hex");
 }
 
-function matchesCode(expected, actual) {
+export function matchesCode(expected, actual) {
     const left = Buffer.from(expected, "hex");
     const right = Buffer.from(actual, "hex");
     return left.length === right.length && timingSafeEqual(left, right);
 }
 
-function invitationTokenHash(token: string) {
+export function invitationTokenHash(token: string) {
     return createHmac("sha256", getConfig().JWT_REFRESH_SECRET).update(token).digest("hex");
 }
 
-async function ensurePurposeAllowed(destination, purpose: string, payload, channel: string) {
+export async function ensurePurposeAllowed(destination, purpose: string, payload, channel: string) {
     if (purpose === "signin") {
         const filter = channel === "sms" ? { phone: destination } : { email: emailPattern(destination) };
         return Boolean(await User.findOne({ ...filter, isActive: true }).select("_id"));
@@ -66,7 +66,7 @@ async function ensurePurposeAllowed(destination, purpose: string, payload, chann
         destination === getConfig().OPS_ADMIN_EMAIL.toLowerCase();
 }
 
-async function requestOtp(input) {
+export async function requestOtp(input) {
     const { channel, destination } = normalizeDestination(input);
     const purpose = input.purpose;
     const filter = { channel, destination, purpose };
@@ -106,7 +106,7 @@ async function requestOtp(input) {
     return { message: "If the account can sign in, a verification code has been sent.", expiresInSeconds: 300, resendAfterSeconds: 60 };
 }
 
-async function verifyOtp(input) {
+export async function verifyOtp(input) {
     const { channel, destination } = normalizeDestination(input);
     const purpose = input.purpose;
     const now = new Date();
@@ -154,7 +154,7 @@ async function verifyOtp(input) {
     return auth.createSessionForUser(user);
 }
 
-async function requestAdminOtp(email: string) {
+export async function requestAdminOtp(email: string) {
     const destination = email.trim().toLowerCase();
     const configured = getConfig().OPS_ADMIN_EMAIL.toLowerCase();
     if (destination !== configured)

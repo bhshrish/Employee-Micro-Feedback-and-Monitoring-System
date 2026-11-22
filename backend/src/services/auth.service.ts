@@ -15,10 +15,10 @@ const email_1 = require("./email.service");
 const operationsAuth = require("./operations-auth.service");
 const errors_1 = require("../utils/errors");
 const BCRYPT_ROUNDS = 12;
-function hashRefreshToken(token: string) {
+export function hashRefreshToken(token: string) {
     return (0, node_crypto_1.createHmac)("sha256", (0, env_1.getConfig)().JWT_REFRESH_SECRET).update(token).digest("hex");
 }
-function accessToken(user) {
+export function accessToken(user) {
     return jsonwebtoken_1.sign({ typ: "access", org: user.organizationId.toString(), role: user.role }, (0, env_1.getConfig)().JWT_ACCESS_SECRET, {
         subject: user._id.toString(),
         expiresIn: (0, env_1.getConfig)().ACCESS_TOKEN_TTL,
@@ -26,7 +26,7 @@ function accessToken(user) {
         audience: "calmwork-client",
     });
 }
-async function createRefreshToken(userId, familyId = (0, node_crypto_1.randomUUID)()) {
+export async function createRefreshToken(userId, familyId = (0, node_crypto_1.randomUUID)()) {
     const raw = (0, node_crypto_1.randomBytes)(48).toString("base64url");
     await RefreshToken_1.RefreshToken.create({
         userId,
@@ -36,7 +36,7 @@ async function createRefreshToken(userId, familyId = (0, node_crypto_1.randomUUI
     });
     return { raw, familyId };
 }
-async function createSessionForUser(user) {
+export async function createSessionForUser(user) {
     if (user.subscription.status === "trialing" && user.subscription.trialEndsAt <= new Date()) {
         user.subscription.status = "trial_expired";
         await user.save();
@@ -44,7 +44,7 @@ async function createSessionForUser(user) {
     const refresh = await createRefreshToken(user._id);
     return { user: publicUser(user), accessToken: accessToken(user), refreshToken: refresh.raw };
 }
-function publicUser(user) {
+export function publicUser(user) {
     const subscription = user.subscription;
     const trialExpired = subscription.status === "trialing" && subscription.trialEndsAt <= new Date();
     return {
@@ -67,7 +67,7 @@ function publicUser(user) {
         settings: user.settings,
     };
 }
-async function createOwnerAccount(input) {
+export async function createOwnerAccount(input) {
     if (input.email.trim().toLowerCase() === (0, env_1.getConfig)().OPS_ADMIN_EMAIL.toLowerCase())
         throw (0, errors_1.conflict)("This email is reserved for the platform administrator", "EMAIL_RESERVED");
     if (await User_1.User.exists({ email: input.email }))
@@ -98,13 +98,13 @@ async function createOwnerAccount(input) {
     }
     return user;
 }
-async function signup(input) {
+export async function signup(input) {
     return publicUser(await createOwnerAccount(input));
 }
-async function signupSession(input) {
+export async function signupSession(input) {
     return createSessionForUser(await createOwnerAccount(input));
 }
-async function signin(input) {
+export async function signin(input) {
     if (input.email.trim().toLowerCase() === (0, env_1.getConfig)().OPS_ADMIN_EMAIL.toLowerCase())
         throw (0, errors_1.unauthorized)("Email or password is incorrect");
     const user = await User_1.User.findOne({ email: input.email }).select("+passwordHash");
@@ -114,7 +114,7 @@ async function signin(input) {
         throw (0, errors_1.unauthorized)("This workspace is inactive");
     return createSessionForUser(user);
 }
-async function createInvitedUser(input) {
+export async function createInvitedUser(input) {
     if (input.email.trim().toLowerCase() === (0, env_1.getConfig)().OPS_ADMIN_EMAIL.toLowerCase())
         throw (0, errors_1.conflict)("This email is reserved for the platform administrator", "EMAIL_RESERVED");
     const tokenHash = hashRefreshToken(input.token);
@@ -148,13 +148,13 @@ async function createInvitedUser(input) {
         throw error;
     }
 }
-async function acceptInvitation(input) {
+export async function acceptInvitation(input) {
     return publicUser(await createInvitedUser(input));
 }
-async function acceptInvitationSession(input) {
+export async function acceptInvitationSession(input) {
     return createSessionForUser(await createInvitedUser(input));
 }
-async function rotateRefreshToken(raw) {
+export async function rotateRefreshToken(raw) {
     if (!raw || raw.length < 40)
         throw (0, errors_1.unauthorized)("Refresh token is invalid");
     const old = await RefreshToken_1.RefreshToken.findOne({ tokenHash: hashRefreshToken(raw) }).select("+tokenHash");
@@ -186,19 +186,19 @@ async function rotateRefreshToken(raw) {
     }
     return { user: publicUser(user), accessToken: accessToken(user), refreshToken: replacement.raw };
 }
-async function revokeRefreshToken(raw) {
+export async function revokeRefreshToken(raw) {
     if (!raw)
         return;
     const tokenHash = hashRefreshToken(raw);
     await RefreshToken_1.RefreshToken.updateOne({ tokenHash, revokedAt: null }, { revokedAt: new Date() });
 }
-async function revokeAllRefreshTokens(userId: string) {
+export async function revokeAllRefreshTokens(userId: string) {
     const now = new Date();
     const active = await RefreshToken_1.RefreshToken.find({ userId, revokedAt: null }).select("familyId");
     if (active.length)
         await RefreshToken_1.RefreshToken.updateMany({ familyId: { $in: active.map((token) => token.familyId) }, revokedAt: null }, { revokedAt: now });
 }
-async function getCurrentUser(userId: string) {
+export async function getCurrentUser(userId: string) {
     const user = await User_1.User.findById(userId);
     if (!user)
         throw (0, errors_1.unauthorized)();
@@ -208,10 +208,10 @@ async function getCurrentUser(userId: string) {
     }
     return publicUser(user);
 }
-function escapeEmailForRegex(email: string) {
+export function escapeEmailForRegex(email: string) {
     return email.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
-async function updateProfile(userId: string, input) {
+export async function updateProfile(userId: string, input) {
     const user = await User_1.User.findById(userId);
     if (!user)
         throw (0, errors_1.unauthorized)();
@@ -239,7 +239,7 @@ async function updateProfile(userId: string, input) {
         emailChange: pendingEmail ? { pendingEmail } : null,
     };
 }
-async function requestEmailChange(user, email: string) {
+export async function requestEmailChange(user, email: string) {
     const normalizedEmail = email.trim().toLowerCase();
     if (normalizedEmail === (0, env_1.getConfig)().OPS_ADMIN_EMAIL.toLowerCase())
         throw (0, errors_1.conflict)("This email is reserved for the platform administrator", "EMAIL_RESERVED");
@@ -271,7 +271,7 @@ async function requestEmailChange(user, email: string) {
     }
     return normalizedEmail;
 }
-async function verifyEmailChange(input) {
+export async function verifyEmailChange(input) {
     const tokenHash = hashResetToken(input.token);
     const now = new Date();
     const token = await EmailChangeToken_1.EmailChangeToken.findOne({
@@ -320,10 +320,10 @@ async function verifyEmailChange(input) {
     return { message: "Your email address has been verified and updated. You can now sign in with it." };
 }
 const RESET_TOKEN_LENGTH = 48;
-function hashResetToken(token: string) {
+export function hashResetToken(token: string) {
     return (0, node_crypto_1.createHmac)("sha256", (0, env_1.getConfig)().JWT_REFRESH_SECRET).update(token).digest("hex");
 }
-async function createPasswordResetToken(target) {
+export async function createPasswordResetToken(target) {
     const config = (0, env_1.getConfig)();
     const raw = (0, node_crypto_1.randomBytes)(RESET_TOKEN_LENGTH).toString("base64url");
     const tokenHash = hashResetToken(raw);
@@ -335,7 +335,7 @@ async function createPasswordResetToken(target) {
     });
     return raw;
 }
-async function forgotPassword(input) {
+export async function forgotPassword(input) {
     const escapedEmail = escapeEmailForRegex(input.email.trim());
     const normalizedEmail = input.email.trim().toLowerCase();
     const adminEmail = (0, env_1.getConfig)().OPS_ADMIN_EMAIL.toLowerCase();
@@ -354,7 +354,7 @@ async function forgotPassword(input) {
     // Always succeed without revealing whether the email exists.
     return { message: "If an account exists for this email, a password reset link has been sent." };
 }
-async function resetPassword(input) {
+export async function resetPassword(input) {
     const tokenHash = hashResetToken(input.token);
     const now = new Date();
     const record = await PasswordResetToken_1.PasswordResetToken.findOneAndUpdate({

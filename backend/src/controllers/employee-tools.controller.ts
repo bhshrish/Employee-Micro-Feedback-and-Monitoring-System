@@ -22,14 +22,14 @@ function authOf(req: ControllerRequest) {
     return req.auth;
 }
 
-exports.listPlanner = asyncHandler(async (req: ControllerRequest, res: Response) => {
+export const listPlanner = asyncHandler(async (req: ControllerRequest, res: Response) => {
     const auth = authOf(req);
     const tasks = await EmployeeTool.find({ organizationId: auth.organizationId, userId: auth.userId, kind: "planner_task" })
         .sort({ startsAt: 1, createdAt: -1 }).lean();
     res.json({ tasks });
 });
 
-exports.createPlanner = asyncHandler(async (req: ControllerRequest, res: Response) => {
+export const createPlanner = asyncHandler(async (req: ControllerRequest, res: Response) => {
     const auth = authOf(req);
     const task = await EmployeeTool.create({
         organizationId: auth.organizationId,
@@ -45,7 +45,7 @@ exports.createPlanner = asyncHandler(async (req: ControllerRequest, res: Respons
     res.status(201).json({ task });
 });
 
-exports.updatePlanner = asyncHandler(async (req: ControllerRequest, res: Response) => {
+export const updatePlanner = asyncHandler(async (req: ControllerRequest, res: Response) => {
     const auth = authOf(req);
     const update = { ...req.body };
     if (Object.hasOwn(update, "dueAt")) {
@@ -63,7 +63,7 @@ exports.updatePlanner = asyncHandler(async (req: ControllerRequest, res: Respons
     res.json({ task: updated });
 });
 
-exports.deletePlanner = asyncHandler(async (req: ControllerRequest, res: Response) => {
+export const deletePlanner = asyncHandler(async (req: ControllerRequest, res: Response) => {
     const auth = authOf(req);
     const deleted = await EmployeeTool.findOneAndDelete({
         _id: req.params.toolId,
@@ -76,7 +76,7 @@ exports.deletePlanner = asyncHandler(async (req: ControllerRequest, res: Respons
     res.status(204).end();
 });
 
-exports.listLeave = asyncHandler(async (req: ControllerRequest, res: Response) => {
+export const listLeave = asyncHandler(async (req: ControllerRequest, res: Response) => {
     const auth = authOf(req);
     const scope = auth.role === "admin" || auth.role === "manager" ? {} : { userId: auth.userId };
     const requests = await EmployeeTool.find({ organizationId: auth.organizationId, kind: "leave_request", ...scope })
@@ -85,7 +85,7 @@ exports.listLeave = asyncHandler(async (req: ControllerRequest, res: Response) =
     res.json({ requests });
 });
 
-exports.createLeave = asyncHandler(async (req: ControllerRequest, res: Response) => {
+export const createLeave = asyncHandler(async (req: ControllerRequest, res: Response) => {
     const auth = authOf(req);
     const request = await EmployeeTool.create({
         organizationId: auth.organizationId,
@@ -102,7 +102,7 @@ exports.createLeave = asyncHandler(async (req: ControllerRequest, res: Response)
     res.status(201).json({ request });
 });
 
-exports.decideLeave = asyncHandler(async (req: ControllerRequest, res: Response) => {
+export const decideLeave = asyncHandler(async (req: ControllerRequest, res: Response) => {
     const auth = authOf(req);
     const request = await EmployeeTool.findOneAndUpdate({
         _id: req.params.toolId,
@@ -115,7 +115,7 @@ exports.decideLeave = asyncHandler(async (req: ControllerRequest, res: Response)
     res.json({ request });
 });
 
-exports.listCalendar = asyncHandler(async (req: ControllerRequest, res: Response) => {
+export const listCalendar = asyncHandler(async (req: ControllerRequest, res: Response) => {
     const auth = authOf(req);
     const events = await EmployeeTool.find({
         organizationId: auth.organizationId,
@@ -126,7 +126,7 @@ exports.listCalendar = asyncHandler(async (req: ControllerRequest, res: Response
     res.json({ events });
 });
 
-exports.createCalendarEvent = asyncHandler(async (req: ControllerRequest, res: Response) => {
+export const createCalendarEvent = asyncHandler(async (req: ControllerRequest, res: Response) => {
     const auth = authOf(req);
     const startsAt = new Date(req.body.startsAt);
     const endsAt = new Date(req.body.endsAt);
