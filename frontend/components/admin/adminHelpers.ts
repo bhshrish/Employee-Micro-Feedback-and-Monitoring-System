@@ -6,6 +6,69 @@ export const ROLE_LABELS = {
 
 type AdminDate = string | Date | null | undefined;
 
+export interface AdminTeam {
+    id: string;
+    name: string;
+    members: number;
+    createdAt: string | Date;
+}
+
+export interface AdminMember {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    teamId: string | null;
+    isActive: boolean;
+    createdAt: string | Date;
+}
+
+export interface AdminInvitation {
+    id: string;
+    email: string;
+    role: string;
+    teamName?: string | null;
+    expiresAt: string | Date;
+}
+
+export type AdminAlertStatus = "open" | "acknowledged" | "dismissed";
+
+export interface AdminAlert {
+    id: string;
+    severity: "high" | "medium" | "low";
+    title: string;
+    score: number;
+    detail: string;
+    teamName?: string | null;
+    createdAt: string | Date;
+    status: AdminAlertStatus;
+}
+
+export interface AdminOverviewData {
+    admins: number;
+    managers: number;
+    employees: number;
+    activeMembers: number;
+    pendingInvitations: number;
+    members: number;
+    teams: number;
+    pulse: {
+        participation: number;
+        responses: number;
+    };
+    openAlerts: number;
+    attendance: {
+        checkedInToday: number;
+        currentlyIn: number;
+    };
+}
+
+export interface AdminMemberChanges extends Record<string, unknown> {
+    role?: string;
+    teamId?: string | null;
+    isActive?: boolean;
+}
+
 export const STATUS_FILTERS = [
     { value: "", label: "All accounts" },
     { value: "active", label: "Active" },

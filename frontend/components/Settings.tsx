@@ -1,0 +1,157 @@
+"use client";
+
+import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import { useSubscription } from "@/lib/subscription";
+import type { AuthUser } from "@/lib/api";
+import { useTheme } from "@/lib/theme";
+import { updateProfile } from "@/lib/api";
+import { AppShell } from "./AppShell";
+import { Modal } from "./UI";
+import { Icon } from "./Icon";
+import { useToast } from "./Toast";
+
+interface SettingsUser extends AuthUser {
+    phone?: string;
+    settings: {
+        idleThresholdMinutes: number;
+        notifications: {
+            weeklyPulse: boolean;
+            idlePrompt: boolean;
+            productUpdates: boolean;
+        };
+    };
+}
+
+interface UpdatedProfile {
+    user: AuthUser;
+    emailChange?: { pendingEmail?: string } | null;
+}
+
+function SettingsContent() {
+    const { user: contextUser, signIn, resetLocalPreferences } = useSubscription();
+    const user = contextUser as SettingsUser | null;
+    const { theme, setTheme } = useTheme();
+    const [name, setName] = useState(user?.name ?? "");
+    const [email, setEmail] = useState(user?.email ?? "");
+    const [pendingEmail, setPendingEmail] = useState("");
+    const [phone, setPhone] = useState(user?.phone ?? "");
+    const [threshold, setThreshold] = useState(user?.settings.idleThresholdMinutes ?? 5);
+    const [weekly, setWeekly] = useState(user?.settings.notifications.weeklyPulse ?? true);
+    const [idle, setIdle] = useState(user?.settings.notifications.idlePrompt ?? true);
+    const [product, setProduct] = useState(user?.settings.notifications.productUpdates ?? false);
+    const [resetOpen, setResetOpen] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const toast = useToast();
+    const router = useRouter();
+    const save = async (e: FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        if (!user)
+            return;
+        setSaving(true);
+        try {
+            const result = await updateProfile({
+                name,
+                email,
+                phone: phone || null,
+                settings: {
+                    idleThresholdMinutes: threshold,
+                    notifications: { weeklyPulse: weekly, idlePrompt: idle, productUpdates: product },
+                },
+            }) as unknown as UpdatedProfile;
+            signIn(result.user);
+            if (result.emailChange?.pendingEmail) {
+                setEmail(result.user.email);
+                setPendingEmail(result.emailChange.pendingEmail);
+            }
+            localStorage.setItem("calmwork:idleThreshold", String(threshold));
+            window.dispatchEvent(new Event("calmwork:settings"));
+            toast(result.emailChange?.pendingEmail
+                ? `Profile saved. Verify the link sent to ${result.emailChange.pendingEmail} to update your email.`
+                : "Profile and preferences saved.");
+        }
+        catch (error) {
+            toast(error instanceof Error ? error.message : "Could not save your settings.");
+        }
+        finally {
+            setSaving(false);
+        }
+    };
+    return <div className="settings-page">
+        <div className="app-page-heading">
+            <div>
+                <p className="section-label">Your workspace</p>
+                <h1>Settings</h1>
+                <p>Personal preferences and privacy settings for {user?.name}.</p>
+            </div>
+        </div>
+        <form onSubmit={save} className="settings-form">
+            <section className="settings-section">
+                <div><h2>Profile</h2><p>Your profile is tied to the account you signed in with.</p></div>
+                <div className="settings-fields">
+                    <label>Full name<input value={name} onChange={(e) => setName(e.target.value)} required minLength={2}/></label>
+                    <label>Email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" autoCapitalize="none" required /></label>
+                    {pendingEmail && <p className="form-note" role="status">A verification link was sent to {pendingEmail}. Your sign-in email will remain {user?.email} until you verify it.</p>}
+                </div>
+            </section>
+            <section className="settings-section">
+                <div><h2>Appearance</h2><p>Choose the display that feels most comfortable. This preference is saved on this browser.</p></div>
+                <div className="settings-fields">
+                    <fieldset className="theme-picker">
+                        <legend>Color theme</legend>
+                        <div className="segmented" role="group" aria-label="Color theme">
+                            <button type="button" className={theme === "light" ? "active" : ""} aria-pressed={theme === "light"} onClick={() => setTheme("light")}><Icon name="sun" size={18}/>Light</button>
+                            <button type="button" className={theme === "dark" ? "active" : ""} aria-pressed={theme === "dark"} onClick={() => setTheme("dark")}><Icon name="moon" size={18}/>Dark</button>
+                        </div>
+                    </fieldset>
+                </div>
+            </section>
+            <section className="settings-section">
+                <div><h2>Work sessions</h2><p>Choose when CalmWork asks about inactive time during a session you start.</p></div>
+                <div className="settings-fields">
+                    <label className="slider-label">
+                        <span>Idle threshold <strong>{threshold} minutes</strong></span>
+                        <input type="range" min="1" max="30" value={threshold} onChange={(e) => setThreshold(Number(e.target.value))}/>
+                        <span className="range-labels"><small>1 minute</small><small>30 minutes</small></span>
+                    </label>
+                    <p className="form-note"><Icon name="clock" size={18}/>Mouse, keyboard, scroll, and touch activity reset the idle timer. Page visibility is also respected.</p>
+                </div>
+            </section>
+            <section className="settings-section">
+                <div><h2>Notifications</h2><p>Preferences are saved to your account.</p></div>
+                <div className="settings-fields check-list">
+                    <label><input type="checkbox" checked={weekly} onChange={(e) => setWeekly(e.target.checked)}/><span>Weekly wellbeing check-in reminder</span></label>
+                    <label><input type="checkbox" checked={idle} onChange={(e) => setIdle(e.target.checked)}/><span>Idle check-in prompt</span></label>
+                    <label><input type="checkbox" checked={product} onChange={(e) => setProduct(e.target.checked)}/><span>Occasional product updates</span></label>
+                </div>
+            </section>
+            <div className="settings-save"><button className="button" disabled={saving}>{saving ? "Saving…" : "Save settings"}</button></div>
+        </form>
+        <section className="settings-section privacy-settings">
+            <div><h2>Privacy, in plain language</h2><p>What CalmWork does—and what is planned.</p></div>
+            <div className="settings-fields privacy-list">
+                <p><Icon name="check"/><span><strong>Current features:</strong> self-started work sessions, task planning, productivity tags, and voluntary wellbeing check-ins.</span></p>
+                <p><Icon name="shield"/><span><strong>No monitoring:</strong> CalmWork does not record screens, keystrokes, typed text, or individual work activity for managers.</span></p>
+                <p><Icon name="shield"/><span><strong>Manager reports:</strong> reports use aggregated check-in patterns, with small groups suppressed to protect privacy.</span></p>
+            </div>
+        </section>
+        <section className="settings-section danger-zone">
+            <div><h2>Reset local preferences</h2><p>Sign out and remove CalmWork preferences stored in this browser. Workspace activity remains saved to your account.</p></div>
+            <div><button className="button button-danger" onClick={() => setResetOpen(true)}>Reset local preferences</button></div>
+        </section>
+        <Modal open={resetOpen} onClose={() => setResetOpen(false)} title="Reset local preferences?">
+            <div className="modal-body">
+                <p>This does not delete workspace records or your account.</p>
+                <div className="modal-actions">
+                    <button className="button button-outline" onClick={() => setResetOpen(false)}>Cancel</button>
+                    <button className="button button-danger" onClick={async () => { await resetLocalPreferences(); router.push("/"); }}>Reset preferences</button>
+                </div>
+            </div>
+        </Modal>
+    </div>;
+}
+export function Settings() {
+    const { user } = useSubscription();
+    const key = `${user?.id ?? ""}:${user?.email ?? ""}`;
+    return <AppShell><SettingsContent key={key} /></AppShell>;
+}

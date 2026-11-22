@@ -12,9 +12,15 @@ export interface AuthUser {
     };
 }
 
+interface HeatmapCell {
+    teamId: string;
+    weekStart: string;
+    riskScore: number;
+}
+
 interface HeatmapResponse {
     teams: { teamId: string; name: string }[];
-    cells: UnknownRecord[];
+    cells: HeatmapCell[];
 }
 
 interface PulseTeam {
@@ -53,6 +59,36 @@ interface AlertsResponse {
     }[];
 }
 
+export interface TeamData {
+    minimumGroupSize: number;
+    suppressedTeams: number;
+    heatmapTeams: { id: string; name: string }[];
+    teams: {
+        id: string;
+        name: string;
+        mood: number | null;
+        stress: number | null;
+        workload: number | null;
+        burnoutScore: number | null;
+        exhaustion?: number | null;
+        recovery?: number | null;
+        control?: number | null;
+        support?: number | null;
+        participation: number;
+        responses: number;
+        trend: number[];
+    }[];
+    alerts: {
+        id: string;
+        title: string;
+        detail: string;
+        severity: string;
+        time: string;
+        status: string;
+    }[];
+    heatmap: HeatmapCell[];
+}
+
 interface ReportResponse {
     report: {
         downloadUrl: string;
@@ -86,12 +122,32 @@ interface CurrentUserResponse {
     user: AuthUser;
 }
 
+export interface AttendanceRecord {
+    _id: string;
+    checkedInAt: string;
+    checkedOutAt: string | null;
+    durationSeconds: number | null;
+}
+
+export interface MyAttendance {
+    current: Pick<AttendanceRecord, "checkedInAt"> | null;
+    records: AttendanceRecord[];
+}
+
 interface SessionActivity {
+    id: string;
     startedAt: string;
     activeSeconds: number;
     idleSeconds: number;
-    category: string;
-    status?: string;
+    category: "Productive" | "Neutral" | "Distracting";
+    status: "running" | "paused" | "stopped";
+    pausedAt?: string | null;
+    pausedSeconds?: number;
+    task: string;
+}
+
+interface ActivitySessionResponse {
+    session: { _id: string };
 }
 
 interface DailyActivity {
@@ -412,8 +468,8 @@ export async function updateWorkspaceMember(memberId: string, input: UnknownReco
 export async function archiveWorkspaceTeam(teamId: string) {
     return request(`/workspace/teams/${encodeURIComponent(teamId)}`, { method: "DELETE" });
 }
-export async function getMyAttendance() {
-    return request("/attendance/me");
+export async function getMyAttendance(): Promise<MyAttendance> {
+    return requestRequired<MyAttendance>("/attendance/me");
 }
 export async function checkInAttendance() {
     return request("/attendance/check-in", { method: "POST", body: JSON.stringify({}) });
@@ -509,7 +565,24 @@ async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
             dashboardRequest = null;
     }
 }
-export async function getDashboardData(range: "Today" | "7d" | "30d") {
+export interface DashboardData {
+    kpis: {
+        total: string;
+        active: string;
+        idle: string;
+        productive: number;
+        weekly: string;
+        streak: number;
+    };
+    sessions: number;
+    productiveHours: number;
+    neutralHours: number;
+    daily: { label: string; active: number; idle: number }[];
+    weekly: { day: string; productive: number; neutral: number; idle: number }[];
+    trend: number[];
+}
+
+export async function getDashboardData(range: "Today" | "7d" | "30d"): Promise<DashboardData> {
     const allActivity = await getDashboardSnapshot();
     const now = new Date();
     const start = new Date(now);
@@ -626,7 +699,7 @@ export async function getHeatmapData(weeks: number, teamId?: string) {
         cells: result.cells,
     };
 }
-export async function getTeamData() {
+export async function getTeamData(): Promise<TeamData> {
     const [scores, analytics, alerts, heatmap] = await Promise.all([
         requestRequired<PulseTeamsResponse>("/pulse/teams"),
         requestRequired<AnalyticsTeamsResponse>("/analytics/teams"),
@@ -701,10 +774,10 @@ export async function downloadReport(period: string, metrics: string[], format: 
     });
     return { blob, filename: result.report.filename || `calmwork-report.${format.toLowerCase()}` };
 }
-export async function startActivity(task: string, category: string) {
-    return request("/sessions/start", { method: "POST", body: JSON.stringify({ task, category }) });
+export async function startActivity(task: string, category: string): Promise<ActivitySessionResponse> {
+    return requestRequired<ActivitySessionResponse>("/sessions/start", { method: "POST", body: JSON.stringify({ task, category }) });
 }
-export async function getOpenActivity() {
+export async function getOpenActivity(): Promise<SessionActivity | null> {
     const result = await getDashboardSnapshot();
     return result.sessions.find((item) => item.status === "running" || item.status === "paused") ?? null;
 }
