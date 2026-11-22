@@ -1,0 +1,22 @@
+"use client";
+import Link from "next/link";
+import { useState } from "react";
+import { Logo } from "./Logo";
+import { Icon } from "./Icon";
+export function MarketingNavbar() {
+    const [open, setOpen] = useState(false);
+    return <header className="marketing-nav"><Logo /><nav className={open ? "nav-open" : ""} aria-label="Main navigation"><Link href="/#features" onClick={() => setOpen(false)}>Features</Link><Link href="/#how-it-works" onClick={() => setOpen(false)}>How it works</Link><Link href="/pricing" onClick={() => setOpen(false)}>Pricing</Link><Link href="/about" onClick={() => setOpen(false)}>About</Link></nav><div className="nav-actions"><Link href="/login" className="text-link">Sign in</Link><Link href="/login?mode=signup" className="button button-small">Create account <Icon name="arrow" size={18}/></Link></div><button className="menu-button" onClick={() => setOpen(!open)} aria-expanded={open} aria-label={open ? "Close menu" : "Open menu"}><Icon name={open ? "close" : "menu"}/></button></header>;
+}
+export function MarketingFooter() {
+    return <footer className="marketing-footer"><div className="footer-top"><div><Logo inverse/><p>Healthier work, heard earlier.</p></div><div className="footer-links"><div><strong>Product</strong><Link href="/pricing">Pricing</Link><Link href="/login?mode=signup">Create an account</Link><Link href="/contact">Contact</Link></div><div><strong>Company</strong><Link href="/about">About</Link><Link href="/privacy">Privacy</Link><Link href="/login">Sign in</Link></div></div></div><div className="footer-bottom"><span>© 2026 CalmWork. Employee feedback and wellbeing.</span><span>Wellbeing check-ins are voluntary. Reports cost ₹99 each.</span></div></footer>;
+}
+const faqs = [
+    ["How much does a report cost?", "Each generated PDF or CSV report costs ₹99. You only pay when you choose to generate a report."],
+    ["Are wellbeing responses private?", "Wellbeing check-ins are voluntary. Reports use aggregated patterns, and small groups are hidden to protect privacy."],
+    ["Can I use a personal email address?", "Yes. Any valid email address can be used to create an account or sign in."],
+    ["How is payment handled?", "Payments are processed securely by Razorpay. CalmWork does not receive or store card numbers or CVCs."],
+ ] as const;
+export function FAQ() {
+    const [open, setOpen] = useState(0);
+    return <div className="faq-list">{faqs.map(([question, answer], i) => <div className={`faq-item ${open === i ? "open" : ""}`} key={question}><button onClick={() => setOpen(open === i ? -1 : i)} aria-expanded={open === i}><span>{question}</span><Icon name="chevron"/></button><div className="faq-answer" hidden={open !== i}><p>{answer}</p></div></div>)}</div>;
+}

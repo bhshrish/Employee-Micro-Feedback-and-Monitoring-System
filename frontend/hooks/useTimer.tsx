@@ -1,0 +1,273 @@
+"use client";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { useSubscription } from "@/lib/subscription";
+import { useIdleDetector } from "./useIdleDetector";
+import { getOpenActivity, heartbeatActivity, pauseActivity, resumeActivity, setActivityIdle, startActivity, stopActivity, updateActivityCategory, updateActivityTask, } from "@/lib/api";
+type TimerStatus = "running" | "paused" | "stopped";
+export type ActivityCategory = "Productive" | "Neutral" | "Distracting";
+
+interface TimerState {
+    status: TimerStatus;
+    elapsed: number;
+    idle: number;
+    startedAt: number | null;
+    task: string;
+    category: ActivityCategory;
+    lastSession: number;
+    sessionId: string | null;
+}
+
+interface TimerContextValue extends TimerState {
+    elapsedSeconds: number;
+    idleOpen: boolean;
+    idleDuration: number;
+    start: () => void;
+    pause: () => void;
+    stop: () => void;
+    setTask: (task: string) => void;
+    setCategory: (category: ActivityCategory) => void;
+    keepIdle: () => void;
+    discardIdle: () => void;
+    takeBreak: () => void;
+    simulateIdle: () => void;
+}
+
+interface TimerProviderProps {
+    children: ReactNode;
+}
+
+const TimerContext = createContext<TimerContextValue | null>(null);
+const initial: TimerState = { status: "stopped", elapsed: 0, idle: 0, startedAt: null, task: "Product strategy", category: "Productive", lastSession: 0, sessionId: null };
+const currentElapsed = (data: TimerState): number => data.elapsed + (data.status === "running" && data.startedAt ? (Date.now() - data.startedAt) / 1000 : 0);
+const settled = (data: TimerState): TimerState => ({ ...data, elapsed: currentElapsed(data), startedAt: data.status === "running" ? Date.now() : null });
+function isActivityCategory(value: string): value is ActivityCategory {
+    return value === "Productive" || value === "Neutral" || value === "Distracting";
+}
+function reportFailure(error: unknown): void {
+    const message = error instanceof Error ? error.message : "The activity request failed.";
+    window.dispatchEvent(new CustomEvent("calmwork:api-error", { detail: message }));
+}
+export function TimerProvider({ children }: TimerProviderProps) {
+    const { authenticated, user } = useSubscription();
+    const [data, setData] = useState(initial);
+    const dataRef = useRef(data);
+    const [elapsedSeconds, setElapsedSeconds] = useState(0);
+    const [threshold, setThreshold] = useState(5);
+    const [idleOpen, setIdleOpen] = useState(false);
+    const [idleDuration, setIdleDuration] = useState(0);
+    const pendingStart = useRef(false);
+    useEffect(() => {
+        const readThreshold = () => Math.min(30, Math.max(1, Number(localStorage.getItem("calmwork:idleThreshold")) || 5));
+        const timeout = window.setTimeout(() => setThreshold(readThreshold()), 0);
+        const settings = () => setThreshold(Math.min(30, Math.max(1, Number(localStorage.getItem("calmwork:idleThreshold")) || 5)));
+        window.addEventListener("calmwork:settings", settings);
+        return () => {
+            window.clearTimeout(timeout);
+            window.removeEventListener("calmwork:settings", settings);
+        };
+    }, []);
+    useEffect(() => {
+        let active = true;
+        const timeout = window.setTimeout(() => {
+            setData(initial);
+            dataRef.current = initial;
+            setElapsedSeconds(0);
+            if (!authenticated || !user?.id)
+                return;
+            getOpenActivity().then((session) => {
+                if (!active || !session)
+                    return;
+                const startedAt = new Date(session.startedAt).getTime();
+                const pausedAt = session.status === "running" || !session.pausedAt
+                    ? Date.now()
+                    : new Date(session.pausedAt).getTime();
+                const elapsedFromSession = Math.max(0, Math.floor((pausedAt - startedAt) / 1000) - (session.pausedSeconds ?? 0));
+                const current = dataRef.current;
+                const elapsed = current.sessionId === session.id && current.status !== "stopped"
+                    ? current.elapsed
+                    : Math.max(elapsedFromSession, session.activeSeconds + session.idleSeconds);
+                if (!isActivityCategory(session.category))
+                    throw new Error("The activity session returned an unsupported work category.");
+                const next: TimerState = {
+                    ...current,
+                    status: session.status,
+                    elapsed,
+                    idle: session.idleSeconds,
+                    startedAt: session.status === "running" ? Date.now() : null,
+                    task: session.task,
+                    category: session.category,
+                    sessionId: session.id,
+                };
+                setData(next);
+                setElapsedSeconds(currentElapsed(next));
+            }).catch(reportFailure);
+        }, 0);
+        return () => {
+            active = false;
+            window.clearTimeout(timeout);
+        };
+    }, [authenticated, user?.id]);
+    useEffect(() => { dataRef.current = data; }, [data]);
+    useEffect(() => {
+        const interval = window.setInterval(() => setElapsedSeconds(currentElapsed(dataRef.current)), 1000);
+        return () => window.clearInterval(interval);
+    }, []);
+    const start = useCallback(() => {
+        if (pendingStart.current || dataRef.current.status === "running")
+            return;
+        pendingStart.current = true;
+        void (async () => {
+            try {
+                const current = dataRef.current;
+                const session = current.sessionId && current.status === "paused"
+                    ? await resumeActivity(current.sessionId).then(() => ({ _id: current.sessionId }))
+                    : await startActivity(current.task, current.category).then((result) => result.session);
+                const next: TimerState = { ...dataRef.current, status: "running", startedAt: Date.now(), sessionId: session._id };
+                setData(next);
+            }
+            catch (error) {
+                reportFailure(error);
+            }
+            finally {
+                pendingStart.current = false;
+            }
+        })();
+    }, []);
+    const pause = useCallback(() => {
+        const current = dataRef.current;
+        if (current.status !== "running")
+            return;
+        void (async () => {
+            try {
+                if (current.sessionId)
+                    await pauseActivity(current.sessionId);
+                setData((prev) => ({ ...settled(prev), status: "paused", startedAt: null }));
+            }
+            catch (error) {
+                reportFailure(error);
+            }
+        })();
+    }, []);
+    const stop = useCallback(() => {
+        const current = dataRef.current;
+        if (current.status === "stopped")
+            return;
+        void (async () => {
+            try {
+                if (current.sessionId)
+                    await stopActivity(current.sessionId);
+                setData((prev) => ({
+                    ...prev,
+                    status: "stopped",
+                    elapsed: 0,
+                    startedAt: null,
+                    lastSession: currentElapsed(prev),
+                    sessionId: null,
+                }));
+            }
+            catch (error) {
+                reportFailure(error);
+            }
+        })();
+    }, []);
+    useEffect(() => {
+        const visibility = () => {
+            if (document.hidden && dataRef.current.status === "running")
+                pause();
+        };
+        const pagehide = () => {
+            if (dataRef.current.status === "running" && dataRef.current.sessionId) {
+                void heartbeatActivity(dataRef.current.sessionId).catch(reportFailure);
+            }
+        };
+        document.addEventListener("visibilitychange", visibility);
+        window.addEventListener("pagehide", pagehide);
+        return () => { document.removeEventListener("visibilitychange", visibility); window.removeEventListener("pagehide", pagehide); };
+    }, [pause]);
+    useEffect(() => {
+        if (data.status !== "running" || !data.sessionId)
+            return;
+        const sessionId = data.sessionId;
+        const timer = window.setInterval(() => { void heartbeatActivity(sessionId).catch(reportFailure); }, 15_000);
+        return () => window.clearInterval(timer);
+    }, [data.status, data.sessionId]);
+    const idleHandler = useCallback((seconds: number) => {
+        setIdleDuration(seconds);
+        setIdleOpen(true);
+        if (dataRef.current.sessionId)
+            void setActivityIdle(dataRef.current.sessionId, true).catch(reportFailure);
+    }, []);
+    const { resetActivity, simulateIdle } = useIdleDetector(threshold, data.status === "running" && !idleOpen, idleHandler);
+    const closeIdle = useCallback(() => { setIdleOpen(false); resetActivity(); }, [resetActivity]);
+    const setTask = useCallback((task: string) => {
+        const current = dataRef.current;
+        if (current.task === task)
+            return;
+        const next = { ...current, task };
+        dataRef.current = next;
+        setData(next);
+        if (!current.sessionId || current.status === "stopped")
+            return;
+        void updateActivityTask(current.sessionId, task).catch((error) => {
+            reportFailure(error);
+            setData((prev) => {
+                if (prev.sessionId !== current.sessionId || prev.task !== task)
+                    return prev;
+                const restored = { ...prev, task: current.task };
+                dataRef.current = restored;
+                return restored;
+            });
+        });
+    }, []);
+    const keepIdle = useCallback(() => {
+        if (dataRef.current.sessionId)
+            void setActivityIdle(dataRef.current.sessionId, false).catch(reportFailure);
+        closeIdle();
+    }, [closeIdle]);
+    const discardIdle = useCallback(() => {
+        if (dataRef.current.sessionId)
+            void setActivityIdle(dataRef.current.sessionId, false).catch(reportFailure);
+        setData((prev) => {
+            const next = settled(prev);
+            return { ...next, elapsed: Math.max(0, next.elapsed - idleDuration), idle: next.idle + idleDuration };
+        });
+        closeIdle();
+    }, [closeIdle, idleDuration]);
+    const takeBreak = useCallback(() => {
+        const current = dataRef.current;
+        if (current.sessionId)
+            void Promise.all([
+                setActivityIdle(current.sessionId, false),
+                pauseActivity(current.sessionId),
+            ]).catch(reportFailure);
+        setData((prev) => {
+            const next = settled(prev);
+            return { ...next, status: "paused", startedAt: null, elapsed: Math.max(0, next.elapsed - idleDuration), idle: next.idle + idleDuration };
+        });
+        closeIdle();
+    }, [closeIdle, idleDuration]);
+    const value = {
+        ...data, elapsedSeconds, idleOpen, idleDuration, start, pause, stop,
+        setTask,
+        setCategory: (category: ActivityCategory) => {
+            setData((prev) => ({ ...prev, category }));
+            if (dataRef.current.sessionId)
+                void updateActivityCategory(dataRef.current.sessionId, category).catch(reportFailure);
+        },
+        keepIdle, discardIdle, takeBreak, simulateIdle,
+    };
+    return <TimerContext.Provider value={value}>{children}</TimerContext.Provider>;
+}
+export function useTimer(): TimerContextValue {
+    const value = useContext(TimerContext);
+    if (!value)
+        throw new Error("useTimer must be used inside TimerProvider");
+    return value;
+}
+export function formatDuration(totalSeconds: number): string {
+    const seconds = Math.max(0, Math.floor(totalSeconds));
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return [h, m, s].map((n) => String(n).padStart(2, "0")).join(":");
+}

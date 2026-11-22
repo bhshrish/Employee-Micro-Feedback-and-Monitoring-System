@@ -2,15 +2,15 @@
 
 Paste this file at the start of any new AI session. Update it at the end of every step. Newest entries first within each section.
 
-Last updated: 2026-11-21
+Last updated: 2026-11-22
 
 ---
 
 ## 1. Current status
 
 - **Phase:** Step **0.1 Repo hygiene and TypeScript migration** is in progress.
-- **Current substep:** **0.1a.2 Remaining frontend**. The login/auth boundary, shared UI primitives, providers, admin helpers, hooks, and shared API client are TypeScript; strict frontend typecheck, lint, and production build pass.
-- **Next step:** Continue **0.1a.2** with the remaining frontend modules and routes; then migrate the backend in **0.1b** and complete combined checks in **0.1c**.
+- **Current substep:** **0.1a.2 Remaining frontend** is complete. Frontend routes, components, hooks, and API modules are TypeScript; strict frontend typecheck and production build pass.
+- **Next step:** **0.1b Backend** TypeScript migration, followed by **0.1c Completion** for combined root checks and backend tests.
 - **Repository note:** The checked-out application already has a substantial frontend and Express/Mongoose backend; the initial implementation-plan baseline predates that code. Existing JavaScript remains enabled but unchecked until converted in its staged migration slice.
 - **Live site:** https://employee-micro-feedback-and-monitor-omega.vercel.app/
 - **Repo:** https://github.com/bhshrish/Employee-Micro-Feedback-and-Monitoring-System
@@ -95,6 +95,46 @@ Password for all: `Demo@12345`. Created only by `npm run seed` when `SEED_DEMO=t
 - Manual steps for me: None.
 - Problems / follow-ups: Remaining routes, components, and hooks are still JavaScript and are not yet strict-typechecked; continue 0.1a.2 in small slices.
 - Decisions: Keep the existing API endpoint behavior and centralized client while incrementally tightening response types.
+
+### 2026-11-22 — Step 0.1a.2 Shared routing and notifications
+- Built: Converted the route guard and toast provider/hook to TypeScript, adding typed props, toast state, and context access. Preserved redirect, loading, auto-dismiss, and manual-dismiss behavior.
+- Files changed: Renamed `frontend/components/RouteGuard.jsx` and `Toast.jsx` to `.tsx`.
+- Tests: `npm --workspace frontend run typecheck`, `npm --workspace frontend run lint`, `npm --workspace frontend run build`, and `git diff --check` pass.
+- Manual steps for me: None.
+- Problems / follow-ups: Remaining frontend routes, components, and the timer hook are still JavaScript and are not yet strict-typechecked.
+- Decisions: The toast hook throws when used outside its provider instead of silently dropping a notification.
+
+### 2026-11-22 — Step 0.1a.2 Password recovery and email verification
+- Built: Converted password recovery/reset and email-change verification components and their App Router pages to TypeScript. Added typed form events, recovery mode props, and safe message handling for API responses.
+- Files changed: `frontend/components/PasswordRecoveryForm.tsx`, `EmailChangeVerification.tsx`, and the corresponding forgot-password, reset-password, and verify-email-change pages.
+- Tests: `npm --workspace frontend run typecheck`, `npm --workspace frontend run lint`, `npm --workspace frontend run build`, and `git diff --check` pass.
+- Manual steps for me: None.
+- Problems / follow-ups: Other frontend components/routes and the timer hook remain to migrate.
+- Decisions: Defer URL-token state initialization until after hydration to preserve server-rendered output and satisfy React lint.
+
+### 2026-11-22 — Step 0.1a.2 Shared routing and notifications
+- Built: Converted the route guard and toast provider/hook to TypeScript, adding typed props, toast state, and context access. Preserved the existing redirect, loading, auto-dismiss, and manual-dismiss behavior.
+- Files changed: Renamed `frontend/components/RouteGuard.jsx` and `Toast.jsx` to `.tsx`.
+- Tests: `npm --workspace frontend run typecheck`, `npm --workspace frontend run lint`, `npm --workspace frontend run build`, and `git diff --check` pass.
+- Manual steps for me: None.
+- Problems / follow-ups: Remaining frontend routes, components, and the timer hook are still JavaScript and are not yet strict-typechecked; continue 0.1a.2 in small slices.
+- Decisions: Keep the shared notification context fail-fast if consumed outside its provider rather than silently dropping a toast.
+
+### 2026-11-22 — Step 0.1a.2 Reveal component
+- Built: Converted the intersection-observer reveal wrapper to TypeScript with typed children, class name, and element ref. Preserved the visible fallback for environments without `IntersectionObserver`.
+- Files changed: Renamed `frontend/components/Reveal.jsx` to `Reveal.tsx`.
+- Tests: `npm --workspace frontend run typecheck`, `npm --workspace frontend run lint`, `npm --workspace frontend run build`, and `git diff --check` pass.
+- Manual steps for me: None.
+- Problems / follow-ups: Remaining frontend modules and routes remain to migrate one at a time.
+- Decisions: Deferred the no-observer visibility update to avoid a synchronous state update inside an effect.
+
+### 2026-11-22 — Step 0.1a.2 Remaining frontend complete
+- Built: Converted the remaining frontend App Router pages, marketing and contact components, employee/dashboard/monitoring views, charts, attendance, timer, and admin components/routes to TypeScript. Added explicit API/data types where needed and kept strict checking enabled.
+- Files changed: Remaining `frontend/app/**/*.jsx`, `frontend/components/**/*.jsx`, and `frontend/hooks/useTimer.jsx` were renamed to `.tsx`; added related strict types in `frontend/lib/api.ts` and `frontend/components/admin/adminHelpers.ts`.
+- Tests: `npm --workspace frontend run typecheck` and `npm --workspace frontend run build` pass. `npm --workspace frontend run lint` passes with five warnings in admin route pages (four internal `window.location.assign()` navigation warnings and one unnecessary callback dependency warning). `git diff --check` passes. Confirmed no `.js` or `.jsx` source files remain under `frontend/` outside generated output/dependencies.
+- Manual steps for me: None.
+- Problems / follow-ups: Resolve the five non-blocking lint warnings when touching those admin routes; backend JavaScript remains for step 0.1b.
+- Decisions: Treat generated `.next` output and dependencies as build artifacts, not application source modules.
 
 ### 2026-11-20
 - Added `docs/` with the 8 project documents.
