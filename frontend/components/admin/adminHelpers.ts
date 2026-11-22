@@ -2,7 +2,9 @@ export const ROLE_LABELS = {
     admin: "Admin",
     manager: "Manager",
     employee: "Employee",
-};
+} as const;
+
+type AdminDate = string | Date | null | undefined;
 
 export const STATUS_FILTERS = [
     { value: "", label: "All accounts" },
@@ -36,23 +38,25 @@ export const ADMIN_TABS = [
 
 export const INVITATION_TTL_DAYS = 7;
 
-export function roleLabel(role) {
-    return ROLE_LABELS[role] ?? role ?? "Employee";
+export function roleLabel(role: string | null | undefined) {
+    return role === "admin" || role === "manager" || role === "employee"
+        ? ROLE_LABELS[role]
+        : role ?? "Employee";
 }
 
-export function formatDate(value) {
+export function formatDate(value: AdminDate) {
     if (!value)
         return "—";
     return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(value));
 }
 
-export function formatDateTime(value) {
+export function formatDateTime(value: AdminDate) {
     if (!value)
         return "—";
     return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }
 
-export function formatTime(value) {
+export function formatTime(value: AdminDate) {
     return value ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "—";
 }
 
@@ -61,7 +65,7 @@ export function formatDuration(seconds = 0) {
     return `${Math.floor(total / 3600)}h ${Math.floor((total % 3600) / 60)}m`;
 }
 
-export function formatAction(action) {
+export function formatAction(action: string | null | undefined) {
     if (!action)
         return "Update";
     const [scope, verb] = action.split(".");
@@ -69,7 +73,7 @@ export function formatAction(action) {
     return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-export function buildInviteLink(token, email) {
+export function buildInviteLink(token: string | null | undefined, email: string) {
     if (!token)
         return "";
     const link = new URL("/login", window.location.origin);
@@ -78,6 +82,6 @@ export function buildInviteLink(token, email) {
     return link.toString();
 }
 
-export function errorMessage(cause, fallback) {
+export function errorMessage(cause: unknown, fallback: string) {
     return cause instanceof Error && cause.message ? cause.message : fallback;
 }

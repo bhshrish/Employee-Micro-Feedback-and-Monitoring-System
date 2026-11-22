@@ -1,12 +1,25 @@
 "use client";
 import { useCallback, useEffect, useRef } from "react";
-export function useIdleDetector(thresholdMinutes, enabled, onIdle) {
-    const lastActivity = useRef(Date.now());
+
+interface UseIdleDetectorResult {
+    resetActivity: () => void;
+    simulateIdle: () => void;
+}
+
+export function useIdleDetector(
+    thresholdMinutes: number,
+    enabled: boolean,
+    onIdle: (idleSeconds: number) => void,
+): UseIdleDetectorResult {
+    const lastActivity = useRef(0);
     const callback = useRef(onIdle);
-    callback.current = onIdle;
+    useEffect(() => {
+        callback.current = onIdle;
+    }, [onIdle]);
     const resetActivity = useCallback(() => { lastActivity.current = Date.now(); }, []);
     useEffect(() => {
-        const events = ["mousemove", "mousedown", "keydown", "scroll", "touchstart"];
+        lastActivity.current = Date.now();
+        const events = ["mousemove", "mousedown", "keydown", "scroll", "touchstart"] as const;
         events.forEach((event) => window.addEventListener(event, resetActivity, { passive: true }));
         const interval = window.setInterval(() => {
             const idleSeconds = (Date.now() - lastActivity.current) / 1000;
