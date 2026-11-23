@@ -64,6 +64,14 @@ Password for all: `Demo@12345`. Created only by `npm run seed` when `SEED_DEMO=t
 
 ## 7. Changelog
 
+### 2026-11-23 — Employee and Business email sign-in
+- Built: Added Employee/Business sign-in tabs, email verification code flow with password fallback, and account-type binding for OTP requests and verification. Updated the sign-in card to follow the teal/cream auth design guidance.
+- Files changed: `frontend/components/AuthForm.jsx`, `frontend/app/globals.css`, `backend/src/schemas.js`, `backend/src/services/otp.service.js`, and `backend/tests/api.test.js`.
+- Tests: Focused API tests, frontend/backend lint, production build, and full backend suite.
+- Manual steps for me: Ensure backend SMTP settings are configured for email codes, then deploy frontend and backend.
+- Problems / follow-ups: None.
+- Decisions: Employee sign-in maps to the existing `individual` role; Business maps to `business`. Password sign-in remains available.
+
 ### 2026-11-23 — JavaScript conversion
 - Built: Converted all 135 frontend, backend, and test TypeScript/TSX source files to JavaScript/JSX; removed TypeScript configuration and direct tooling dependencies; updated runtime scripts, lint config, and project guidance.
 - Files changed: Frontend and backend source/test extensions; package manifests and lockfile; JavaScript build/lint/test configuration; relevant stack, rules, implementation, and frontend/backend documentation.

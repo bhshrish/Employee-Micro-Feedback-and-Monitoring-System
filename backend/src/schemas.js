@@ -184,9 +184,13 @@ exports.otpRequestSchema = zod_1.z.object({
     phone: zod_1.z.string().trim().regex(/^\+[1-9]\d{7,14}$/).optional(),
     channel: zod_1.z.enum(["email", "sms"]).default("email"),
     purpose: zod_1.z.enum(["signin", "invitation"]),
+    accountType: zod_1.z.enum(["individual", "business"]).optional(),
     name: zod_1.z.string().trim().min(2).max(100).optional(),
     invitationToken: zod_1.z.string().min(32).max(128).optional(),
 }).strict().superRefine((value, context) => {
+    if (value.accountType && value.purpose !== "signin") {
+        context.addIssue({ code: "custom", message: "Account type is only available for sign-in" });
+    }
     if (value.channel === "email" && !value.email) {
         context.addIssue({ code: "custom", message: "Email is required for email verification" });
     }
@@ -205,9 +209,13 @@ exports.otpVerifySchema = zod_1.z.object({
     phone: zod_1.z.string().trim().regex(/^\+[1-9]\d{7,14}$/).optional(),
     channel: zod_1.z.enum(["email", "sms"]).default("email"),
     purpose: zod_1.z.enum(["signin", "invitation"]),
+    accountType: zod_1.z.enum(["individual", "business"]).optional(),
     code: zod_1.z.string().regex(/^\d{6}$/),
     name: zod_1.z.string().trim().min(2).max(100).optional(),
 }).strict().superRefine((value, context) => {
+    if (value.accountType && value.purpose !== "signin") {
+        context.addIssue({ code: "custom", message: "Account type is only available for sign-in" });
+    }
     if (value.channel === "email" && !value.email) {
         context.addIssue({ code: "custom", message: "Email is required for email verification" });
     }

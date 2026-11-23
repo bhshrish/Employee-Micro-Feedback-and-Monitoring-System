@@ -50,8 +50,12 @@ function invitationTokenHash(token) {
 }
 async function ensurePurposeAllowed(destination, purpose, payload, channel) {
     if (purpose === "signin") {
-        const filter = channel === "sms" ? { phone: destination } : { email: emailPattern(destination) };
-        return Boolean(await User.findOne({ ...filter, isActive: true }).select("_id"));
+        const filter = {
+            ...(channel === "sms" ? { phone: destination } : { email: emailPattern(destination) }),
+            isActive: true,
+            ...(payload.accountType ? { role: payload.accountType } : {}),
+        };
+        return Boolean(await User.findOne(filter).select("_id"));
     }
     if (purpose === "invitation") {
         if (channel !== "email")
@@ -88,7 +92,7 @@ async function requestOtp(input) {
         codeHash: hashCode(destination, purpose, code, channel),
         payload: purpose === "invitation"
             ? { invitationToken: input.invitationToken.trim(), invitationEmail: allowed.email }
-            : {},
+            : input.accountType ? { accountType: input.accountType } : {},
         attempts: 0,
         resendAfter: new Date(now.getTime() + RESEND_COOLDOWN_MS),
         expiresAt: new Date(now.getTime() + OTP_TTL_MS),
@@ -146,7 +150,13 @@ async function verifyOtp(input) {
     }
     const userFilter = channel === "sms" ? { phone: destination } : { email: emailPattern(destination) };
     const user = await User.findOne({ ...userFilter, isActive: true });
-    if (!user || !await hasActiveWorkspace(user))
+    const accountType = challenge.payload?.accountType ?? input.accountType;
+    if (
+        (input.accountType && challenge.payload?.accountType && input.accountType !== challenge.payload.accountType) ||
+        !user ||
+        (accountType && user.role !== accountType) ||
+        !await hasActiveWorkspace(user)
+    )
         throw notFound("Account is unavailable");
     return auth.createSessionForUser(user);
 }

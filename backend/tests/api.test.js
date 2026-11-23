@@ -505,6 +505,45 @@ describe("PULSE API", () => {
         const repairedUser = await User.collection.findOne({ _id: userId });
         assert.equal(repairedUser?.organizationId.toString(), organizationId.toString());
     });
+    it("recovers an active workspace owned by an individual when their old workspace is inactive", async () => {
+        const organizationId = new mongoose.Types.ObjectId();
+        const inactiveOrganizationId = new mongoose.Types.ObjectId();
+        const userId = new mongoose.Types.ObjectId();
+        await Organization.create({
+            _id: organizationId,
+            name: "Individual owner's workspace",
+            ownerId: userId,
+        });
+        await Organization.create({
+            _id: inactiveOrganizationId,
+            name: "Old inactive workspace",
+            ownerId: new mongoose.Types.ObjectId(),
+            isActive: false,
+        });
+        await User.collection.insertOne({
+            _id: userId,
+            organizationId: inactiveOrganizationId,
+            teamId: null,
+            name: "Individual Owner",
+            email: "individual-owner@example.test",
+            passwordHash: await bcrypt.hash("correct-horse-battery", 4),
+            role: "individual",
+            subscription: {
+                plan: "Team",
+                status: "active",
+                trialEndsAt: new Date(Date.now() + 7 * 86_400_000),
+            },
+        });
+
+        const signin = await request(app).post("/api/v1/auth/signin").send({
+            email: "individual-owner@example.test",
+            password: "correct-horse-battery",
+        }).expect(200);
+
+        assert.equal(signin.body.user.organizationId, organizationId.toString());
+        const repairedUser = await User.collection.findOne({ _id: userId });
+        assert.equal(repairedUser?.organizationId.toString(), organizationId.toString());
+    });
     it("rejects prototype-pollution keys before validation", async () => {
         await request(app)
             .post("/api/v1/auth/signup")
@@ -570,6 +609,60 @@ describe("PULSE API", () => {
         const token = cookie.split(";")[0].slice("calmwork_operations=".length);
         assert.equal(jwt.verify(token, process.env.JWT_ADMIN_SECRET).typ, "operations_admin");
         assert.throws(() => jwt.verify(token, process.env.JWT_ACCESS_SECRET));
+    });
+    it("binds email verification codes to the selected Employee or Business account type", async () => {
+        const businessAccount = await signupAndSignin("otp-business-type@example.test", "OTP Business", "business");
+        const mismatchedRequest = await request(app).post("/api/v1/auth/otp/request")
+            .send({
+                email: businessAccount.body.user.email,
+                purpose: "signin",
+                accountType: "individual",
+            }).expect(200);
+        assert.match(mismatchedRequest.body.message, /If the account can sign in/);
+        assert.equal(await OtpChallenge.exists({
+            destination: businessAccount.body.user.email,
+            purpose: "signin",
+        }), null);
+
+        await createOtpChallenge(businessAccount.body.user.email, "signin", "123456", {
+            payload: { accountType: "business" },
+        });
+        await request(app).post("/api/v1/auth/otp/verify")
+            .send({
+                email: businessAccount.body.user.email,
+                purpose: "signin",
+                accountType: "individual",
+                code: "123456",
+            }).expect(404);
+
+        await OtpChallenge.deleteOne({
+            destination: businessAccount.body.user.email,
+            purpose: "signin",
+        });
+        await createOtpChallenge(businessAccount.body.user.email, "signin", "222222", {
+            payload: { accountType: "business" },
+        });
+        const businessSession = await request(app).post("/api/v1/auth/otp/verify")
+            .send({
+                email: businessAccount.body.user.email,
+                purpose: "signin",
+                accountType: "business",
+                code: "222222",
+            }).expect(200);
+        assert.ok(businessSession.headers["set-cookie"].some((cookie) => /calmwork_access=.*HttpOnly/i.test(cookie)));
+
+        const employeeAccount = await signupAndSignin("otp-employee-type@example.test", "OTP Employee", "individual");
+        await createOtpChallenge(employeeAccount.body.user.email, "signin", "654321", {
+            payload: { accountType: "individual" },
+        });
+        const employeeSession = await request(app).post("/api/v1/auth/otp/verify")
+            .send({
+                email: employeeAccount.body.user.email,
+                purpose: "signin",
+                accountType: "individual",
+                code: "654321",
+            }).expect(200);
+        assert.ok(employeeSession.headers["set-cookie"].some((cookie) => /calmwork_access=.*HttpOnly/i.test(cookie)));
     });
     it("keeps planner tasks tenant- and user-scoped and removes salary and signature tools", async () => {
         const firstOwner = await signupAndSignin("tools-first@example.test");

@@ -13,9 +13,6 @@ async function hasActiveWorkspace(user) {
             return true;
         }
 
-        if (await Organization_1.Organization.exists({ _id: user.organizationId })) {
-            return false;
-        }
     }
 
     const storedUser = await User_1.User.collection.findOne(
@@ -28,11 +25,12 @@ async function hasActiveWorkspace(user) {
             isActive: { $ne: false },
         }).select("_id")
         : null;
-    const ownedOrganization = legacyOrganization || user.role !== "business"
+    const ownedOrganization = legacyOrganization
         ? null
         : await Organization_1.Organization.findOne({
             ownerId: user._id,
             isActive: { $ne: false },
+            ...(user.organizationId ? { _id: { $ne: user.organizationId } } : {}),
         }).select("_id");
     const organizationId = legacyOrganization?._id ?? ownedOrganization?._id;
     if (!storedUser || !organizationId) {
