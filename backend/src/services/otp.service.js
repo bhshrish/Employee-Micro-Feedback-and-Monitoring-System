@@ -14,12 +14,12 @@ const { getConfig } = require("../config/env");
 const { OtpChallenge } = require("../models/OtpChallenge");
 const { User } = require("../models/User");
 const { Invitation } = require("../models/Invitation");
-const { Organization } = require("../models/Organization");
 const { sendOtpEmail } = require("./email.service");
 const { sendSms } = require("./sms.service");
 const auth = require("./auth.service");
 const operationsAuth = require("./operations-auth.service");
 const { AppError, unauthorized, notFound } = require("../utils/errors");
+const { hasActiveWorkspace } = require("../utils/active-workspace");
 const OTP_TTL_MS = 5 * 60_000;
 const RESEND_COOLDOWN_MS = 60_000;
 const MAX_ATTEMPTS = 5;
@@ -146,7 +146,7 @@ async function verifyOtp(input) {
     }
     const userFilter = channel === "sms" ? { phone: destination } : { email: emailPattern(destination) };
     const user = await User.findOne({ ...userFilter, isActive: true });
-    if (!user || !await Organization.exists({ _id: user.organizationId, isActive: { $ne: false } }))
+    if (!user || !await hasActiveWorkspace(user))
         throw notFound("Account is unavailable");
     return auth.createSessionForUser(user);
 }
