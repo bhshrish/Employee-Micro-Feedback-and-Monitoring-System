@@ -4,7 +4,7 @@ interface AuthContext {
     userId: import("mongoose").Types.ObjectId;
     organizationId: import("mongoose").Types.ObjectId;
     teamId: import("mongoose").Types.ObjectId | null;
-    role: "employee" | "manager" | "admin";
+    role: import("../types/roles").UserRole;
 }
 
 interface ControllerRequest extends Request {
@@ -78,7 +78,7 @@ export const deletePlanner = asyncHandler(async (req: ControllerRequest, res: Re
 
 export const listLeave = asyncHandler(async (req: ControllerRequest, res: Response) => {
     const auth = authOf(req);
-    const scope = auth.role === "admin" || auth.role === "manager" ? {} : { userId: auth.userId };
+    const scope = auth.role === "business" ? {} : { userId: auth.userId };
     const requests = await EmployeeTool.find({ organizationId: auth.organizationId, kind: "leave_request", ...scope })
         .populate("userId", "name email")
         .sort({ createdAt: -1 }).lean();

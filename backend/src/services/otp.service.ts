@@ -7,6 +7,7 @@ const { Organization } = require("../models/Organization");
 const { sendOtpEmail } = require("./email.service");
 const { sendSms } = require("./sms.service");
 const auth = require("./auth.service");
+const operationsAuth = require("./operations-auth.service");
 const { AppError, unauthorized, notFound } = require("../utils/errors");
 
 const OTP_TTL_MS = 5 * 60_000;
@@ -159,6 +160,7 @@ export async function requestAdminOtp(email: string) {
     const configured = getConfig().OPS_ADMIN_EMAIL.toLowerCase();
     if (destination !== configured)
         return { message: "If the administrator address is configured, a verification code has been sent.", expiresInSeconds: 300, resendAfterSeconds: 60 };
+    await operationsAuth.getOperationsAdmin();
     return requestOtp({ email: destination, channel: "email", purpose: "admin" });
 }
 

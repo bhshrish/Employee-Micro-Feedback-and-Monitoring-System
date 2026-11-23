@@ -62,7 +62,7 @@ Three paid plans, plus a free trial. Full detail in `09-PRICING-PLANS.md`.
 | Calendar, meetings, reminders | No | Yes | Yes |
 | Leave applications | No | Yes | Yes |
 | CSV bulk invites | No | Yes | Yes |
-| Reports (PDF/CSV, aggregated) | ₹99 each | 3 free per month, then ₹99 each | Unlimited, plus scheduled monthly reports |
+| Reports (PDF/CSV, aggregated) | Free | Free | Free |
 | Salary checker, online document signature | No | No | Yes |
 | Audit log of admin actions | No | No | Yes |
 | Custom data retention period, higher data limits | No | No | Yes |
@@ -141,17 +141,15 @@ CTAs: **Start free trial** (14 days) and **View demo**.
 - Alerts only fire when the group size meets the minimum (5).
 - Every alert includes a "How to open the conversation" tip and a link to resources.
 
-### 7.9 Reports (paid per report)
-- Choose date range and metrics, then download PDF or CSV.
-- Pricing by plan: Pro pays ₹99 per report; Pro Max gets 3 free per month, then ₹99; Pro Ultra is unlimited and can schedule monthly reports.
-- Paid reports go through Razorpay and are released only after the verified webhook.
+### 7.9 Reports (free)
+- Admins and managers can choose a date range and metrics, then download an aggregated PDF or CSV without a per-report charge.
 - Reports contain aggregated data only.
 
 ### 7.10 Billing
 - Trial banner with days left. At day 14 without a chosen plan, the org becomes read-only.
 - Plan picker (Pro, Pro Max, Pro Ultra) on `/pricing/` and in `/business/billing/`, with upgrade and downgrade.
-- Backend enforces plan limits (employees, teams, free reports per month) and feature access; the UI shows upgrade prompts at the limit.
-- Razorpay for subscriptions and per-report payments. Currency (USD vs INR) is an open decision.
+- Backend enforces plan limits (employees, teams) and feature access; the UI shows upgrade prompts at the limit.
+- Razorpay is used for subscriptions.
 - Downgrade over limits: the org keeps its data but cannot add new employees or teams until it is back under the limit.
 
 ### 7.11 Platform Admin (separate login)

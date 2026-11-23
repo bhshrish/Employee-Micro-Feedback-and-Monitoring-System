@@ -4,7 +4,7 @@ interface AuthContext {
     userId: import("mongoose").Types.ObjectId;
     organizationId: import("mongoose").Types.ObjectId;
     teamId: import("mongoose").Types.ObjectId | null;
-    role: "employee" | "manager" | "admin";
+    role: import("../types/roles").UserRole;
 }
 
 interface ControllerRequest extends Request {
@@ -31,7 +31,7 @@ function cookieOptions(path = "/api/v1/auth") {
     return {
         httpOnly: true,
         secure: isSecure,
-        sameSite: isSecure ? "none" : "lax",
+        sameSite: isSecure ? "none" as const : "lax" as const,
         path,
         ...(config.COOKIE_DOMAIN ? { domain: config.COOKIE_DOMAIN } : {}),
         maxAge: config.REFRESH_TOKEN_DAYS * 86_400_000,
@@ -57,10 +57,19 @@ export const signup = (0, async_handler_1.asyncHandler)(async (req: ControllerRe
     res.setHeader("Cache-Control", "no-store");
     res.status(201).json({ user: await auth.signup(req.body) });
 });
+export const signupSession = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+    setSession(res, await auth.signupSession(req.body), 201);
+});
+export const signin = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+    setSession(res, await auth.signin(req.body));
+});
 export const acceptInvitation = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     const user = await auth.acceptInvitation(req.body);
     res.setHeader("Cache-Control", "no-store");
     res.status(201).json({ user });
+});
+export const acceptInvitationSession = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+    setSession(res, await auth.acceptInvitationSession(req.body), 201);
 });
 export const refresh = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     const raw = req.cookies?.[cookieName];

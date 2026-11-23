@@ -141,14 +141,14 @@ export function AdminActivity() {
                         </label>
                     </div>
 
-                    <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 16 }}>Aggregated by workspace. Individual task labels and employee activity records are not exposed.</p>
+                    <p style={{ color: "var(--muted)", fontSize: 14, marginBottom: 16 }}>Aggregated by workspace. Individual task labels and personal activity records are not exposed.</p>
 
                     {loading ? <Skeleton lines={5} /> : (
                         <section className="data-card admin-card">
                             <div className="table-scroll">
                                 <table className="data-table">
                                     <thead>
-                                        <tr><th>Workspace</th><th>Employees active</th><th>Sessions</th><th>Active time</th><th>Idle time</th></tr>
+                                        <tr><th>Workspace</th><th>People active</th><th>Sessions</th><th>Active time</th><th>Idle time</th></tr>
                                     </thead>
                                     <tbody>
                                         {(data?.businesses ?? []).map((row) => (

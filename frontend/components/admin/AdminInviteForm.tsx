@@ -17,7 +17,6 @@ export function AdminInviteForm({ teams, onInvited }: AdminInviteFormProps) {
     const toast = useToast();
     const [email, setEmail] = useState("");
     const [teamId, setTeamId] = useState("");
-    const [role, setRole] = useState<"employee" | "manager">("employee");
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
     const [inviteLink, setInviteLink] = useState("");
@@ -34,7 +33,7 @@ export function AdminInviteForm({ teams, onInvited }: AdminInviteFormProps) {
         setSaving(true);
         setError("");
         try {
-            const invitation = await createAdminInvitation(email.trim(), teamId, role) as unknown as { token: string; email: string };
+            const invitation = await createAdminInvitation(email.trim(), teamId) as unknown as { token: string; email: string };
             setInviteLink(buildInviteLink(invitation.token, invitation.email));
             setEmail("");
             toast(`Invitation ready for ${invitation.email}.`);
@@ -62,14 +61,7 @@ export function AdminInviteForm({ teams, onInvited }: AdminInviteFormProps) {
         <div className="card-heading"><div><p className="section-label">Invite</p><h2>Add a teammate</h2></div><span className="admin-chip"><Icon name="mail" size={15}/>7-day link</span></div>
         <form className="admin-form" onSubmit={submit}>
             <label>Work email<input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="teammate@company.com" autoCapitalize="none" spellCheck={false}/></label>
-            <div className="admin-form-row">
-                <label>Team<select required value={teamId} onChange={(event) => setTeamId(event.target.value)} disabled={!teams.length}>{teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select></label>
-                <label>Role<select value={role} onChange={(event) => {
-                    const value = event.target.value;
-                    if (value === "employee" || value === "manager")
-                        setRole(value);
-                }}><option value="employee">Employee</option><option value="manager">Manager</option></select></label>
-            </div>
+            <label>Team<select required value={teamId} onChange={(event) => setTeamId(event.target.value)} disabled={!teams.length}>{teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}</select></label>
             <FieldError>{error}</FieldError>
             {!teams.length && <p className="admin-note"><Icon name="alert" size={16}/>Create a team before inviting people.</p>}
             <button className="button" disabled={saving || !teams.length}>{saving ? "Creating…" : "Create invitation"}<Icon name="arrow" size={17}/></button>

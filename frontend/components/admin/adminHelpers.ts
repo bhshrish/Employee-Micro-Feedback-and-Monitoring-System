@@ -1,7 +1,7 @@
 export const ROLE_LABELS = {
     admin: "Admin",
-    manager: "Manager",
-    employee: "Employee",
+    business: "Business",
+    individual: "Individual",
 } as const;
 
 type AdminDate = string | Date | null | undefined;
@@ -45,9 +45,8 @@ export interface AdminAlert {
 }
 
 export interface AdminOverviewData {
-    admins: number;
-    managers: number;
-    employees: number;
+    businesses: number;
+    individuals: number;
     activeMembers: number;
     pendingInvitations: number;
     members: number;
@@ -77,9 +76,8 @@ export const STATUS_FILTERS = [
 
 export const ROLE_FILTERS = [
     { value: "", label: "All roles" },
-    { value: "admin", label: "Admins" },
-    { value: "manager", label: "Managers" },
-    { value: "employee", label: "Employees" },
+    { value: "business", label: "Business" },
+    { value: "individual", label: "Individual" },
 ];
 
 export const ALERT_FILTERS = [
@@ -102,9 +100,9 @@ export const ADMIN_TABS = [
 export const INVITATION_TTL_DAYS = 7;
 
 export function roleLabel(role: string | null | undefined) {
-    return role === "admin" || role === "manager" || role === "employee"
+    return role === "admin" || role === "business" || role === "individual"
         ? ROLE_LABELS[role]
-        : role ?? "Employee";
+        : role ?? "Individual";
 }
 
 export function formatDate(value: AdminDate) {

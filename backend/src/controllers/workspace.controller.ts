@@ -4,7 +4,7 @@ interface AuthContext {
     userId: import("mongoose").Types.ObjectId;
     organizationId: import("mongoose").Types.ObjectId;
     teamId: import("mongoose").Types.ObjectId | null;
-    role: "employee" | "manager" | "admin";
+    role: import("../types/roles").UserRole;
 }
 
 interface ControllerRequest extends Request {
@@ -30,9 +30,6 @@ export const createTeam = (0, async_handler_1.asyncHandler)(async (req: Controll
 export const inviteMember = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
-    if (req.auth.role === "manager" && req.auth.teamId?.toString() !== req.body.teamId) {
-        throw (0, errors_1.forbidden)("Managers can invite members only to their assigned team");
-    }
     const invitation = await workspace.createInvitation(req.auth.organizationId, req.auth.userId, req.body.email, req.body.teamId);
     const result = {
         email: invitation.email,
@@ -45,9 +42,9 @@ export const inviteMember = (0, async_handler_1.asyncHandler)(async (req: Contro
 export const members = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
-    const teamId = req.auth.role === "admin" ? undefined : req.auth.teamId ?? undefined;
-    if (req.auth.role !== "admin" && !teamId)
-        throw (0, errors_1.forbidden)("A manager must be assigned to a team");
+    const teamId = req.auth.role === "business" ? undefined : req.auth.teamId ?? undefined;
+    if (req.auth.role !== "business" && !teamId)
+        throw (0, errors_1.forbidden)("A team assignment is required");
     res.json({ members: await workspace.listMembers(req.auth.organizationId, teamId) });
 });
 export const updateMember = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {

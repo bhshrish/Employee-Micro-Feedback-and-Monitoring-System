@@ -19,9 +19,8 @@ interface RoleSplitProps {
 
 function RoleSplit({ overview }: RoleSplitProps) {
     const rows = [
-        { label: "Admins", value: overview.admins },
-        { label: "Managers", value: overview.managers },
-        { label: "Employees", value: overview.employees },
+        { label: "Business accounts", value: overview.businesses },
+        { label: "Individuals", value: overview.individuals },
     ];
     const total = rows.reduce((sum, row) => sum + row.value, 0) || 1;
     return <section className="data-card admin-card">

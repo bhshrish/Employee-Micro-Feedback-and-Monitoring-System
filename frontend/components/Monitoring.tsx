@@ -35,7 +35,7 @@ function MonitorContent() {
     const [refreshKey, setRefreshKey] = useState(0);
 
     useEffect(() => {
-        if (user?.role !== "admin" && user?.role !== "manager") {
+        if (user?.role !== "business") {
             return;
         }
         let active = true;
@@ -81,8 +81,8 @@ function MonitorContent() {
         [data],
     );
 
-    if (user?.role !== "admin" && user?.role !== "manager")
-        return <div className="monitoring-page"><div className="app-page-heading"><div><p className="section-label">Team wellbeing</p><h1>Manager access required</h1><p>The burnout monitor is available to workspace administrators and managers.</p></div></div></div>;
+    if (user?.role !== "business")
+        return <div className="monitoring-page"><div className="app-page-heading"><div><p className="section-label">Team wellbeing</p><h1>Business access required</h1><p>The burnout monitor is available to Business accounts.</p></div></div></div>;
 
     return <div className="monitoring-page">
         <header className="monitoring-heading">
@@ -137,7 +137,7 @@ function MonitorContent() {
                                 <span>Participation <strong>{team.participation}%</strong></span>
                             </div>
                         </li>)}
-                    </ul> : <div className="monitoring-empty"><Icon name="chart" size={24}/><h3>No team results yet</h3><p>Results will appear after at least {data.minimumGroupSize} employees in a team submit this week’s check-in.</p></div>}
+                    </ul> : <div className="monitoring-empty"><Icon name="chart" size={24}/><h3>No team results yet</h3><p>Results will appear after at least {data.minimumGroupSize} Individuals in a team submit this week’s check-in.</p></div>}
                     <p className="monitoring-note">Signal averages the seven check-in measures, reversing positive wellbeing factors. It is an early-support indicator, not a diagnosis or employee performance score.</p>
                 </section>
 

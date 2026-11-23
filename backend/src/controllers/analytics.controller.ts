@@ -4,7 +4,7 @@ interface AuthContext {
     userId: import("mongoose").Types.ObjectId;
     organizationId: import("mongoose").Types.ObjectId;
     teamId: import("mongoose").Types.ObjectId | null;
-    role: "employee" | "manager" | "admin";
+    role: import("../types/roles").UserRole;
 }
 
 interface ControllerRequest extends Request {
@@ -22,12 +22,12 @@ import * as Team_1 from "../models/Team";
 async function teamScope(req: ControllerRequest, requested?: string): Promise<import("mongoose").Types.ObjectId | undefined> {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
-    const canViewAll = req.auth.role === "admin";
+    const canViewAll = req.auth.role === "business";
     const teamId = requested ?? (!canViewAll ? req.auth.teamId?.toString() : undefined);
-    if (!canViewAll && req.auth.role !== "manager")
-        throw (0, errors_1.forbidden)("Analytics are available to workspace managers only");
+    if (!canViewAll)
+        throw (0, errors_1.forbidden)("Analytics are available to Business accounts only");
     if (!canViewAll && !teamId)
-        throw (0, errors_1.forbidden)("A manager must be assigned to a team");
+        throw (0, errors_1.forbidden)("A team assignment is required");
     if (teamId) {
         await workspace.ensureTeamAccess(req.auth.organizationId, teamId, req.auth.teamId, canViewAll);
     }

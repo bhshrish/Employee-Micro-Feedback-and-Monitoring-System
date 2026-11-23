@@ -11,8 +11,6 @@ export function getTransporter(config) {
         ["SMTP_FROM", config.SMTP_FROM],
     ].filter(([, value]) => !value).map(([name]) => name);
     if (missingSettings.length > 0) {
-        if (config.NODE_ENV !== "production")
-            return null;
         throw new AppError(
             503,
             `Email delivery is not configured. Missing: ${missingSettings.join(", ")}.`,
@@ -29,12 +27,8 @@ export function getTransporter(config) {
 
 export async function deliver({ to, subject, text }) {
     const config = getConfig();
-    const transporter = getTransporter(config);
-    if (!transporter) {
-        logger.info("Development email preview (SMTP is not configured)");
-        return;
-    }
     try {
+        const transporter = getTransporter(config);
         await transporter.sendMail({
             from: { name: config.SMTP_FROM_NAME, address: config.SMTP_FROM },
             to,
@@ -43,12 +37,14 @@ export async function deliver({ to, subject, text }) {
         });
     }
     catch (error) {
-        logger.error({ err: error }, "SMTP email delivery failed");
+        logger.error({ err: error }, "Email delivery failed; check SMTP configuration and provider logs");
+        if (error instanceof AppError)
+            throw error;
         throw new AppError(502, "Email delivery failed.", "EMAIL_DELIVERY_FAILED");
     }
 }
 
-export async function sendOtpEmail({ to, code: string, expiresInMinutes }) {
+export async function sendOtpEmail({ to, code, expiresInMinutes }) {
     await deliver({
         to,
         subject: "Your CalmWork verification code",
@@ -56,7 +52,7 @@ export async function sendOtpEmail({ to, code: string, expiresInMinutes }) {
     });
 }
 
-export async function sendCalendarReminder({ to, name: string, title, startsAt, description }) {
+export async function sendCalendarReminder({ to, name, title, startsAt, description }) {
     await deliver({
         to,
         subject: `Reminder: ${title}`,

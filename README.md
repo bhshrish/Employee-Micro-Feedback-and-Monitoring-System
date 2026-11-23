@@ -23,13 +23,13 @@ docker compose --env-file backend/.env -f backend/docker-compose.yml up -d
 npm run api:dev
 ```
 
-The API listens on the configured `PORT` (default `4000`). Use `GET /health` for liveness and `GET /health/ready` to verify its MongoDB connection. The OpenAPI reference is served at `/api/docs`. Business owners sign up with their name, business name, email, and password; employees create password accounts through business invitations. Users can sign in with a password or request a one-time email or SMS sign-in code. Employees can enroll a phone number in Settings for SMS codes. Users can request an email password-reset link from the login page. Configure Nodemailer with your SMTP provider using `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, and a verified `SMTP_FROM` sender address. The single platform administrator signs in at `/admin/login` with the configured `OPS_ADMIN_EMAIL` and password; its session uses the separate `JWT_ADMIN_SECRET`. Set a unique `OPS_ADMIN_INITIAL_PASSWORD` once to initialize the administrator credential in MongoDB, then remove that variable.
+The API listens on the configured `PORT` (default `4000`). Use `GET /health` for liveness and `GET /health/ready` to verify its MongoDB connection. The OpenAPI reference is served at `/api/docs`. People can sign up as an Individual or Business account; invited workspace members are always Individuals. Business signups require an allowed business email (Gmail is accepted; Yahoo, Outlook, Hotmail, and similar consumer providers are blocked). Admin is a separate platform-operations account and cannot be self-registered. To create it, set `OPS_ADMIN_EMAIL`, `OPS_ADMIN_NAME`, and a unique `OPS_ADMIN_INITIAL_PASSWORD` in `backend/.env`, then run `npm run seed:admin`; remove the initial password after the seed succeeds. Admin signs in at `/admin/login`, and its session uses the separate `JWT_ADMIN_SECRET`. Users can sign in with a password or request a one-time email or SMS sign-in code. Configure Nodemailer with `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, and a verified `SMTP_FROM` sender address. Email-based sign-in and verification fail explicitly until SMTP is configured and delivery succeeds.
 
 The platform operations dashboard is available at `/admin`. It can review and activate/suspend businesses and users, create teams and assign employees, review daily attendance and export CSV, and review activity summaries aggregated by business. It does not expose individual salary estimates or pulse responses.
 
-Workspace monitoring summaries are included during the seven-day free trial. After the trial, an active monthly or yearly plan is required to continue using monitoring. Report exports require an active paid plan.
+Workspace monitoring summaries are included during the 14-day free trial. After the trial, an active monthly or yearly plan is required to continue using monitoring. Business accounts can generate and download aggregated PDF or CSV reports for free.
 
-Keep the API running, then start the frontend in a second terminal with `npm run dev` (or `npm --workspace frontend run dev`). The login page connects to `http://localhost:4000/api/v1` by default, so login and signup will not work until MongoDB and the API are available. If the API startup log reports another port (for example, `5000`), set `NEXT_PUBLIC_API_URL` to that API URL plus `/api/v1` (for example, `http://localhost:5000/api/v1`) before starting the frontend. `CORS_ORIGINS` must include the frontend's browser origin (for local development, `http://localhost:3000`); comma-separate it from any deployed frontend origin you also need to allow. Configure SMTP to deliver password-reset emails; without SMTP configured in development, an email preview is logged without its content.
+Keep the API running, then start the frontend in a second terminal with `npm run dev` (or `npm --workspace frontend run dev`). The login page connects to `http://localhost:4000/api/v1` by default, so login and signup will not work until MongoDB and the API are available. If the API startup log reports another port (for example, `5000`), set `NEXT_PUBLIC_API_URL` to that API URL plus `/api/v1` (for example, `http://localhost:5000/api/v1`) before starting the frontend. `CORS_ORIGINS` must include the frontend's browser origin (for local development, `http://localhost:3000`); comma-separate it from any deployed frontend origin you also need to allow. Configure SMTP to deliver password-reset emails and verification codes; without SMTP configured, email-dependent flows return an explicit delivery error rather than reporting a code as sent.
 
 ## Deploy both apps to Vercel
 
@@ -43,7 +43,7 @@ Deploy the frontend and API as **two separate Vercel projects** from this reposi
    - `FRONTEND_URL` set to the frontend's production URL
    - `CORS_ORIGINS` set to the exact frontend production origin (scheme and host, no path)
    - `COOKIE_SECURE=true`
-   - `OPS_ADMIN_EMAIL`, `OPS_ADMIN_NAME`, and an initial unique `OPS_ADMIN_INITIAL_PASSWORD` for the one platform administrator; remove the initial password after the administrator has been initialized
+   - `OPS_ADMIN_EMAIL`, `OPS_ADMIN_NAME`, and a unique `OPS_ADMIN_INITIAL_PASSWORD`; run `npm run seed:admin` against the production database, then remove the initial password from the deployment environment
    - In the API project's Production environment, set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and a verified `SMTP_FROM` address for administrator/user password resets and email codes; set `SMTP_FROM_NAME` if desired
    - Razorpay key ID, key secret, webhook secret, and the six recurring plan IDs described in [`backend/.env.example`](./backend/.env.example)
 3. Deploy the API. Its base URL is the Vercel deployment URL; confirm `GET /health` responds with `{"status":"ok"}`.
@@ -67,7 +67,9 @@ See [`backend/.env.example`](./backend/.env.example) for the complete variable l
 | `npm run build` | Build backend and frontend |
 | `npm run lint` | Lint the backend |
 | `npm test` | Run backend unit and integration tests |
-| `npm run seed` | Populate the configured database with sample data |
+| `npm run seed` | Create the optional Business account configured by `SEED_*` |
+| `npm run seed:admin` | Seed the separate platform administrator from `OPS_ADMIN_*` |
+| `npm run migrate:roles` | Migrate legacy `admin`/`manager`/`employee` account roles |
 
 For local MongoDB, the provided Compose service can be started with the setup command above and stopped with:
 
@@ -85,7 +87,7 @@ Burnout analytics combine normalized stress, workload, inverse mood, participati
 
 ## API overview
 
-Versioned JSON routes are under `/api/v1`: email/password and email/SMS-code authentication, password recovery, single-platform-administrator password authentication, user and team administration, time sessions, weekly pulses, manager-only aggregate analytics, alerts, Razorpay billing, employee tools, and subscription-gated reports. JSON responses include `success`, `data`, and `error` fields; compatibility fields are retained for existing clients. See the OpenAPI document at [`backend/openapi.yaml`](./backend/openapi.yaml).
+Versioned JSON routes are under `/api/v1`: email/password and email/SMS-code authentication, password recovery, single-platform-administrator authentication, Business-only user and team administration, time sessions, weekly pulses, Business-only aggregate analytics, alerts, Razorpay billing, personal tools, and subscription-gated monitoring. JSON responses include `success`, `data`, and `error` fields; compatibility fields are retained for existing clients. See the OpenAPI document at [`backend/openapi.yaml`](./backend/openapi.yaml).
 
 Razorpay subscription webhooks are verified against the raw request body and deduplicated before subscription state or invoice records are updated.
 
@@ -96,7 +98,7 @@ Razorpay subscription webhooks are verified against the raw request body and ded
 - Passwords use bcrypt; sensitive user fields are never serialized.
 - Request schemas reject unknown input fields and protect database queries from operator injection.
 - API logs exclude passwords, bearer/cookie tokens, card data, and pulse comments.
-- Reports require an active paid subscription; trial access to report previews is limited.
+- Business accounts can generate and download aggregated PDF or CSV reports for free, including after a trial expires.
 
 Use the test-only secrets and data in local development. Do not expose debug credentials, MongoDB, or Razorpay test secrets in production.
 

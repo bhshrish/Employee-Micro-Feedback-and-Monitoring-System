@@ -1,7 +1,7 @@
 "use client";
 
 import { Icon } from "../Icon";
-import { ROLE_LABELS, formatDate, roleLabel } from "./adminHelpers";
+import { formatDate, roleLabel } from "./adminHelpers";
 import type { AdminMember, AdminMemberChanges, AdminTeam } from "./adminHelpers";
 
 interface AdminMemberTableProps {
@@ -25,8 +25,9 @@ export function AdminMemberTable({ members, teams, currentUserId, onChange, busy
                 <td><strong>{member.name}</strong>{isSelf && <span className="admin-self-tag">You</span>}<br/><small>{member.email}</small></td>
                 <td>{isSelf
                     ? <span className="admin-static-value">{roleLabel(member.role)}</span>
-                    : <select aria-label={`Role for ${member.name}`} value={member.role} disabled={busy} onChange={(event) => void onChange(member, { role: event.target.value })}>
-                        {Object.entries(ROLE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                    : <select aria-label={`Account type for ${member.name}`} value={member.role} disabled={busy} onChange={(event) => void onChange(member, { role: event.target.value })}>
+                        <option value="individual">Individual</option>
+                        <option value="business">Business</option>
                     </select>}</td>
                 <td><select aria-label={`Team for ${member.name}`} value={member.teamId ?? ""} disabled={busy} onChange={(event) => void onChange(member, { teamId: event.target.value || null })}>
                     <option value="">Unassigned</option>

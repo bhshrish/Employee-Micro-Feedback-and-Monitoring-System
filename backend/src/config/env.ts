@@ -3,7 +3,7 @@ const schema = z.object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
     PORT: z.coerce.number().int().positive().default(4000),
     MONGODB_URI: z.string().default("mongodb://127.0.0.1:27017/pulse"),
-    FRONTEND_URL: z.string().url().default("https://employee-micro-feedback-and-monitor-omega.vercel.app"),
+    FRONTEND_URL: z.string().url().default("https://localhost:3000"),
     JWT_ACCESS_SECRET: z.string().min(32),
     JWT_REFRESH_SECRET: z.string().min(32),
     JWT_ADMIN_SECRET: z.string().min(32),

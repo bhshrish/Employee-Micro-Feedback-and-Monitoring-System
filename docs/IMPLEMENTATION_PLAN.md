@@ -79,9 +79,9 @@ Done when: seeded Acme data shows scorecards and 3 alerts, the 3-person team sho
 
 **6.1** Trial lifecycle: `requireActiveOrg`, `expire-trials` job, trial emails, banner, read-only mode. Test with the Lumen (expired) and Northwind (ending) demo orgs.
 **6.2** Razorpay order creation + webhook (signature verified, idempotent).
-**6.3** Report generation (PDF/CSV, aggregated only) and signed downloads.
+**6.3** Free report generation (PDF/CSV, aggregated only) and workspace-scoped downloads.
 **6.4** Frontend Reports and Billing pages.
-Done when: with Razorpay test keys, a report can be paid and downloaded, and a failed/cancelled payment gives no file.
+Done when: an admin or manager can generate and download a report without payment, including after the trial expires.
 
 ## Milestone 7 — Platform admin and hardening
 

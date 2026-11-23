@@ -39,6 +39,7 @@ interface OperationsBusiness {
     teams?: number;
     isActive?: boolean;
     business?: string;
+    individuals?: number;
     employees?: number;
     sessions?: number;
     activeSeconds?: number;
@@ -79,7 +80,7 @@ interface OperationsDashboardData {
     businesses?: OperationsBusiness[];
     activeUsers?: number;
     usersCount?: number;
-    employees?: number;
+    individuals?: number;
     openAttendance?: number;
     users?: OperationsUser[];
     teams?: OperationsTeam[];
@@ -151,7 +152,7 @@ export function AdminDashboard() {
                     businesses: number;
                     activeUsers: number;
                     users: number;
-                    employees: number;
+                    individuals: number;
                     openAttendance: number;
                 };
                 setData({
@@ -159,7 +160,7 @@ export function AdminDashboard() {
                     businessesCount: overview.businesses,
                     activeUsers: overview.activeUsers,
                     usersCount: overview.users,
-                    employees: overview.employees,
+                    individuals: overview.individuals,
                     openAttendance: overview.openAttendance,
                 });
             }
@@ -411,8 +412,8 @@ export function AdminDashboard() {
                                     <section className="kpi-grid admin-kpis">
                                         <KpiCard label="Workspaces" value={data?.activeBusinesses ?? "—"} note={`Active of ${data?.businessesCount ?? "—"} workspaces`} icon="users" />
                                         <KpiCard label="Users" value={data?.activeUsers ?? "—"} note={`Active of ${data?.usersCount ?? "—"} accounts`} icon="users" />
-                                        <KpiCard label="Employees" value={data?.employees ?? "—"} note="Active employees across workspaces" icon="users" />
-                                        <KpiCard label="Checked in today" value={data?.openAttendance ?? "—"} note="Employees currently in a session" icon="calendar" />
+                                        <KpiCard label="Individuals" value={data?.individuals ?? "—"} note="Individual accounts across workspaces" icon="users" />
+                                        <KpiCard label="Checked in today" value={data?.openAttendance ?? "—"} note="People currently checked in" icon="calendar" />
                                     </section>
                                     <section className="data-card admin-card">
                                         <div className="card-heading"><div><p className="section-label">Quick actions</p><h2>Platform controls</h2></div></div>
@@ -640,7 +641,7 @@ export function AdminDashboard() {
                                     <div className="table-scroll">
                                         <table className="data-table">
                                             <thead>
-                                                <tr><th>Workspace</th><th>Employees active</th><th>Sessions</th><th>Active time</th><th>Idle time</th></tr>
+                                                <tr><th>Workspace</th><th>People active</th><th>Sessions</th><th>Active time</th><th>Idle time</th></tr>
                                             </thead>
                                             <tbody>
                                                 {(data?.businesses ?? []).map((row) => (
@@ -680,7 +681,7 @@ export function AdminDashboard() {
                             {loading ? <Skeleton lines={5} /> : (
                                 <>
                                     <section className="kpi-grid admin-kpis">
-                                        <KpiCard label="Employees" value={data?.summary?.employees ?? "—"} note="Employees with attendance records" icon="users" />
+                                        <KpiCard label="People" value={data?.summary?.employees ?? "—"} note="People with attendance records" icon="users" />
                                         <KpiCard label="Check-ins" value={data?.summary?.totalCheckIns ?? "—"} note="Total check-ins today" icon="clock" />
                                         <KpiCard label="Checked in now" value={data?.summary?.currentlyCheckedIn ?? "—"} note="Currently checked in" icon="calendar" />
                                         <KpiCard label="Elapsed time" value={formatDuration(data?.summary?.totalSeconds)} note="Aggregate tracked time today" icon="clock" />

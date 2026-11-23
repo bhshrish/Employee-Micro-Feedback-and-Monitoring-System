@@ -15,7 +15,6 @@ import { User } from "../src/models/User";
 import { TeamActivity } from "../src/models/TeamActivity";
 import { Invoice } from "../src/models/Invoice";
 import { GeneratedReport } from "../src/models/GeneratedReport";
-import { ReportPayment } from "../src/models/ReportPayment";
 import { Alert } from "../src/models/Alert";
 import { processRazorpayEvent } from "../src/services/billing.service";
 import { expireTrials } from "../src/jobs/subscriptions";
@@ -58,82 +57,21 @@ const pulseAnswers: PulseAnswers = {
     control: 4,
     support: 5,
 };
-function signup(email: string, name = "Test User") {
+function signup(email: string, name = "Test User", accountType: "individual" | "business" = "individual") {
     return request(app).post("/api/v1/auth/signup").send({
         name,
         email,
         password: "correct-horse-battery",
+        accountType,
     });
 }
-async function signupAndSignin(email: string, name = "Test User") {
-    await signup(email, name).expect(201);
+async function signupAndSignin(email: string, name = "Test User", accountType: "individual" | "business" = "business") {
+    await signup(email, name, accountType).expect(201);
     const session = await createTestSession({ email, password: "correct-horse-battery" });
     return {
         body: { user: session.user, accessToken: session.accessToken },
         headers: { "set-cookie": [`calmwork_refresh=${session.refreshToken}`] },
     };
-}
-interface RazorpayMockOptions {
-    orderId?: string;
-    paymentId?: string;
-    status?: string;
-    amount?: number;
-    currency?: string;
-    paymentOrderId?: string;
-}
-
-interface RazorpayMockContext {
-    orderId: string;
-    paymentId: string;
-    keySecret: string;
-}
-
-async function withRazorpayMock<T>(
-    { orderId = "order_report_test", paymentId = "pay_report_test", status = "captured", amount = 9900, currency = "INR", paymentOrderId = orderId }: RazorpayMockOptions = {},
-    run: (context: RazorpayMockContext) => Promise<T>,
-): Promise<T> {
-    const previousFetch = globalThis.fetch;
-    const previousKeyId = process.env.RAZORPAY_KEY_ID;
-    const previousKeySecret = process.env.RAZORPAY_KEY_SECRET;
-    const keySecret = "report_payment_test_secret";
-    process.env.RAZORPAY_KEY_ID = "rzp_test_report";
-    process.env.RAZORPAY_KEY_SECRET = keySecret;
-    globalThis.fetch = async (input: string | URL | Request, init: RequestInit = {}) => {
-        const url = new globalThis.URL(input instanceof Request ? input.url : input.toString());
-        if (url.pathname === "/v1/orders" && init.method === "POST") {
-            return new globalThis.Response(JSON.stringify({ id: orderId, amount: 9900, currency: "INR" }), {
-                status: 200,
-                headers: { "Content-Type": "application/json" },
-            });
-        }
-        if (url.pathname === `/v1/payments/${paymentId}`) {
-            return new globalThis.Response(JSON.stringify({
-                id: paymentId,
-                order_id: paymentOrderId,
-                amount,
-                currency,
-                status,
-            }), { status: 200, headers: { "Content-Type": "application/json" } });
-        }
-        throw new Error(`Unexpected Razorpay request: ${init.method || "GET"} ${url.pathname}`);
-    };
-    try {
-        return await run({ orderId, paymentId, keySecret });
-    }
-    finally {
-        globalThis.fetch = previousFetch;
-        if (previousKeyId === undefined)
-            delete process.env.RAZORPAY_KEY_ID;
-        else
-            process.env.RAZORPAY_KEY_ID = previousKeyId;
-        if (previousKeySecret === undefined)
-            delete process.env.RAZORPAY_KEY_SECRET;
-        else
-            process.env.RAZORPAY_KEY_SECRET = previousKeySecret;
-    }
-}
-function reportSignature(orderId: string, paymentId: string, keySecret: string): string {
-    return createHmac("sha256", keySecret).update(`${orderId}|${paymentId}`).digest("hex");
 }
 interface TestResponseHeaders {
     headers: {
@@ -178,6 +116,13 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
     await Promise.all(Object.values(mongoose.connection.collections).map((collection) => collection.deleteMany({})));
+    await OperationsAdmin.create({
+        _id: "platform-admin",
+        name: process.env.OPS_ADMIN_NAME,
+        email: process.env.OPS_ADMIN_EMAIL,
+        passwordHash: await bcrypt.hash(process.env.OPS_ADMIN_INITIAL_PASSWORD!, 4),
+        passwordChangedAt: new Date(),
+    });
 });
 afterAll(async () => {
     await mongoose.disconnect();
@@ -193,7 +138,7 @@ describe("PULSE API", () => {
         await request(app).get("/api/docs").expect(200).expect(/\/api\/v1/);
         await request(app).get("/api/openapi.yaml").expect(200).expect(/openapi: 3.0.3/);
     });
-    it("creates an owner trial and rejects unknown request properties", async () => {
+    it("creates a default Individual account and rejects unknown request properties", async () => {
         const invalid = await request(app).post("/api/v1/auth/signup").send({
             name: "Test User",
             email: "one@example.test",
@@ -203,8 +148,9 @@ describe("PULSE API", () => {
         assert.equal(invalid.body.error.requestId, invalid.headers["x-request-id"]);
         const email = "One@Example.test";
         const response = await signup(email).expect(201);
-        assert.equal(response.body.user.role, "admin");
+        assert.equal(response.body.user.role, "individual");
         assert.equal(response.body.user.subscription.status, "trialing");
+        assert.equal(new Date(response.body.user.subscription.trialEndsAt).getTime() - Date.now() >= 13 * 86_400_000, true);
         assert.equal(response.body.user.email, email);
         assert.equal(response.body.user.passwordHash, undefined);
         assert.equal(response.body.accessToken, undefined);
@@ -253,11 +199,52 @@ describe("PULSE API", () => {
         assert.match(cookie, /;\s*secure/i);
         assert.match(cookie, /;\s*samesite=none/i);
     });
+    it("enforces account-type selection, business email rules, and role-aware sign-in", async () => {
+        const individual = await signupAndSignin("individual-role@example.test", "Individual", "individual");
+        assert.equal(individual.body.user.role, "individual");
+        await request(app).get("/api/v1/admin/overview")
+            .set("Authorization", `Bearer ${individual.body.accessToken}`).expect(403);
+        await request(app).get("/api/v1/reports/preview")
+            .set("Authorization", `Bearer ${individual.body.accessToken}`).expect(403);
+
+        await request(app).post("/api/v1/auth/signup").send({
+            name: "Blocked Business",
+            email: "owner@yahoo.com",
+            password: "correct-horse-battery",
+            accountType: "business",
+        }).expect(400);
+        await request(app).post("/api/v1/auth/signup").send({
+            name: "Admin Self Signup",
+            email: "self-admin@example.test",
+            password: "correct-horse-battery",
+            accountType: "admin",
+        }).expect(400);
+
+        const business = await request(app).post("/api/v1/auth/signup").send({
+            name: "Business Owner",
+            email: "owner@gmail.com",
+            password: "correct-horse-battery",
+            accountType: "business",
+        }).expect(201);
+        assert.equal(business.body.user.role, "business");
+        const wrongType = await request(app).post("/api/v1/auth/signin").send({
+            email: "owner@gmail.com",
+            password: "correct-horse-battery",
+            accountType: "individual",
+        }).expect(401);
+        assert.equal(wrongType.body.error.message, "Email or password is incorrect");
+        await request(app).post("/api/v1/auth/signin").send({
+            email: "owner@gmail.com",
+            password: "correct-horse-battery",
+            accountType: "business",
+        }).expect(200);
+    });
     it("creates a session when a workspace account is signed up", async () => {
         const response = await request(app).post("/api/v1/auth/signup/session").send({
             name: "Quick Signup",
             email: "quick-signup@example.test",
             password: "correct-horse-battery",
+            accountType: "business",
         }).expect(201);
         assert.equal(response.body.user.email, "quick-signup@example.test");
         assert.ok(response.body.accessToken);
@@ -289,9 +276,32 @@ describe("PULSE API", () => {
         await request(app).post("/api/v1/auth/signin")
             .send({ email, password: "correct-horse-battery" }).expect(200);
 
-        const forgot = await request(app).post("/api/v1/auth/forgot-password")
-            .send({ email: email.toUpperCase() }).expect(200);
-        assert.match(forgot.body.message, /If an account exists/);
+        const smtpKeys = ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"];
+        const previousSmtp = Object.fromEntries(smtpKeys.map((key) => [key, process.env[key]]));
+        Object.assign(process.env, {
+            SMTP_HOST: "smtp.example.test",
+            SMTP_PORT: "587",
+            SMTP_USER: "sender@example.test",
+            SMTP_PASS: "test-password",
+            SMTP_FROM: "sender@example.test",
+        });
+        const transportSpy = vi.spyOn(nodemailer, "createTransport").mockReturnValue({
+            sendMail: vi.fn().mockResolvedValue({ messageId: "reset-test" }),
+        });
+        try {
+            const forgot = await request(app).post("/api/v1/auth/forgot-password")
+                .send({ email: email.toUpperCase() }).expect(200);
+            assert.match(forgot.body.message, /If an account exists/);
+        }
+        finally {
+            transportSpy.mockRestore();
+            for (const [key, value] of Object.entries(previousSmtp)) {
+                if (value === undefined)
+                    delete process.env[key];
+                else
+                    process.env[key] = value;
+            }
+        }
         assert.equal(await PasswordResetToken.countDocuments(), 1);
 
         const rawToken = "valid-reset-token-".padEnd(64, "x");
@@ -339,6 +349,7 @@ describe("PULSE API", () => {
             assert.equal(missingSmtp.body.error.code, "EMAIL_DELIVERY_UNAVAILABLE");
             assert.match(missingSmtp.body.error.message, /SMTP_HOST/);
             assert.doesNotMatch(missingSmtp.body.error.message, /password|secret/i);
+            assert.equal(await PasswordResetToken.countDocuments(), 0);
         }
         finally {
             for (const [key, value] of Object.entries(previousEnv)) {
@@ -362,8 +373,31 @@ describe("PULSE API", () => {
         assert.equal(login.body.admin.email, adminEmail);
         await request(app).get("/api/v1/operations/auth/me").set("Cookie", cookie).expect(200);
 
-        await request(app).post("/api/v1/auth/forgot-password")
-            .send({ email: adminEmail }).expect(200);
+        const smtpKeys = ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"];
+        const previousSmtp = Object.fromEntries(smtpKeys.map((key) => [key, process.env[key]]));
+        Object.assign(process.env, {
+            SMTP_HOST: "smtp.example.test",
+            SMTP_PORT: "587",
+            SMTP_USER: "sender@example.test",
+            SMTP_PASS: "test-password",
+            SMTP_FROM: "sender@example.test",
+        });
+        const transportSpy = vi.spyOn(nodemailer, "createTransport").mockReturnValue({
+            sendMail: vi.fn().mockResolvedValue({ messageId: "admin-reset-test" }),
+        });
+        try {
+            await request(app).post("/api/v1/auth/forgot-password")
+                .send({ email: adminEmail }).expect(200);
+        }
+        finally {
+            transportSpy.mockRestore();
+            for (const [key, value] of Object.entries(previousSmtp)) {
+                if (value === undefined)
+                    delete process.env[key];
+                else
+                    process.env[key] = value;
+            }
+        }
         assert.equal(await PasswordResetToken.countDocuments({ adminEmail }), 1);
         const resetToken = "valid-admin-reset-token".padEnd(64, "x");
         const tokenHash = createHmac("sha256", process.env.JWT_REFRESH_SECRET).update(resetToken).digest("hex");
@@ -381,6 +415,17 @@ describe("PULSE API", () => {
             .send({ email: adminEmail, password: "changed-admin-password" }).expect(200);
         assert.ok(updatedLogin.headers["set-cookie"].some((value) => value.startsWith("calmwork_operations=")));
         assert.equal(await OperationsAdmin.countDocuments(), 1);
+    });
+    it("requires the platform administrator to be seeded and never creates one during login", async () => {
+        await OperationsAdmin.deleteMany({});
+        await request(app).post("/api/v1/operations/auth/login")
+            .send({
+                email: process.env.OPS_ADMIN_EMAIL,
+                password: process.env.OPS_ADMIN_INITIAL_PASSWORD,
+            }).expect(503).expect((res) => assert.equal(res.body.error.code, "ADMIN_SETUP_REQUIRED"));
+        await request(app).post("/api/v1/operations/auth/otp/request")
+            .send({ email: process.env.OPS_ADMIN_EMAIL }).expect(503);
+        assert.equal(await OperationsAdmin.countDocuments(), 0);
     });
     it("migrates legacy account and team workspace fields without removing legacy fields", async () => {
         const organizationId = new mongoose.Types.ObjectId();
@@ -405,7 +450,7 @@ describe("PULSE API", () => {
             name: "Legacy User",
             email: "legacy@example.test",
             passwordHash: await bcrypt.hash("correct-horse-battery", 4),
-            role: "admin",
+            role: "business",
             settings: { idleThresholdMin: 8 },
         });
         await mongoose.connection.collection("subscriptions").insertOne({
@@ -547,12 +592,11 @@ describe("PULSE API", () => {
             name: "Role Target",
             email: "role-target@example.test",
             passwordHash: "not-used",
-            role: "employee",
+            role: "individual",
             subscription: { plan: "Team", status: "trialing", trialEndsAt: new Date(Date.now() + 86_400_000) },
         });
         await request(app).patch(`/api/v1/users/${otherMember.id}/role`).set(auth)
-            .send({ role: "manager" }).expect(200)
-            .expect((res) => assert.equal(res.body.member.role, "manager"));
+            .send({ role: "admin" }).expect(400);
         await request(app).post("/api/v1/billing/checkout-session").set(auth)
             .send({ plan: "Team", cycle: "monthly" }).expect(404);
         await request(app).post("/api/v1/webhooks/razorpay")
@@ -586,7 +630,7 @@ describe("PULSE API", () => {
             .expect(201);
         assert.equal(member.body.user.organizationId, owner.body.user.organizationId);
         assert.equal(member.body.user.teamId, owner.body.user.teamId);
-        assert.equal(member.body.user.role, "employee");
+        assert.equal(member.body.user.role, "individual");
         assert.equal(member.body.accessToken, undefined);
         assert.equal(member.headers["set-cookie"], undefined);
         const checkoutEvent = {
@@ -609,8 +653,8 @@ describe("PULSE API", () => {
         await request(app)
             .patch(`/api/v1/workspace/members/${member.body.user.id}`)
             .set("Authorization", `Bearer ${owner.body.accessToken}`)
-            .send({ role: "manager" })
-            .expect(200);
+            .send({ role: "admin" })
+            .expect(400);
         member.body.accessToken = (await createTestSession({
             email: "new-member@example.test",
             password: "correct-horse-battery",
@@ -905,7 +949,7 @@ describe("PULSE API", () => {
             }
         }
     });
-    it("allows SMTP configuration to be omitted in development", async () => {
+    it("rejects email delivery when SMTP is not configured in development", async () => {
         const previousEnv = Object.fromEntries(
             ["NODE_ENV", "MONGODB_URI", "FRONTEND_URL", "CORS_ORIGINS", "SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"].map((key) => [key, process.env[key]]),
         );
@@ -913,11 +957,11 @@ describe("PULSE API", () => {
             delete process.env[key];
         const transportSpy = vi.spyOn(nodemailer, "createTransport");
         try {
-            await sendOtpEmail({
+            await assert.rejects(sendOtpEmail({
                 to: "person@example.test",
                 code: "123456",
                 expiresInMinutes: 5,
-            });
+            }), (error) => error.code === "EMAIL_DELIVERY_UNAVAILABLE" && /SMTP_HOST/.test(error.message));
             assert.equal(transportSpy.mock.calls.length, 0);
         }
         finally {
@@ -1040,16 +1084,25 @@ describe("PULSE API", () => {
         assert.deepEqual(heatmap.body.teams.map((team) => team.name).sort(), ["General", "Quiet team"]);
         assert.equal(heatmap.body.cells.some((cell) => cell.teamId === String(quietTeam._id)), false);
     });
-    it("allows report previews and requires payment data to generate a report", async () => {
+    it("generates and downloads reports for free, including after a trial expires", async () => {
         const account = await signupAndSignin("report-gates@example.test");
         const auth = { Authorization: `Bearer ${account.body.accessToken}` };
         await request(app).get("/api/v1/reports/preview").set(auth).expect(200);
-        await request(app).post("/api/v1/reports/generate").set(auth)
-            .send({ period: "30d", metrics: ["Active time"], format: "csv" }).expect(400);
+        const created = await request(app).post("/api/v1/reports/generate").set(auth)
+            .send({ period: "30d", metrics: ["Active time"], format: "csv" }).expect(201);
+        assert.equal(created.body.report.downloadUrl, `/reports/${created.body.report.id}`);
+        const report = await GeneratedReport.findById(created.body.report.id).lean();
+        assert.equal(report?.paymentId, null);
+        const download = await request(app).get(`/api/v1${created.body.report.downloadUrl}`).set(auth).expect(200);
+        assert.match(download.headers["content-type"], /text\/csv/);
+        assert.match(download.text, /Metric,Value/);
+
         await User.updateMany({ organizationId: account.body.user.organizationId }, { $set: {
             "subscription.status": "trial_expired",
         } });
         await request(app).get("/api/v1/reports/preview").set(auth).expect(200);
+        await request(app).post("/api/v1/reports/generate").set(auth)
+            .send({ period: "30d", metrics: ["Active time"], format: "pdf" }).expect(201);
     });
     it("includes the current week's wellbeing check-ins in a report preview", async () => {
         const account = await signupAndSignin("report-pulse-today@example.test");
@@ -1073,66 +1126,15 @@ describe("PULSE API", () => {
         assert.equal(preview.body.pulseParticipationResponses, 5);
         assert.equal(preview.body.averageBurnoutScore, 60);
     });
-    it("charges once for a report and scopes payment-backed downloads to the buyer workspace", async () => {
+    it("scopes free report downloads to the buyer workspace", async () => {
         const account = await signupAndSignin("report-download@example.test");
         const secondAccount = await signupAndSignin("report-other@example.test");
         const auth = { Authorization: `Bearer ${account.body.accessToken}` };
         const otherAuth = { Authorization: `Bearer ${secondAccount.body.accessToken}` };
-        await withRazorpayMock({}, async ({ orderId, paymentId, keySecret }) => {
-            const order = await request(app).post("/api/v1/reports/orders").set(auth)
-                .send({ period: "30d", metrics: ["Active time"], format: "csv" }).expect(201);
-            assert.deepEqual(order.body.order, { id: orderId, amount: 9900, currency: "INR" });
-            const storedPayment = await ReportPayment.findOne({ orderId }).lean();
-            assert.equal(storedPayment?.status, "pending");
-            assert.equal(storedPayment?.amount, 9900);
-            assert.equal(storedPayment?.format, "csv");
-
-            const payment = {
-                orderId,
-                paymentId,
-                signature: reportSignature(orderId, paymentId, keySecret),
-            };
-            const created = await request(app).post("/api/v1/reports/generate").set(auth)
-                .send({ ...payment, period: "today", metrics: ["Burnout risk"], format: "pdf" }).expect(201);
-            const reportId = created.body.report.id;
-            const savedReport = await GeneratedReport.findById(reportId).lean();
-            assert.deepEqual(savedReport?.metrics, ["Active time"]);
-            assert.equal(savedReport?.period, "30d");
-            assert.equal(savedReport?.format, "csv");
-
-            const file = await request(app).get(`/api/v1/reports/${reportId}`).set(auth).expect(200);
-            assert.match(file.headers["content-type"], /text\/csv/);
-            assert.match(file.text, /Metric,Value/);
-            await request(app).get(`/api/v1/reports/${reportId}`).set(otherAuth).expect(404);
-            await request(app).post("/api/v1/reports/generate").set(auth)
-                .send({ ...payment, period: "30d", metrics: ["Active time"], format: "csv" })
-                .expect(409)
-                .expect((res) => assert.equal(res.body.error.code, "REPORT_PAYMENT_USED"));
-            assert.ok(await GeneratedReport.exists({ paymentId: storedPayment?._id }));
-            assert.notEqual(account.body.user.organizationId, secondAccount.body.user.organizationId);
-        });
-    });
-    it("rejects forged, foreign, and uncaptured report payments", async () => {
-        const account = await signupAndSignin("report-payment-owner@example.test");
-        const otherAccount = await signupAndSignin("report-payment-other@example.test");
-        const auth = { Authorization: `Bearer ${account.body.accessToken}` };
-        const otherAuth = { Authorization: `Bearer ${otherAccount.body.accessToken}` };
-        await withRazorpayMock({ status: "authorized" }, async ({ orderId, paymentId, keySecret }) => {
-            await request(app).post("/api/v1/reports/orders").set(auth)
-                .send({ period: "30d", metrics: ["Burnout risk"], format: "pdf" }).expect(201);
-            const payment = {
-                orderId,
-                paymentId,
-                signature: reportSignature(orderId, paymentId, keySecret),
-            };
-            await request(app).post("/api/v1/reports/generate").set(auth)
-                .send({ ...payment, signature: "f".repeat(64) }).expect(400);
-            await request(app).post("/api/v1/reports/generate").set(otherAuth)
-                .send(payment).expect(404);
-            await request(app).post("/api/v1/reports/generate").set(auth)
-                .send(payment).expect(400);
-            assert.equal((await ReportPayment.findOne({ orderId }).lean())?.status, "pending");
-        });
+        const created = await request(app).post("/api/v1/reports/generate").set(auth)
+            .send({ period: "30d", metrics: ["Active time"], format: "csv" }).expect(201);
+        await request(app).get(`/api/v1${created.body.report.downloadUrl}`).set(otherAuth).expect(404);
+        assert.notEqual(account.body.user.organizationId, secondAccount.body.user.organizationId);
     });
     it("expires trials and persists invoices from Razorpay webhook events", async () => {
         const account = await signupAndSignin("invoice@example.test");
@@ -1305,14 +1307,15 @@ describe("PULSE API", () => {
 
         const overview = await request(app).get("/api/v1/admin/overview").set(auth).expect(200);
         assert.equal(overview.body.overview.members, 1);
-        assert.equal(overview.body.overview.admins, 1);
+        assert.equal(overview.body.overview.businesses, 1);
+        assert.equal(overview.body.overview.individuals, 0);
         assert.equal(overview.body.overview.teams, 1);
         assert.equal(overview.body.overview.pulse.participation, 0);
 
         const invitation = await request(app).post("/api/v1/admin/invitations").set(auth)
-            .send({ email: "Admin-Invitee@Example.test", teamId, role: "manager" }).expect(201);
+            .send({ email: "Admin-Invitee@Example.test", teamId }).expect(201);
         assert.equal(invitation.body.invitation.email, "admin-invitee@example.test");
-        assert.equal(invitation.body.invitation.role, "manager");
+        assert.equal(invitation.body.invitation.role, "individual");
         assert.ok(invitation.body.invitation.token);
 
         const pending = await request(app).get("/api/v1/admin/invitations").set(auth).expect(200);
@@ -1331,12 +1334,12 @@ describe("PULSE API", () => {
         const accepted = await request(app).post("/api/v1/auth/accept-invitation").send({
             token: resent.body.invitation.token,
             email: "admin-invitee@example.test",
-            name: "Invited Manager",
+            name: "Invited Individual",
             password: "correct-horse-battery",
         }).expect(201);
-        assert.equal(accepted.body.user.role, "manager");
+        assert.equal(accepted.body.user.role, "individual");
 
-        const members = await request(app).get("/api/v1/admin/members?q=invited&role=manager").set(auth).expect(200);
+        const members = await request(app).get("/api/v1/admin/members?q=invited&role=individual").set(auth).expect(200);
         assert.equal(members.body.members.length, 1);
         const memberId = members.body.members[0].id;
         assert.equal(members.body.members[0].teamName, "General");
@@ -1349,15 +1352,15 @@ describe("PULSE API", () => {
         assert.equal(renamed.body.team.name, "Ops");
 
         const moved = await request(app).patch(`/api/v1/admin/members/${memberId}`).set(auth)
-            .send({ teamId: createdTeam.body.team.id, role: "employee" }).expect(200);
-        assert.equal(moved.body.member.role, "employee");
+            .send({ teamId: createdTeam.body.team.id, role: "individual" }).expect(200);
+        assert.equal(moved.body.member.role, "individual");
         assert.equal(moved.body.member.teamName, "Ops");
         await request(app).delete(`/api/v1/admin/teams/${createdTeam.body.team.id}`).set(auth).expect(400);
         await request(app).patch(`/api/v1/admin/members/${memberId}`).set(auth).send({ teamId }).expect(200);
         await request(app).delete(`/api/v1/admin/teams/${createdTeam.body.team.id}`).set(auth).expect(200);
 
         const selfDemotion = await request(app).patch(`/api/v1/admin/members/${owner.body.user.id}`).set(auth)
-            .send({ role: "employee" }).expect(400);
+            .send({ role: "individual" }).expect(400);
         assert.equal(selfDemotion.body.error.message, "You cannot change your own role");
 
         const settings = await request(app).get("/api/v1/admin/settings").set(auth).expect(200);
@@ -1387,7 +1390,7 @@ describe("PULSE API", () => {
         const outsiderOverview = await request(app).get("/api/v1/admin/overview").set(outsiderAuth).expect(200);
         assert.equal(outsiderOverview.body.overview.members, 1);
         await request(app).patch(`/api/v1/admin/members/${memberId}`).set(outsiderAuth)
-            .send({ role: "admin" }).expect(404);
+            .send({ role: "individual" }).expect(404);
         const outsiderMembers = await request(app).get("/api/v1/admin/members").set(outsiderAuth).expect(200);
         assert.equal(outsiderMembers.body.members.length, 1);
     });
@@ -1401,7 +1404,7 @@ describe("PULSE API", () => {
             name: "Second Admin",
             email: "second-admin@example.test",
             passwordHash: await bcrypt.hash("correct-horse-battery", 4),
-            role: "admin",
+            role: "business",
             subscription: { plan: "Team", status: "trialing", trialEndsAt: new Date(Date.now() + 86_400_000) },
         });
         const teammateSession = await createTestSession({
@@ -1414,8 +1417,8 @@ describe("PULSE API", () => {
         await request(app).get("/api/v1/workspace/teams")
             .set("Authorization", `Bearer ${teammateSession.accessToken}`).expect(401);
         const demoted = await request(app).patch(`/api/v1/admin/members/${teammate.id}`).set(auth)
-            .send({ role: "employee", isActive: true }).expect(200);
-        assert.equal(demoted.body.member.role, "employee");
+            .send({ role: "individual", isActive: true }).expect(200);
+        assert.equal(demoted.body.member.role, "individual");
         const lastAdmin = await request(app).patch(`/api/v1/admin/members/${teammate.id}`).set(auth)
             .send({ isActive: false }).expect(200);
         assert.equal(lastAdmin.body.member.isActive, false);

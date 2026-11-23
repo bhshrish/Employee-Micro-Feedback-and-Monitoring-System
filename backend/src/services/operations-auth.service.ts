@@ -4,36 +4,14 @@ const { OperationsAdmin } = require("../models/OperationsAdmin");
 const { unauthorized, AppError } = require("../utils/errors");
 
 const ADMIN_ID = "platform-admin";
-const BCRYPT_ROUNDS = 12;
 
 export async function getOperationsAdmin() {
     const config = getConfig();
-    let admin = await OperationsAdmin.findById(ADMIN_ID).select("+passwordHash");
-    if (!admin) {
-        if (!config.OPS_ADMIN_INITIAL_PASSWORD)
-            throw new AppError(503, "Configure OPS_ADMIN_INITIAL_PASSWORD to initialize the platform administrator.", "ADMIN_SETUP_REQUIRED");
-        try {
-            admin = await OperationsAdmin.create({
-                _id: ADMIN_ID,
-                name: config.OPS_ADMIN_NAME,
-                email: config.OPS_ADMIN_EMAIL.toLowerCase(),
-                passwordHash: await bcrypt.hash(config.OPS_ADMIN_INITIAL_PASSWORD, BCRYPT_ROUNDS),
-                passwordChangedAt: new Date(),
-            });
-        }
-        catch (error) {
-            if (error?.code !== 11000)
-                throw error;
-            admin = await OperationsAdmin.findById(ADMIN_ID).select("+passwordHash");
-            if (!admin)
-                throw error;
-        }
-    }
-    if (admin.email !== config.OPS_ADMIN_EMAIL.toLowerCase() || admin.name !== config.OPS_ADMIN_NAME) {
-        admin.email = config.OPS_ADMIN_EMAIL.toLowerCase();
-        admin.name = config.OPS_ADMIN_NAME;
-        await admin.save();
-    }
+    const admin = await OperationsAdmin.findById(ADMIN_ID).select("+passwordHash");
+    if (!admin)
+        throw new AppError(503, "Platform administrator is not seeded. Run `npm run seed:admin` from the backend directory.", "ADMIN_SETUP_REQUIRED");
+    if (admin.email !== config.OPS_ADMIN_EMAIL.toLowerCase())
+        throw new AppError(503, "The seeded platform administrator does not match OPS_ADMIN_EMAIL. Run `npm run seed:admin` after updating the environment.", "ADMIN_CONFIGURATION_MISMATCH");
     return admin;
 }
 

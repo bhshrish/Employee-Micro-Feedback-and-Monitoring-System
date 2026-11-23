@@ -24,7 +24,7 @@ interface UserOrganization {
     name: string;
 }
 
-type UserRole = "admin" | "manager" | "employee";
+type UserRole = "admin" | "business" | "individual";
 type UserRoleFilter = "" | UserRole;
 type UserStatusFilter = "" | "active" | "inactive";
 
@@ -65,7 +65,7 @@ export function AdminUsers() {
         setError("");
         try {
             const [users, teamList] = await Promise.all([
-                getOperationsUsers(page, search),
+                getOperationsUsers(page, search, role),
                 getOperationsTeams(),
             ]);
             setData(users as unknown as OperationsUsersResponse);
@@ -191,8 +191,8 @@ export function AdminUsers() {
                             <select value={role} onChange={(event: ChangeEvent<HTMLSelectElement>) => { setRole(event.target.value as UserRoleFilter); setPage(1); }} style={{ minWidth: 130, minHeight: 42, padding: "8px 10px", fontSize: 15 }}>
                                 <option value="">All roles</option>
                                 <option value="admin">Admin</option>
-                                <option value="manager">Manager</option>
-                                <option value="employee">Employee</option>
+                                <option value="business">Business</option>
+                                <option value="individual">Individual</option>
                             </select>
                             <select value={status} onChange={(event: ChangeEvent<HTMLSelectElement>) => { setStatus(event.target.value as UserStatusFilter); setPage(1); }} style={{ minWidth: 130, minHeight: 42, padding: "8px 10px", fontSize: 15 }}>
                                 <option value="">All accounts</option>

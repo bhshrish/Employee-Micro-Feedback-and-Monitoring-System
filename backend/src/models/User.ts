@@ -1,4 +1,6 @@
 import { Schema, model, models } from "mongoose";
+import type { UserRole } from "../types/roles";
+export type { UserRole } from "../types/roles";
 const userSchema = new Schema({
     organizationId: { type: Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
     teamId: { type: Schema.Types.ObjectId, ref: "Team", default: null },
@@ -6,7 +8,7 @@ const userSchema = new Schema({
     email: { type: String, required: true, trim: true, unique: true, index: true },
     phone: { type: String, trim: true, default: undefined },
     passwordHash: { type: String, required: true, select: false },
-    role: { type: String, enum: ["employee", "manager", "admin"], default: "employee", required: true },
+    role: { type: String, enum: ["individual", "business", "admin"] satisfies UserRole[], default: "individual", required: true },
     isActive: { type: Boolean, default: true, index: true },
     subscription: {
         plan: { type: String, enum: ["Starter", "Team", "Business"], default: "Team" },

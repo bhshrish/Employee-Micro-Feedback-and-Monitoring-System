@@ -4,7 +4,7 @@ interface AuthContext {
     userId: import("mongoose").Types.ObjectId;
     organizationId: import("mongoose").Types.ObjectId;
     teamId: import("mongoose").Types.ObjectId | null;
-    role: "employee" | "manager" | "admin";
+    role: import("../types/roles").UserRole;
 }
 
 interface ControllerRequest extends Request {
@@ -32,7 +32,7 @@ function cookieOptions() {
     return {
         httpOnly: true,
         secure: isSecure,
-        sameSite: isSecure ? "none" : "lax",
+        sameSite: isSecure ? "none" as const : "lax" as const,
         path: "/api/v1/operations",
         maxAge: 8 * 60 * 60 * 1000,
     };
@@ -72,6 +72,9 @@ export const adminSignOut = (_req: ControllerRequest, res: Response) => {
 export const adminMe = (0, async_handler_1.asyncHandler)(async (_req: ControllerRequest, res: Response) => {
     res.json({ admin: await operationsAuth.getOperationsAdminProfile() });
 });
+export const overview = (0, async_handler_1.asyncHandler)(async (_req: ControllerRequest, res: Response) => {
+    res.json(await operations.operationsOverview());
+});
 export const businesses = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     const query = req.validatedQuery;
     const filter = query.q
@@ -88,6 +91,19 @@ export const updateBusiness = (0, async_handler_1.asyncHandler)(async (req: Cont
 });
 export const updateUser = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     res.json({ user: await operations.setUserActive(req.params.userId, req.body.isActive) });
+});
+export const users = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
+    const rawRole = req.validatedQuery?.role;
+    const role = rawRole === "individual" || rawRole === "business" || rawRole === "admin"
+        ? rawRole
+        : undefined;
+    const rawPage = req.validatedQuery?.page;
+    const page = typeof rawPage === "number" ? rawPage : Number(rawPage ?? 1);
+    const q = typeof req.validatedQuery?.q === "string" ? req.validatedQuery.q : undefined;
+    res.json(await operations.listUsers({ page, q, role }));
+});
+export const teams = (0, async_handler_1.asyncHandler)(async (_req: ControllerRequest, res: Response) => {
+    res.json({ teams: await operations.listTeams() });
 });
 export const createTeam = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     res.status(201).json({ team: await operations.createTeam(req.body.organizationId, req.body.name) });

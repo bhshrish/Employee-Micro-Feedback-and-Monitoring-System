@@ -4,7 +4,7 @@ interface AuthContext {
     userId: import("mongoose").Types.ObjectId;
     organizationId: import("mongoose").Types.ObjectId;
     teamId: import("mongoose").Types.ObjectId | null;
-    role: "employee" | "manager" | "admin";
+    role: import("../types/roles").UserRole;
 }
 
 interface RouteRequest extends Request { auth?: AuthContext; }
@@ -72,7 +72,7 @@ operationsRoutes.get("/leave", operationsController.leaveApplications);
 operationsRoutes.patch("/leave/:toolId", (0, validate_1.validateParams)(schemas_1.toolIdParamsSchema), (0, validate_1.validateBody)(schemas_1.leaveDecisionSchema), operationsController.decideLeaveApplication);
 api.use("/operations", operationsRoutes);
 const adminRoutes = (0, express_1.Router)();
-adminRoutes.use(auth_1.authenticate, auth_1.requireEntitlement, (0, auth_1.requireRole)("admin"));
+adminRoutes.use(auth_1.authenticate, auth_1.requireEntitlement, (0, auth_1.requireRole)("business"));
 adminRoutes.get("/overview", adminController.overview);
 adminRoutes.get("/members", (0, validate_1.validateQuery)(schemas_1.adminListQuerySchema), adminController.members);
 adminRoutes.patch("/members/:userId", (0, validate_1.validateParams)(schemas_1.userIdParamsSchema), (0, validate_1.validateBody)(schemas_1.adminUserUpdateSchema), adminController.updateMember);
@@ -98,8 +98,8 @@ employeeToolsRoutes.post("/planner", (0, validate_1.validateBody)(schemas_1.plan
 employeeToolsRoutes.patch("/planner/:toolId", (0, validate_1.validateParams)(schemas_1.toolIdParamsSchema), (0, validate_1.validateBody)(schemas_1.plannerUpdateSchema), employeeToolsController.updatePlanner);
 employeeToolsRoutes.delete("/planner/:toolId", (0, validate_1.validateParams)(schemas_1.toolIdParamsSchema), employeeToolsController.deletePlanner);
 employeeToolsRoutes.get("/leave", employeeToolsController.listLeave);
-employeeToolsRoutes.post("/leave", (0, auth_1.requireRole)("employee"), (0, validate_1.validateBody)(schemas_1.leaveCreateSchema), employeeToolsController.createLeave);
-employeeToolsRoutes.patch("/leave/:toolId/decision", (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateParams)(schemas_1.toolIdParamsSchema), (0, validate_1.validateBody)(schemas_1.leaveDecisionSchema), employeeToolsController.decideLeave);
+employeeToolsRoutes.post("/leave", (0, auth_1.requireRole)("individual"), (0, validate_1.validateBody)(schemas_1.leaveCreateSchema), employeeToolsController.createLeave);
+employeeToolsRoutes.patch("/leave/:toolId/decision", (0, auth_1.requireRole)("business"), (0, validate_1.validateParams)(schemas_1.toolIdParamsSchema), (0, validate_1.validateBody)(schemas_1.leaveDecisionSchema), employeeToolsController.decideLeave);
 employeeToolsRoutes.get("/calendar", employeeToolsController.listCalendar);
 employeeToolsRoutes.post("/calendar", (0, validate_1.validateBody)(schemas_1.calendarEventSchema), employeeToolsController.createCalendarEvent);
 api.use("/tools", employeeToolsRoutes);
@@ -117,13 +117,13 @@ api.get("/health/ready", (_req: RouteRequest, res: Response) => {
 api.get("/health", (_req: RouteRequest, res: Response) => res.json({ status: "ok" }));
 const workspaceRoutes = (0, express_1.Router)();
 workspaceRoutes.use(auth_1.authenticate, activeWorkspace);
-workspaceRoutes.get("/teams", workspaceController.teams);
-workspaceRoutes.post("/teams", (0, auth_1.requireRole)("admin"), (0, validate_1.validateBody)(schemas_1.createTeamSchema), workspaceController.createTeam);
-workspaceRoutes.post("/invitations", (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateBody)(schemas_1.invitationCreateSchema), workspaceController.inviteMember);
-workspaceRoutes.delete("/teams/:teamId", (0, auth_1.requireRole)("admin"), (0, validate_1.validateParams)(schemas_1.teamIdParamsSchema), workspaceController.archiveTeam);
-workspaceRoutes.get("/members", (0, auth_1.requireRole)("admin", "manager"), workspaceController.members);
-workspaceRoutes.patch("/members/:memberId", (0, auth_1.requireRole)("admin"), (0, validate_1.validateParams)(schemas_1.memberIdParamsSchema), (0, validate_1.validateBody)(schemas_1.updateMemberSchema), workspaceController.updateMember);
-workspaceRoutes.get("/organization", (0, async_handler_1.asyncHandler)(async (req: RouteRequest, res: Response) => {
+workspaceRoutes.get("/teams", (0, auth_1.requireRole)("business"), workspaceController.teams);
+workspaceRoutes.post("/teams", (0, auth_1.requireRole)("business"), (0, validate_1.validateBody)(schemas_1.createTeamSchema), workspaceController.createTeam);
+workspaceRoutes.post("/invitations", (0, auth_1.requireRole)("business"), (0, validate_1.validateBody)(schemas_1.invitationCreateSchema), workspaceController.inviteMember);
+workspaceRoutes.delete("/teams/:teamId", (0, auth_1.requireRole)("business"), (0, validate_1.validateParams)(schemas_1.teamIdParamsSchema), workspaceController.archiveTeam);
+workspaceRoutes.get("/members", (0, auth_1.requireRole)("business"), workspaceController.members);
+workspaceRoutes.patch("/members/:memberId", (0, auth_1.requireRole)("business"), (0, validate_1.validateParams)(schemas_1.memberIdParamsSchema), (0, validate_1.validateBody)(schemas_1.updateMemberSchema), workspaceController.updateMember);
+workspaceRoutes.get("/organization", (0, auth_1.requireRole)("business"), (0, async_handler_1.asyncHandler)(async (req: RouteRequest, res: Response) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
     const organization = await Organization_1.Organization.findById(req.auth.organizationId).select("name createdAt").lean();
@@ -136,11 +136,11 @@ const usersRoutes = (0, express_1.Router)();
 usersRoutes.use(auth_1.authenticate, activeWorkspace);
 usersRoutes.get("/me", authController.me);
 usersRoutes.patch("/me", (0, validate_1.validateBody)(schemas_1.profileSchema), authController.updateProfile);
-usersRoutes.get("/", (0, auth_1.requireRole)("admin", "manager"), workspaceController.members);
-usersRoutes.post("/", (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateBody)(schemas_1.invitationCreateSchema), workspaceController.inviteMember);
-usersRoutes.post("/invite", (0, auth_1.requireRole)("admin"), (0, validate_1.validateBody)(schemas_1.invitationCreateSchema), workspaceController.inviteMember);
-usersRoutes.patch("/:userId", (0, auth_1.requireRole)("admin"), (0, validate_1.validateParams)(schemas_1.userIdParamsSchema), (0, validate_1.validateBody)(schemas_1.updateMemberSchema), workspaceController.updateMember);
-usersRoutes.patch("/:userId/role", (0, auth_1.requireRole)("admin"), (0, validate_1.validateParams)(schemas_1.userIdParamsSchema), (0, validate_1.validateBody)(schemas_1.userRoleSchema), workspaceController.updateMember);
+usersRoutes.get("/", (0, auth_1.requireRole)("business"), workspaceController.members);
+usersRoutes.post("/", (0, auth_1.requireRole)("business"), (0, validate_1.validateBody)(schemas_1.invitationCreateSchema), workspaceController.inviteMember);
+usersRoutes.post("/invite", (0, auth_1.requireRole)("business"), (0, validate_1.validateBody)(schemas_1.invitationCreateSchema), workspaceController.inviteMember);
+usersRoutes.patch("/:userId", (0, auth_1.requireRole)("business"), (0, validate_1.validateParams)(schemas_1.userIdParamsSchema), (0, validate_1.validateBody)(schemas_1.updateMemberSchema), workspaceController.updateMember);
+usersRoutes.patch("/:userId/role", (0, auth_1.requireRole)("business"), (0, validate_1.validateParams)(schemas_1.userIdParamsSchema), (0, validate_1.validateBody)(schemas_1.userRoleSchema), workspaceController.updateMember);
 api.use("/users", usersRoutes);
 const activityRoutes = (0, express_1.Router)();
 activityRoutes.get("/sessions", auth_1.authenticate, activeWorkspace, (0, validate_1.validateQuery)(schemas_1.historyQuerySchema), activityController.history);
@@ -163,12 +163,12 @@ pulseRoutes.post("/pulse", auth_1.authenticate, activeWorkspace, (0, validate_1.
 pulseRoutes.get("/pulse/me", auth_1.authenticate, activeWorkspace, pulseController.submissionStatus);
 pulseRoutes.post("/pulses", auth_1.authenticate, activeWorkspace, (0, validate_1.validateBody)(schemas_1.pulseSchema), pulseController.submit);
 pulseRoutes.get("/pulses/status", auth_1.authenticate, activeWorkspace, pulseController.submissionStatus);
-pulseRoutes.get("/pulse/teams", auth_1.authenticate, activeWorkspace, teamFeature, (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateQuery)(schemas_1.pulseTeamQuerySchema), pulseController.teamScores);
-pulseRoutes.get("/alerts", auth_1.authenticate, activeWorkspace, teamFeature, (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateQuery)(schemas_1.alertQuerySchema), pulseController.alerts);
-pulseRoutes.patch("/alerts/:alertId", auth_1.authenticate, activeWorkspace, teamFeature, (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateParams)(schemas_1.alertIdParamsSchema), (0, validate_1.validateBody)(schemas_1.alertUpdateSchema), pulseController.updateAlert);
+pulseRoutes.get("/pulse/teams", auth_1.authenticate, activeWorkspace, teamFeature, (0, auth_1.requireRole)("business"), (0, validate_1.validateQuery)(schemas_1.pulseTeamQuerySchema), pulseController.teamScores);
+pulseRoutes.get("/alerts", auth_1.authenticate, activeWorkspace, teamFeature, (0, auth_1.requireRole)("business"), (0, validate_1.validateQuery)(schemas_1.alertQuerySchema), pulseController.alerts);
+pulseRoutes.patch("/alerts/:alertId", auth_1.authenticate, activeWorkspace, teamFeature, (0, auth_1.requireRole)("business"), (0, validate_1.validateParams)(schemas_1.alertIdParamsSchema), (0, validate_1.validateBody)(schemas_1.alertUpdateSchema), pulseController.updateAlert);
 api.use(pulseRoutes);
 const analyticsRoutes = (0, express_1.Router)();
-analyticsRoutes.use(auth_1.authenticate, activeWorkspace, teamFeature, (0, auth_1.requireRole)("admin", "manager"));
+analyticsRoutes.use(auth_1.authenticate, activeWorkspace, teamFeature, (0, auth_1.requireRole)("business"));
 analyticsRoutes.get("/trends", (0, validate_1.validateQuery)(schemas_1.analyticsQuerySchema), analyticsController.trends);
 analyticsRoutes.get("/heatmap", (0, validate_1.validateQuery)(schemas_1.analyticsQuerySchema), analyticsController.heatmap);
 analyticsRoutes.get("/teams", analyticsController.teams);
@@ -176,20 +176,20 @@ analyticsRoutes.get("/teams/:teamId/trend", (0, validate_1.validateParams)(schem
 api.use("/analytics", analyticsRoutes);
 const reportRoutes = (0, express_1.Router)();
 reportRoutes.use(auth_1.authenticate);
-reportRoutes.get("/preview", (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateQuery)(schemas_1.reportQuerySchema), reportController.preview);
-reportRoutes.post("/preview", (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateBody)(schemas_1.reportGenerateSchema), reportController.previewPost);
-reportRoutes.get("/summary", (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateQuery)(schemas_1.reportQuerySchema), reportController.summary);
-reportRoutes.post("/generate", (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateBody)(schemas_1.reportGenerateSchema), reportController.generate);
-reportRoutes.get("/:reportId/download", (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateParams)(schemas_1.reportIdParamsSchema), (0, validate_1.validateQuery)(schemas_1.reportFormatQuerySchema), reportController.downloadGenerated);
-reportRoutes.get("/:reportId", (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateParams)(schemas_1.reportIdParamsSchema), reportController.downloadGenerated);
+reportRoutes.get("/preview", (0, auth_1.requireRole)("business"), (0, validate_1.validateQuery)(schemas_1.reportQuerySchema), reportController.preview);
+reportRoutes.post("/preview", (0, auth_1.requireRole)("business"), (0, validate_1.validateBody)(schemas_1.reportGenerateSchema), reportController.previewPost);
+reportRoutes.get("/summary", (0, auth_1.requireRole)("business"), (0, validate_1.validateQuery)(schemas_1.reportQuerySchema), reportController.summary);
+reportRoutes.post("/generate", (0, auth_1.requireRole)("business"), (0, validate_1.validateBody)(schemas_1.reportGenerateSchema), reportController.generate);
+reportRoutes.get("/:reportId/download", (0, auth_1.requireRole)("business"), (0, validate_1.validateParams)(schemas_1.reportIdParamsSchema), (0, validate_1.validateQuery)(schemas_1.reportFormatQuerySchema), reportController.downloadGenerated);
+reportRoutes.get("/:reportId", (0, auth_1.requireRole)("business"), (0, validate_1.validateParams)(schemas_1.reportIdParamsSchema), reportController.downloadGenerated);
 api.use("/reports", reportRoutes);
-api.get("/alerts/:alertId", auth_1.authenticate, activeWorkspace, teamFeature, (0, auth_1.requireRole)("admin", "manager"), (0, validate_1.validateParams)(schemas_1.alertIdParamsSchema), (0, async_handler_1.asyncHandler)(async (req: RouteRequest, res: Response) => {
+api.get("/alerts/:alertId", auth_1.authenticate, activeWorkspace, teamFeature, (0, auth_1.requireRole)("business"), (0, validate_1.validateParams)(schemas_1.alertIdParamsSchema), (0, async_handler_1.asyncHandler)(async (req: RouteRequest, res: Response) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
     const alert = await Alert_1.Alert.findOne({
         _id: req.params.alertId,
         organizationId: req.auth.organizationId,
-        ...(req.auth.role === "admin" ? {} : { teamId: req.auth.teamId }),
+        ...(req.auth.role === "business" ? {} : { teamId: req.auth.teamId }),
     }).populate("teamId", "name").lean();
     if (!alert)
         throw (0, errors_1.notFound)("Alert not found");
