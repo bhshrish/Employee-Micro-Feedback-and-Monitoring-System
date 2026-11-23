@@ -438,6 +438,40 @@ describe("PULSE API", () => {
         assert.equal(signin.body.user.organizationId, organizationId.toString());
         assert.equal(signin.body.user.subscription.plan, "Team");
     });
+    it("repairs an existing account's stale workspace reference at sign-in", async () => {
+        const organizationId = new mongoose.Types.ObjectId();
+        const staleOrganizationId = new mongoose.Types.ObjectId();
+        const userId = new mongoose.Types.ObjectId();
+        await Organization.create({
+            _id: organizationId,
+            name: "Existing workspace",
+            ownerId: userId,
+        });
+        await User.collection.insertOne({
+            _id: userId,
+            organizationId: staleOrganizationId,
+            orgId: organizationId,
+            teamId: null,
+            name: "Existing User",
+            email: "existing-user@example.test",
+            passwordHash: await bcrypt.hash("correct-horse-battery", 4),
+            role: "business",
+            subscription: {
+                plan: "Team",
+                status: "active",
+                trialEndsAt: new Date(Date.now() + 7 * 86_400_000),
+            },
+        });
+
+        const signin = await request(app).post("/api/v1/auth/signin").send({
+            email: "existing-user@example.test",
+            password: "correct-horse-battery",
+        }).expect(200);
+
+        assert.equal(signin.body.user.organizationId, organizationId.toString());
+        const repairedUser = await User.collection.findOne({ _id: userId });
+        assert.equal(repairedUser?.organizationId.toString(), organizationId.toString());
+    });
     it("rejects prototype-pollution keys before validation", async () => {
         await request(app)
             .post("/api/v1/auth/signup")

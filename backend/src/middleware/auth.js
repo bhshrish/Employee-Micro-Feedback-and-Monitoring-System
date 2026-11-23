@@ -43,8 +43,8 @@ const mongoose_1 = __importStar(require("mongoose"));
 const env_1 = __importStar(require("../config/env"));
 const User_1 = __importStar(require("../models/User"));
 const OperationsAdmin_1 = __importStar(require("../models/OperationsAdmin"));
-const Organization_1 = require("../models/Organization");
 const errors_1 = __importStar(require("../utils/errors"));
+const { hasActiveWorkspace } = require("../utils/active-workspace");
 async function requireOperationsAdmin(req, _res, next) {
     try {
         const header = req.get("authorization");
@@ -93,7 +93,7 @@ async function authenticate(req, _res, next) {
         const user = await User_1.User.findById(accessPayload.sub).select("organizationId teamId role isActive subscription.status subscription.trialEndsAt");
         if (!user || !user.isActive)
             throw (0, errors_1.unauthorized)();
-        if (!await Organization_1.Organization.exists({ _id: user.organizationId, isActive: { $ne: false } }))
+        if (!await hasActiveWorkspace(user))
             throw (0, errors_1.unauthorized)("This business workspace is inactive");
         req.auth = {
             userId: user._id,

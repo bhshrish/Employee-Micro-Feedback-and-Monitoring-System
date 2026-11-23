@@ -41,6 +41,7 @@ const email_1 = require("./email.service");
 const operationsAuth = require("./operations-auth.service");
 const errors_1 = require("../utils/errors");
 const { isBusinessEmail } = require("../utils/business-email");
+const { hasActiveWorkspace } = require("../utils/active-workspace");
 const BCRYPT_ROUNDS = 12;
 function hashRefreshToken(token) {
     return (0, node_crypto_1.createHmac)("sha256", (0, env_1.getConfig)().JWT_REFRESH_SECRET).update(token).digest("hex");
@@ -142,7 +143,7 @@ async function signin(input) {
         throw (0, errors_1.unauthorized)("Email or password is incorrect");
     if (input.accountType && user.role !== input.accountType)
         throw (0, errors_1.unauthorized)("Email or password is incorrect");
-    if (!await Organization_1.Organization.exists({ _id: user.organizationId, isActive: { $ne: false } }))
+    if (!await hasActiveWorkspace(user))
         throw (0, errors_1.unauthorized)("This workspace is inactive");
     return createSessionForUser(user);
 }
@@ -197,7 +198,7 @@ async function rotateRefreshToken(raw) {
         throw (0, errors_1.unauthorized)(old.revokedAt ? "Refresh token reuse detected" : "Refresh token has expired");
     }
     const user = await User_1.User.findById(old.userId);
-    if (!user || !user.isActive || !await Organization_1.Organization.exists({ _id: user.organizationId, isActive: { $ne: false } })) {
+    if (!user || !user.isActive || !await hasActiveWorkspace(user)) {
         await RefreshToken_1.RefreshToken.updateMany({ familyId: old.familyId, revokedAt: null }, { revokedAt: new Date() });
         throw (0, errors_1.unauthorized)("This account is inactive");
     }
