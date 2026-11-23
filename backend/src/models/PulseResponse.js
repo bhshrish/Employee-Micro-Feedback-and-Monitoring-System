@@ -1,0 +1,21 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.PulseResponse = void 0;
+const node_crypto_1 = require("node:crypto");
+const mongoose_1 = require("mongoose");
+const pulseResponseSchema = new mongoose_1.Schema({
+    _id: { type: String, default: () => (0, node_crypto_1.randomUUID)() },
+    organizationId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
+    teamId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Team", required: true, index: true },
+    weekStart: { type: Date, required: true, index: true },
+    mood: { type: Number, required: true, min: 1, max: 5 },
+    stress: { type: Number, required: true, min: 1, max: 5 },
+    workload: { type: Number, required: true, min: 1, max: 5 },
+    exhaustion: { type: Number, min: 1, max: 5 },
+    recovery: { type: Number, min: 1, max: 5 },
+    control: { type: Number, min: 1, max: 5 },
+    support: { type: Number, min: 1, max: 5 },
+    burnoutScore: { type: Number, min: 0, max: 100 },
+}, { versionKey: false, timestamps: false });
+pulseResponseSchema.index({ organizationId: 1, teamId: 1, weekStart: 1 });
+exports.PulseResponse = mongoose_1.models.PulseResponse || (0, mongoose_1.model)("PulseResponse", pulseResponseSchema);

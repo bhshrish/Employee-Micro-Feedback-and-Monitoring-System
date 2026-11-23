@@ -2,16 +2,16 @@
 
 Paste this file at the start of any new AI session. Update it at the end of every step. Newest entries first within each section.
 
-Last updated: 2026-11-22
+Last updated: 2026-11-23
 
 ---
 
 ## 1. Current status
 
-- **Phase:** Step **0.1 Repo hygiene and TypeScript migration** is in progress.
-- **Current substep:** **0.1a.2 Remaining frontend** is complete. Frontend routes, components, hooks, and API modules are TypeScript; strict frontend typecheck and production build pass.
-- **Next step:** **0.1b Backend** TypeScript migration, followed by **0.1c Completion** for combined root checks and backend tests.
-- **Repository note:** The checked-out application already has a substantial frontend and Express/Mongoose backend; the initial implementation-plan baseline predates that code. Existing JavaScript remains enabled but unchecked until converted in its staged migration slice.
+- **Phase:** Step **0.1 Repo hygiene** is complete.
+- **Current substep:** Frontend, backend, and test source use JavaScript (`.js`/`.jsx`); TypeScript tooling and configuration have been removed.
+- **Next step:** Continue with milestone **0.2 Design tokens**.
+- **Repository note:** The application uses Next.js with JavaScript/JSX and an Express/Mongoose JavaScript backend. Validate changes with ESLint, production builds, and backend tests.
 - **Live site:** https://employee-micro-feedback-and-monitor-omega.vercel.app/
 - **Repo:** https://github.com/bhshrish/Employee-Micro-Feedback-and-Monitoring-System
 
@@ -23,7 +23,7 @@ Last updated: 2026-11-22
 
 ## 3. In progress
 
-- Strict TypeScript migration, staged to keep each frontend/backend slice buildable.
+- None recorded.
 
 ## 4. Known problems / broken
 
@@ -63,6 +63,14 @@ Employees: `priya.demo@personalmail.example`, `sam.demo@personalmail.example`, `
 Password for all: `Demo@12345`. Created only by `npm run seed` when `SEED_DEMO=true`.
 
 ## 7. Changelog
+
+### 2026-11-23 — JavaScript conversion
+- Built: Converted all 135 frontend, backend, and test TypeScript/TSX source files to JavaScript/JSX; removed TypeScript configuration and direct tooling dependencies; updated runtime scripts, lint config, and project guidance.
+- Files changed: Frontend and backend source/test extensions; package manifests and lockfile; JavaScript build/lint/test configuration; relevant stack, rules, implementation, and frontend/backend documentation.
+- Tests: `npm run lint` passes with the same five existing frontend warnings; `npm run build` passes; `npm test` passes (51 tests); `git diff --check` passes.
+- Manual steps for me: Reinstall dependencies from the updated lockfile.
+- Problems / follow-ups: None.
+- Decisions: Keep the production backend in native JavaScript; remove compile-time TypeScript checking as requested.
 
 ### 2026-11-21 — Step 0.1a.1 Auth boundary
 - Built: Added a strict frontend TypeScript configuration, typed the sign-in/sign-up API and subscription context boundary, and converted the login route and `AuthForm`.

@@ -16,14 +16,15 @@
 backend/               Express API (separate folder, own package.json)
   src/
     config/ models/ routes/ controllers/ services/ middleware/ validators/ utils/ jobs/ emails/
-  scripts/seed.ts      demo data
-  api/index.ts         Vercel serverless entry (exports the Express app)
+    seed.js             Seed an owner account
+    server.js           API entry point
+  openapi.yaml
 docs/                  these 8 documents
 ```
 
 ## 2. Languages
 
-- **TypeScript** (strict mode) in both frontend and backend. No new plain-JS files.
+- **JavaScript** in both frontend and backend; use `.jsx` for files containing JSX.
 - Node.js **20 LTS** (set `engines` in both package.json files).
 
 ## 3. Frontend
@@ -67,7 +68,7 @@ Vitest + React Testing Library; Playwright for key flows
 Lint/format
 ESLint (next config) + Prettier
 
-API access goes through **one** module: `lib/api.ts` (today it holds mocks; replace internals with real `fetch` calls, keep the function signatures stable).
+API access goes through **one** module: `lib/api.js` (today it holds mocks; replace internals with real `fetch` calls, keep the function signatures stable).
 
 ## 4. Backend
 
@@ -125,7 +126,7 @@ Frontend
 **Vercel** (project root = repo root)
 
 Backend
-**Vercel** as a **separate project** (root directory `backend/`), Express exported as a serverless function through `backend/api/index.ts`, plus `backend/vercel.json` rewrites `/(.*)` to `/api`. Cache the Mongo connection across invocations.
+**Vercel** as a **separate project** (root directory `backend/`), Express exported through `backend/src/server.js` and routed by `backend/vercel.json`. Cache the Mongo connection across invocations.
 
 Database
 **MongoDB Atlas** (M0 free for dev, M10+ for production). IP allow-list or 0.0.0.0/0 only with strong credentials for Vercel.
@@ -140,7 +141,7 @@ Source control
 GitHub, feature branches, PRs into `main`, Conventional Commits
 
 CI
-GitHub Actions: lint, typecheck, test on every PR
+GitHub Actions: lint, build, test on every PR
 
 Secrets
 Vercel environment variables. Never commit `.env`. Keep `.env.example` with every key and a comment.
@@ -159,7 +160,7 @@ Prisma/SQL databases, Firebase/Supabase, NextAuth/Clerk/Auth0, Redux, styled-com
 
 ## 8. Quality bars
 
-- TypeScript strict, no `any` without a comment.
+- JavaScript lint, with runtime validation for external inputs.
 - Every endpoint validated with zod and returns the standard error shape.
 - Every Mongo query scoped by `orgId`.
 - Lighthouse accessibility score at or above 95 on public pages.

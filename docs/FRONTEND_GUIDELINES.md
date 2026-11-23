@@ -98,12 +98,12 @@ Warm, reassuring, privacy-first, short sentences. Say "private", "anonymous", "n
 
 ## 9. Conventions
 
-- File names: components `PascalCase.tsx`, hooks `useThing.ts`, utils `kebab-case.ts`.
-- One component per file, props typed with an exported `interface`.
+- File names: components `PascalCase.jsx`, hooks `useThing.js`, utils `kebab-case.js`.
+- One component per file; keep component props and expected data shapes clear and consistent.
 - Server Components by default; add `"use client"` only when needed.
 - No inline styles; Tailwind classes using token colors (`bg-cw-primary`). No arbitrary hex like `bg-[#177687]`.
 - No `any`. No data fetching inside presentational components; use hooks in `lib/hooks/`.
-- Every API call through `lib/api.ts` and React Query. Show loading skeletons, empty states, and error states for every data view.
+- Every API call through `lib/api.js` and React Query. Show loading skeletons, empty states, and error states for every data view.
 - Forms: react-hook-form + zod, same schema as backend.
 
 ## 10. Responsiveness

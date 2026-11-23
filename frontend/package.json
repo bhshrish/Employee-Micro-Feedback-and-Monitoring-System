@@ -9,8 +9,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint '**/*.{ts,tsx}'",
-    "typecheck": "tsc --noEmit"
+    "lint": "eslint '**/*.{js,jsx}'"
   },
   "dependencies": {
     "next": "16.4.6",
@@ -18,12 +17,8 @@
     "react-dom": "19.3.0"
   },
   "devDependencies": {
-    "@types/node": "^26.6.6",
-    "@types/react": "^19.3.0",
-    "@types/react-dom": "^19.3.0",
     "eslint": "^10.15.0",
     "eslint-config-next": "^16.4.6",
-    "prettier": "^3.10.1",
-    "typescript": "^6.0.3"
+    "prettier": "^3.10.1"
   }
 }

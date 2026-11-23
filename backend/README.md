@@ -13,7 +13,7 @@ MongoDB must be reachable before the server starts. `GET /api/v1/health/live` is
 ## Scripts
 
 - `npm run dev` — watch-mode server
-- `npm run build` — lint and validate the JavaScript source
+- `npm run build` — syntax-check the API entry point
 - `npm run lint` — static lint
 - `npm test` — Vitest unit and Supertest suite
 - `npm run migrate:legacy` — add current workspace and subscription fields to legacy accounts and teams
