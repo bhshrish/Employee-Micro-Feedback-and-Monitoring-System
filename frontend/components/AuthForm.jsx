@@ -209,7 +209,6 @@ export function AuthForm({ initialMode = "signin" }) {
                     {signingUp ? "Already have an account?" : "New to CalmWork?"}
                     <button type="button" onClick={() => switchFormMode(signingUp ? "signin" : "signup")}>{signingUp ? "Sign in" : "Create account"}</button>
                 </p>
-                <p className="auth-text-switch"><Link href="/admin/login">Platform administrator sign in</Link></p>
                 <div className="auth-privacy"><Icon name="shield"/><p>By continuing, you agree to the <Link href="/privacy">privacy policy</Link>. Work activity is summarized without recording screens or typed text.</p></div>
             </div>
         </section>
