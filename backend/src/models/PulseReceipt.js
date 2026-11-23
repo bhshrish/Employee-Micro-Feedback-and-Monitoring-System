@@ -1,0 +1,18 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.PulseReceipt = void 0;
+const mongoose_1 = require("mongoose");
+const pulseReceiptSchema = new mongoose_1.Schema({
+    organizationId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Organization", required: true },
+    teamId: { type: mongoose_1.Schema.Types.ObjectId, ref: "Team", required: true },
+    userId: { type: mongoose_1.Schema.Types.ObjectId, ref: "User", required: true },
+    weekStart: { type: Date, required: true },
+    burnoutMetrics: {
+        score: { type: Number, min: 0, max: 100 },
+        severity: { type: String, enum: ["low", "medium", "high"] },
+        components: { type: mongoose_1.Schema.Types.Mixed },
+    },
+    expiresAt: { type: Date, required: true, index: { expires: 0 } },
+}, { timestamps: true });
+pulseReceiptSchema.index({ userId: 1, weekStart: 1 }, { unique: true });
+exports.PulseReceipt = mongoose_1.models.PulseReceipt || (0, mongoose_1.model)("PulseReceipt", pulseReceiptSchema);

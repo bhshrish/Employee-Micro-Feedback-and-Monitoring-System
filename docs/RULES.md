@@ -8,9 +8,9 @@ CalmWork is a B2B employee-wellbeing app: anonymous weekly check-ins, personal p
 
 Before any task read the docs in `docs/`: `01-PRD.md`, `02-USER-FLOWS.md`, `03-TECH-STACK.md`, `04-FRONTEND-GUIDELINES.md`, `05-BACKEND-DATA-MODEL.md`, `06-IMPLEMENTATION-PLAN.md`, `08-PROGRESS.md`. Work on **one plan step at a time** (`06`). When done, update `08-PROGRESS.md`.
 
-## Stack (locked)
+## Stack
 
-Next.js App Router + TypeScript (strict) + Tailwind + react-hook-form + zod + React Query + recharts at the repo root. Express + Mongoose + MongoDB + zod + JWT cookies + Nodemailer + Razorpay in `backend/`. Hosting on Vercel (two projects) + MongoDB Atlas. **Do not add, remove, or swap libraries or frameworks without asking me.** See `03-TECH-STACK.md`.
+Next.js App Router + JavaScript + Tailwind + react-hook-form + zod + React Query + recharts at the repo root. Express + Mongoose + MongoDB + zod + JWT cookies + Nodemailer + Razorpay in `backend/`. Hosting on Vercel (two projects) + MongoDB Atlas. **Do not add, remove, or swap libraries or frameworks without asking me.** See `03-TECH-STACK.md`.
 
 ## Product rules you must never break
 
@@ -25,9 +25,9 @@ Next.js App Router + TypeScript (strict) + Tailwind + react-hook-form + zod + Re
 
 ## Code style
 
-- TypeScript strict. No `any` (if unavoidable, add a one-line comment why).
+- JavaScript with ESLint; validate external input at runtime with Zod.
 - Small, single-purpose functions and components. Prefer composition.
-- Names: components `PascalCase.tsx`, hooks `useThing.ts`, utilities and folders `kebab-case`, constants `UPPER_SNAKE`.
+- Names: components `PascalCase.jsx`, hooks `useThing.js`, utilities and folders `kebab-case`, constants `UPPER_SNAKE`.
 - Validate **all** external input with zod, on both client and server (share schemas).
 - Backend layers: `routes → controllers → services → models`. Controllers are thin; business logic lives in services. Every query is scoped by `orgId`.
 - API response shapes: `{ data }` or `{ error: { code, message, fields? } }`. Use the error codes in `05`.
@@ -47,7 +47,7 @@ Next.js App Router + TypeScript (strict) + Tailwind + react-hook-form + zod + Re
 
 ## File structure
 
-Follow the layout in `03-TECH-STACK.md` §1. Frontend API calls go only through `lib/api.ts`. Do not create files outside the structure without saying why.
+Follow the layout in `03-TECH-STACK.md` §1. Frontend API calls go only through `lib/api.js`. Do not create files outside the structure without saying why.
 
 ## Don't touch (ask first)
 
@@ -55,7 +55,7 @@ Follow the layout in `03-TECH-STACK.md` §1. Frontend API calls go only through 
 - `vercel.json`, `package.json` dependencies, `tsconfig`, ESLint/Prettier config, GitHub Actions workflows.
 - Existing database models and indexes (propose a migration instead).
 - The brand assets in `public/brand/` and the design tokens.
-- `backend/scripts/seed.ts` production guard (`SEED_DEMO` must never run in production).
+- `backend/src/seed.js` production guard (`SEED_DEMO` must never run in production).
 - Anything on the "Not used" list in `03-TECH-STACK.md`.
 
 ## Demo and test data
@@ -67,7 +67,7 @@ Run `npm run seed` in `backend/` (dev only). Demo accounts and fixed dev invite 
 1. Restate the step you are doing and list the files you'll touch.
 2. If the task conflicts with these rules or the docs, stop and ask.
 3. Implement only that step. Do not refactor unrelated code.
-4. Run lint, typecheck, and tests. Fix failures before finishing.
+4. Run lint, builds, and tests. Fix failures before finishing.
 5. Summarize: files changed, tests added, manual steps for me, and anything uncertain.
 6. Append an entry to `docs/08-PROGRESS.md`.
 

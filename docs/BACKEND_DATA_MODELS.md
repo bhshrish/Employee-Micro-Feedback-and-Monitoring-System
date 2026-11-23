@@ -1,6 +1,6 @@
 # CalmWork — Backend Structure & Data Model
 
-Express + MongoDB (Mongoose) + TypeScript. Base path `/api/v1`. Everything is org-scoped.
+Express + MongoDB (Mongoose) + JavaScript. Base path `/api/v1`. Everything is org-scoped.
 
 ---
 
@@ -128,7 +128,7 @@ Append-only. Logs invites, role changes, exports, suspensions, report downloads.
 
 ## 4. Auth design
 
-- Sign-up (business): validate **business email** (blocklist in `utils/free-email-domains.ts`), hash password, create user + org (plan `trial`, dates set on verify), send OTP.
+- Sign-up (business): validate **business email** (blocklist in `utils/business-email.js`), hash password, create user + org (plan `trial`, dates set on verify), send OTP.
 - Sessions: access JWT 15 min + rotating refresh JWT 7 days in httpOnly cookies. Refresh tokens stored hashed in `sessions`, revoked on logout/password change.
 - Business/platform-admin login: password, then OTP step. Employee login: password (OTP optional per org).
 - Employee activation requires `email + invite code`; code compared via hash, constant-time, rate-limited.

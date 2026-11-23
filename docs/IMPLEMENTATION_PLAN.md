@@ -2,18 +2,13 @@
 
 Build in small steps. **One step per prompt/PR.** Each step lists a goal, what to build, and a "done when" check. Do not start the next step until the current one passes. Read `CLAUDE.md` and the relevant docs before each step.
 
-Starting point: the repository already contains a JavaScript Next.js frontend and an Express/Mongoose backend. The TypeScript migration is staged so each slice remains buildable.
+Starting point: the repository contains a JavaScript Next.js frontend and an Express/Mongoose backend.
 
 ---
 
 ## Milestone 0 — Foundation
 
-**0.1 Repo hygiene.** Confirm the docs, commented `.env.example` files, `.gitignore`, Prettier/ESLint, strict TypeScript, and Conventional Commit conventions. The existing JavaScript application is migrated incrementally:
-
-- **0.1a.1 Auth boundary:** migrate the login page and `AuthForm`; declare the auth API/context types. Done when the strict frontend typecheck, frontend lint, and production build pass.
-- **0.1a.2 Remaining frontend:** migrate the remaining routes, components, hooks, and API modules in buildable slices. Keep strict checking enabled for migrated TypeScript.
-- **0.1b Backend:** migrate backend source and tests to TypeScript and add strict backend typecheck/build scripts.
-- **0.1c Completion:** ensure root lint/typecheck run both projects and pass alongside backend tests.
+**0.1 Repo hygiene.** Keep the application in JavaScript (`.js` and `.jsx`) across frontend, backend, and tests. Validate changes with ESLint, project builds, and tests.
 
 Do not begin milestone 0.2 until 0.1c passes.
 
@@ -26,7 +21,7 @@ Done when: a `/styleguide/` page renders every variant and state, matching the r
 **0.4 Backend skeleton.** Express app, env validation (zod), Mongo connection with serverless caching, `helmet`/`cors`/rate-limit, error handler, health route `GET /api/v1/health`.
 Done when: health route returns 200 locally.
 
-**0.5 Deploy pipeline.** `backend/vercel.json` + `backend/api/index.ts`; frontend and backend as two Vercel projects; env vars set.
+**0.5 Deploy pipeline.** `backend/vercel.json` + `backend/src/server.js`; frontend and backend as two Vercel projects; env vars set.
 Done when: deployed health route returns 200 and the frontend reads `NEXT_PUBLIC_API_URL`.
 
 ## Milestone 1 — Marketing site and demo

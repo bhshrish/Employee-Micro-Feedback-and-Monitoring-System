@@ -1,5 +1,4 @@
 import js from "@eslint/js";
-import tseslint from "typescript-eslint";
 
 const nodeGlobals = {
   Buffer: "readonly",
@@ -18,20 +17,17 @@ const nodeGlobals = {
   setTimeout: "readonly",
 };
 
-export default tseslint.config(
+export default [
   { ignores: ["dist/**", "node_modules/**"] },
   js.configs.recommended,
-  ...tseslint.configs.recommended,
   {
-    files: ["src/**/*.ts", "tests/**/*.ts"],
+    files: ["src/**/*.js", "tests/**/*.js"],
     languageOptions: { globals: nodeGlobals },
     rules: {
-      "no-unused-vars": "off",
-      "@typescript-eslint/no-unused-vars": [
+      "no-unused-vars": [
         "error",
-        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" },
       ],
-      "@typescript-eslint/no-require-imports": "off",
     },
   },
-);
+];
