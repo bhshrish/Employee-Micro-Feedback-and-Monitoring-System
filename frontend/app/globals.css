@@ -451,3 +451,94 @@ label, fieldset { font-size: 17px; }label { display: grid; gap: 8px; font-weight
   .tool-list li { align-items: flex-start; flex-direction: column; }
   .tool-actions { flex-wrap: wrap; }
 }
+.auth-page--account {
+  --auth-teal: #177687;
+  --auth-cream: #FFFCF1;
+  --auth-yellow: #FFDD00;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 32px 20px;
+  background: #F8F8FF;
+}
+.auth-page--account .auth-story,.auth-page--account .auth-mobile-logo { display: none; }
+.auth-page--account .auth-form-wrap { width: 100%; display: grid; place-items: center; padding: 0; }
+.auth-page--account .auth-form-card {
+  width: min(100%, 520px);
+  max-width: 520px;
+  padding: clamp(28px, 6vw, 52px);
+  border-radius: 44px;
+  background: var(--auth-teal);
+  color: var(--auth-cream);
+}
+.auth-page--account .auth-form-card > .logo { margin-bottom: 34px; }
+.auth-page--account .auth-form-card .section-label { margin-bottom: 12px; color: var(--auth-cream); opacity: .7; }
+.auth-page--account .auth-form-card h1 { margin: 0 0 12px; color: var(--auth-cream); font-size: clamp(36px, 6vw, 48px); line-height: 1.05; }
+.auth-page--account .auth-form-card > .auth-intro { margin: 0 0 24px; color: var(--auth-cream); opacity: .88; }
+.auth-page--account .auth-role-selector,.auth-page--account .auth-method-switch {
+  display: flex;
+  gap: 4px;
+  width: 100%;
+  margin: 0 0 20px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgb(255 252 241 / 16%);
+}
+.auth-page--account .auth-role-selector button,.auth-page--account .auth-method-switch button {
+  flex: 1;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--auth-cream);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.auth-page--account .auth-role-selector button.active,.auth-page--account .auth-method-switch button.active {
+  background: var(--auth-cream);
+  color: var(--auth-teal);
+}
+.auth-page--account .auth-method-switch { margin-top: 20px; }
+.auth-page--account .auth-form-note { margin: 0 0 18px; color: var(--auth-cream); font-size: 14px; opacity: .85; }
+.auth-page--account .auth-form-card form { gap: 16px; }
+.auth-page--account .auth-form-card label { color: var(--auth-cream); font-size: 15px; }
+.auth-page--account .auth-form-card input {
+  min-height: 56px;
+  padding: 14px 18px;
+  border: 0;
+  border-radius: 999px;
+  background: #F8F8FF;
+  color: #202020;
+}
+.auth-page--account .auth-form-card input:focus-visible { outline: 3px solid var(--auth-yellow); outline-offset: 3px; }
+.auth-page--account .auth-form-card input:disabled { opacity: .75; }
+.auth-page--account .auth-submit { min-height: 56px; margin-top: 4px; border-color: #202020; background: #202020; color: #F8F8FF; }
+.auth-page--account .auth-submit:disabled { opacity: .65; cursor: wait; }
+.auth-page--account .field-error { color: var(--auth-yellow); font-size: 14px; }
+.auth-page--account .auth-form-notice { margin: 0; color: var(--auth-cream); font-size: 14px; }
+.auth-page--account .auth-code-actions { display: flex; justify-content: space-between; gap: 12px; margin: 16px 0 22px; }
+.auth-page--account .auth-inline-link,.auth-page--account .auth-text-switch a,.auth-page--account .auth-forgot-link a,.auth-page--account .auth-privacy a {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--auth-cream);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.auth-page--account .auth-inline-link { min-height: 44px; font-size: 14px; }
+.auth-page--account .auth-inline-link:disabled { opacity: .65; cursor: wait; }
+.auth-page--account .auth-forgot-link { margin: 14px 0 22px; }
+.auth-page--account .auth-account-switch { color: var(--auth-cream); }
+.auth-page--account .auth-account-switch button { color: var(--auth-yellow); }
+.auth-page--account .auth-text-switch { display: block; min-height: auto; margin: 0 0 22px; padding: 0; border: 0; color: var(--auth-cream); text-align: center; }
+.auth-page--account .auth-privacy { margin-top: 0; color: var(--auth-cream); opacity: .82; }
+.auth-page--account .auth-privacy svg { color: var(--auth-yellow); }
+.auth-page--account .auth-privacy p { font-size: 13px; }
+@media (max-width: 640px) {
+  .auth-page--account { padding: 16px; }
+  .auth-page--account .auth-form-card { border-radius: 32px; }
+}
