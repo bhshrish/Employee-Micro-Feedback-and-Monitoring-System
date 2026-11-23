@@ -50,6 +50,10 @@ export function AuthForm({ initialMode = "signin" }) {
 
     const selectAccountType = (type) => {
         setAccountType(type);
+        if (codeSent) {
+            setErrors({});
+            return;
+        }
         setCodeSent(false);
         setVerificationCode("");
         setNotice("");
@@ -80,7 +84,7 @@ export function AuthForm({ initialMode = "signin" }) {
             setCodeSent(true);
             setVerificationCode("");
             setResendCountdown(result?.resendAfterSeconds ?? 60);
-            setNotice("If an active account matches this email, we sent a verification code.");
+            setNotice("If an active account matches this email, a code will arrive shortly. Check your spam folder if it does not arrive.");
         }
         catch (error) {
             setErrors({ form: error instanceof Error ? error.message : "Could not send a verification code. Please try again." });

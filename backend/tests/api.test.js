@@ -610,20 +610,60 @@ describe("PULSE API", () => {
         assert.equal(jwt.verify(token, process.env.JWT_ADMIN_SECRET).typ, "operations_admin");
         assert.throws(() => jwt.verify(token, process.env.JWT_ACCESS_SECRET));
     });
-    it("binds email verification codes to the selected Employee or Business account type", async () => {
+    it("sends OTPs to active accounts even when the wrong account type is selected, then checks the type at verification", async () => {
         const businessAccount = await signupAndSignin("otp-business-type@example.test", "OTP Business", "business");
-        const mismatchedRequest = await request(app).post("/api/v1/auth/otp/request")
-            .send({
-                email: businessAccount.body.user.email,
+        const smtpKeys = ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"];
+        const previousSmtp = Object.fromEntries(smtpKeys.map((key) => [key, process.env[key]]));
+        Object.assign(process.env, {
+            SMTP_HOST: "smtp.example.test",
+            SMTP_PORT: "587",
+            SMTP_USER: "sender@example.test",
+            SMTP_PASS: "test-password",
+            SMTP_FROM: "sender@example.test",
+        });
+        const transport = {
+            sendMail: vi.fn().mockResolvedValue({ messageId: "otp-test" }),
+        };
+        const transportSpy = vi.spyOn(nodemailer, "createTransport").mockReturnValue(transport);
+        try {
+            const mismatchedRequest = await request(app).post("/api/v1/auth/otp/request")
+                .send({
+                    email: businessAccount.body.user.email,
+                    purpose: "signin",
+                    accountType: "individual",
+                }).expect(200);
+            assert.match(mismatchedRequest.body.message, /If the account can sign in/);
+            assert.equal(transport.sendMail.mock.calls.length, 1);
+            const deliveredCode = transport.sendMail.mock.calls[0][0].text.match(/code is (\d{6})/)[1];
+            assert.ok(await OtpChallenge.exists({
+                destination: businessAccount.body.user.email,
                 purpose: "signin",
-                accountType: "individual",
-            }).expect(200);
-        assert.match(mismatchedRequest.body.message, /If the account can sign in/);
-        assert.equal(await OtpChallenge.exists({
+                "payload.accountType": { $exists: false },
+            }));
+
+            const businessSession = await request(app).post("/api/v1/auth/otp/verify")
+                .send({
+                    email: businessAccount.body.user.email,
+                    purpose: "signin",
+                    accountType: "business",
+                    code: deliveredCode,
+                }).expect(200);
+            assert.ok(businessSession.headers["set-cookie"].some((cookie) => /calmwork_access=.*HttpOnly/i.test(cookie)));
+        }
+        finally {
+            transportSpy.mockRestore();
+            for (const [key, value] of Object.entries(previousSmtp)) {
+                if (value === undefined)
+                    delete process.env[key];
+                else
+                    process.env[key] = value;
+            }
+        }
+
+        await OtpChallenge.deleteOne({
             destination: businessAccount.body.user.email,
             purpose: "signin",
-        }), null);
-
+        });
         await createOtpChallenge(businessAccount.body.user.email, "signin", "123456", {
             payload: { accountType: "business" },
         });
