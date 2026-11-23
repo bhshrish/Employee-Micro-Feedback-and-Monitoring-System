@@ -9,6 +9,7 @@ import { Icon } from "./Icon";
 import { FieldError } from "./UI";
 
 type FormMode = "signin" | "signup";
+type AccountType = "individual" | "business";
 type AuthFormErrors = Partial<Record<"email" | "password" | "name" | "form", string>>;
 
 interface AuthFormProps {
@@ -17,6 +18,7 @@ interface AuthFormProps {
 
 export function AuthForm({ initialMode = "signin" }: AuthFormProps) {
     const [formMode, setFormMode] = useState<FormMode>(initialMode);
+    const [accountType, setAccountType] = useState<AccountType>("individual");
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -61,13 +63,14 @@ export function AuthForm({ initialMode = "signin" }: AuthFormProps) {
                     name: name.trim(),
                     email: trimmedEmail,
                     password,
+                    accountType,
                 });
                 signIn(user);
                 router.push("/dashboard");
                 return;
             }
 
-            const user = await signInWithPassword({ email: trimmedEmail, password });
+            const user = await signInWithPassword({ email: trimmedEmail, password, accountType });
             signIn(user);
             router.push("/dashboard");
         }
@@ -94,9 +97,17 @@ export function AuthForm({ initialMode = "signin" }: AuthFormProps) {
             <div className="auth-form">
                 <h2>{signingUp ? "Create your account." : "Welcome back."}</h2>
                 <p>{signingUp
-                    ? "Create your account with your name, email, and password."
-                    : "Sign in with your email and password."}</p>
+                    ? accountType === "business"
+                        ? "Create a Business account with your name, work email, and password."
+                        : "Create an Individual account with your name, email, and password."
+                    : `Sign in to your ${accountType === "business" ? "Business" : "Individual"} account.`}</p>
                 <p className="subtle-label">Use a password with at least 8 characters.</p>
+                <div className="segmented auth-role-selector" role="group" aria-label="Account type">
+                    <button type="button" className={accountType === "individual" ? "active" : ""} aria-pressed={accountType === "individual"} onClick={() => setAccountType("individual")}>Individual</button>
+                    <button type="button" className={accountType === "business" ? "active" : ""} aria-pressed={accountType === "business"} onClick={() => setAccountType("business")}>Business</button>
+                    <button type="button" onClick={() => router.push("/admin/login")}>Admin</button>
+                </div>
+                {signingUp && accountType === "business" && <p className="form-note">Use a business email address. Gmail is accepted; Yahoo, Outlook, Hotmail, and similar providers are not.</p>}
                 <form onSubmit={submit} noValidate>
                     {signingUp && <label>Full name<input value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" placeholder="Alex Morgan"/><FieldError>{errors.name}</FieldError></label>}
                     <label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" autoCapitalize="none" spellCheck={false} placeholder="you@example.com"/><FieldError>{errors.email}</FieldError></label>

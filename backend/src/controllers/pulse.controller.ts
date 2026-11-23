@@ -4,7 +4,7 @@ interface AuthContext {
     userId: import("mongoose").Types.ObjectId;
     organizationId: import("mongoose").Types.ObjectId;
     teamId: import("mongoose").Types.ObjectId | null;
-    role: "employee" | "manager" | "admin";
+    role: import("../types/roles").UserRole;
 }
 
 interface ControllerRequest extends Request {
@@ -37,12 +37,9 @@ export const teamScores = (0, async_handler_1.asyncHandler)(async (req: Controll
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
     const query = req.validatedQuery;
-    const canViewAll = req.auth.role === "admin";
-    const teamId = query.teamId ?? (!canViewAll ? req.auth.teamId?.toString() : undefined);
-    if (!canViewAll && !teamId)
-        throw (0, errors_1.unauthorized)("A manager must be assigned to a team");
+    const teamId = query.teamId;
     if (teamId)
-        await workspace.ensureTeamAccess(req.auth.organizationId, teamId, req.auth.teamId, canViewAll);
+        await workspace.ensureTeamAccess(req.auth.organizationId, teamId, req.auth.teamId, true);
     const minGroupSize = await pulse.organizationMinGroupSize(req.auth.organizationId);
     const teams = await pulse.teamPulse(req.auth.organizationId, teamId, minGroupSize);
     res.json({ teams, minimumGroupSize: minGroupSize, data: { teams, minimumGroupSize: minGroupSize } });
@@ -51,18 +48,12 @@ export const alerts = (0, async_handler_1.asyncHandler)(async (req: ControllerRe
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
     const query = req.validatedQuery;
-    const teamId = req.auth.role === "admin" ? undefined : req.auth.teamId ?? undefined;
-    if (req.auth.role !== "admin" && !teamId)
-        throw (0, errors_1.unauthorized)("A manager must be assigned to a team");
-    const alerts = await pulse.listAlerts(req.auth.organizationId, query.status, teamId);
+    const alerts = await pulse.listAlerts(req.auth.organizationId, query.status, undefined);
     res.json({ alerts });
 });
 export const updateAlert = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
-    const teamId = req.auth.role === "admin" ? undefined : req.auth.teamId ?? undefined;
-    if (req.auth.role !== "admin" && !teamId)
-        throw (0, errors_1.unauthorized)("A manager must be assigned to a team");
-    const result = await pulse.updateAlert(req.auth.organizationId, req.params.alertId, req.body.status, req.auth.userId, teamId);
+    const result = await pulse.updateAlert(req.auth.organizationId, req.params.alertId, req.body.status, req.auth.userId, undefined);
     res.json({ alert: result });
 });

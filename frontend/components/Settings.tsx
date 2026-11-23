@@ -132,7 +132,7 @@ function SettingsContent() {
             <div className="settings-fields privacy-list">
                 <p><Icon name="check"/><span><strong>Current features:</strong> self-started work sessions, task planning, productivity tags, and voluntary wellbeing check-ins.</span></p>
                 <p><Icon name="shield"/><span><strong>No monitoring:</strong> CalmWork does not record screens, keystrokes, typed text, or individual work activity for managers.</span></p>
-                <p><Icon name="shield"/><span><strong>Manager reports:</strong> reports use aggregated check-in patterns, with small groups suppressed to protect privacy.</span></p>
+                <p><Icon name="shield"/><span><strong>Business reports:</strong> reports use aggregated check-in patterns, with small groups suppressed to protect privacy.</span></p>
             </div>
         </section>
         <section className="settings-section danger-zone">

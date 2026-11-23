@@ -14,6 +14,7 @@ const User_1 = require("../models/User");
 const email_1 = require("./email.service");
 const operationsAuth = require("./operations-auth.service");
 const errors_1 = require("../utils/errors");
+const { isBusinessEmail } = require("../utils/business-email");
 const BCRYPT_ROUNDS = 12;
 export function hashRefreshToken(token: string) {
     return (0, node_crypto_1.createHmac)("sha256", (0, env_1.getConfig)().JWT_REFRESH_SECRET).update(token).digest("hex");
@@ -68,6 +69,9 @@ export function publicUser(user) {
     };
 }
 export async function createOwnerAccount(input) {
+    const accountType = input.accountType || "individual";
+    if (accountType === "business" && !isBusinessEmail(input.email))
+        throw (0, errors_1.badRequest)("Business accounts must use a business email address. Gmail is accepted; Yahoo, Outlook, Hotmail, and similar providers are not.", "BUSINESS_EMAIL_REQUIRED");
     if (input.email.trim().toLowerCase() === (0, env_1.getConfig)().OPS_ADMIN_EMAIL.toLowerCase())
         throw (0, errors_1.conflict)("This email is reserved for the platform administrator", "EMAIL_RESERVED");
     if (await User_1.User.exists({ email: input.email }))
@@ -87,8 +91,8 @@ export async function createOwnerAccount(input) {
             name: input.name.trim(),
             email: input.email,
             passwordHash: await bcryptjs_1.hash(input.password, BCRYPT_ROUNDS),
-            role: "admin",
-            subscription: { plan: "Team", status: "trialing", trialEndsAt: new Date(Date.now() + 7 * 86_400_000) },
+            role: accountType,
+            subscription: { plan: "Team", status: "trialing", trialEndsAt: new Date(Date.now() + 14 * 86_400_000) },
         });
     }
     catch (error) {
@@ -109,6 +113,8 @@ export async function signin(input) {
         throw (0, errors_1.unauthorized)("Email or password is incorrect");
     const user = await User_1.User.findOne({ email: input.email }).select("+passwordHash");
     if (!user || !user.isActive || !(await bcryptjs_1.compare(input.password, user.passwordHash)))
+        throw (0, errors_1.unauthorized)("Email or password is incorrect");
+    if (input.accountType && user.role !== input.accountType)
         throw (0, errors_1.unauthorized)("Email or password is incorrect");
     if (!await Organization_1.Organization.exists({ _id: user.organizationId, isActive: { $ne: false } }))
         throw (0, errors_1.unauthorized)("This workspace is inactive");
@@ -138,7 +144,7 @@ export async function createInvitedUser(input) {
             name: input.name.trim(),
             email: input.email,
             passwordHash: await bcryptjs_1.hash(input.password, BCRYPT_ROUNDS),
-            role: invitation.role === "manager" ? "manager" : "employee",
+            role: "individual",
             subscription: owner.subscription.toObject(),
         });
         return user;
@@ -342,13 +348,25 @@ export async function forgotPassword(input) {
     if (normalizedEmail === adminEmail) {
         const admin = await operationsAuth.getOperationsAdmin();
         const raw = await createPasswordResetToken({ adminEmail: admin.email });
-        await (0, email_1.sendPasswordResetEmail)({ to: admin.email, token: raw });
+        try {
+            await (0, email_1.sendPasswordResetEmail)({ to: admin.email, token: raw });
+        }
+        catch (error) {
+            await PasswordResetToken_1.PasswordResetToken.deleteOne({ tokenHash: hashResetToken(raw) });
+            throw error;
+        }
     }
     else {
         const user = await User_1.User.findOne({ email: new RegExp(`^${escapedEmail}$`, "i") });
         if (user) {
             const raw = await createPasswordResetToken({ userId: user._id });
-            await (0, email_1.sendPasswordResetEmail)({ to: user.email, token: raw });
+            try {
+                await (0, email_1.sendPasswordResetEmail)({ to: user.email, token: raw });
+            }
+            catch (error) {
+                await PasswordResetToken_1.PasswordResetToken.deleteOne({ tokenHash: hashResetToken(raw) });
+                throw error;
+            }
         }
     }
     // Always succeed without revealing whether the email exists.

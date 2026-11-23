@@ -4,7 +4,7 @@ interface AuthContext {
     userId: import("mongoose").Types.ObjectId;
     organizationId: import("mongoose").Types.ObjectId;
     teamId: import("mongoose").Types.ObjectId | null;
-    role: "employee" | "manager" | "admin";
+    role: import("../types/roles").UserRole;
 }
 
 interface ControllerRequest extends Request {
@@ -21,13 +21,9 @@ import * as pulse_service_1 from "../services/pulse.service";
 function reportTeamScope(req: ControllerRequest) {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
-    if (req.auth.role === "admin")
-        return undefined;
-    if (req.auth.role !== "manager")
-        throw (0, errors_1.forbidden)("Reports are available to workspace managers only");
-    if (!req.auth.teamId)
-        throw (0, errors_1.forbidden)("A manager must be assigned to a team");
-    return req.auth.teamId;
+    if (req.auth.role !== "business")
+        throw (0, errors_1.forbidden)("Reports are available to Business accounts only");
+    return undefined;
 }
 export const summary = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     if (!req.auth)
@@ -36,6 +32,7 @@ export const summary = (0, async_handler_1.asyncHandler)(async (req: ControllerR
     const result = await (0, report_service_1.reportSummary)(req.auth.organizationId, query.period, query.metrics, await (0, pulse_service_1.organizationMinGroupSize)(req.auth.organizationId), reportTeamScope(req));
     res.json({ ...result, data: result });
 });
+export const preview = summary;
 export const previewPost = (0, async_handler_1.asyncHandler)(async (req: ControllerRequest, res: Response) => {
     if (!req.auth)
         throw (0, errors_1.unauthorized)();
@@ -88,8 +85,8 @@ export const downloadGenerated = (0, async_handler_1.asyncHandler)(async (req: C
     const report = await GeneratedReport_1.GeneratedReport.findOne({
         _id: req.params.reportId,
         organizationId: req.auth.organizationId,
-        ...(req.auth.role === "manager" || req.auth.role === "employee" ? { createdBy: req.auth.userId } : {}),
-        ...(req.auth.role === "manager" ? { teamId } : {}),
+        ...(req.auth.role === "individual" ? { createdBy: req.auth.userId } : {}),
+        ...(req.auth.role === "individual" ? { teamId } : {}),
         expiresAt: { $gt: new Date() },
     }).select("+content");
     if (!report)

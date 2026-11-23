@@ -1,5 +1,4 @@
 const mongoose_1 = require("mongoose");
-const env_1 = require("../config/env");
 const errors_1 = require("../utils/errors");
 const Organization_1 = require("../models/Organization");
 const User_1 = require("../models/User");
@@ -8,16 +7,21 @@ const TeamActivity_1 = require("../models/TeamActivity");
 const Attendance_1 = require("../models/Attendance");
 const EmployeeTool_1 = require("../models/EmployeeTool");
 const RefreshToken_1 = require("../models/RefreshToken");
+interface UserListQuery {
+    page?: number;
+    q?: string;
+    role?: "individual" | "business" | "admin";
+}
 export async function operationsOverview() {
     const start = new Date();
     start.setUTCHours(0, 0, 0, 0);
     const end = new Date(start.getTime() + 86_400_000);
-    const [businesses, activeBusinesses, users, activeUsers, employees, openAttendance, activity] = await Promise.all([
+    const [businesses, activeBusinesses, users, activeUsers, individuals, openAttendance, activity] = await Promise.all([
         Organization_1.Organization.countDocuments({}),
         Organization_1.Organization.countDocuments({ isActive: { $ne: false } }),
         User_1.User.countDocuments({}),
         User_1.User.countDocuments({ isActive: { $ne: false } }),
-        User_1.User.countDocuments({ role: "employee", isActive: { $ne: false } }),
+        User_1.User.countDocuments({ role: "individual", isActive: { $ne: false } }),
         Attendance_1.Attendance.countDocuments({ checkedOutAt: null }),
         TeamActivity_1.TeamActivity.aggregate([
             { $match: { startedAt: { $gte: start, $lt: end } } },
@@ -29,7 +33,7 @@ export async function operationsOverview() {
         activeBusinesses,
         users,
         activeUsers,
-        employees,
+        individuals,
         openAttendance,
         todayActivity: activity[0] ?? { sessions: 0, activeSeconds: 0, idleSeconds: 0 },
     };
@@ -62,8 +66,8 @@ export async function setBusinessActive(id: string, isActive: boolean) {
     return business;
 }
 
-export async function listUsers({ page, q: string, role }) {
-    const filter = {};
+export async function listUsers({ page = 1, q, role }: UserListQuery) {
+    const filter: Record<string, unknown> = {};
     if (role)
         filter.role = role;
     if (q) {

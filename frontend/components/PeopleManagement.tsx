@@ -4,6 +4,7 @@ import { useSubscription } from "@/lib/subscription";
 import { AppShell } from "./AppShell";
 import { Icon } from "./Icon";
 import { useToast } from "./Toast";
+import { roleLabel } from "./admin/adminHelpers";
 import {
     archiveWorkspaceTeam,
     createWorkspaceTeam,
@@ -18,14 +19,13 @@ interface WorkspaceTeam {
     name: string;
 }
 
-type WorkspaceRole = "admin" | "manager" | "employee";
 type TeamReference = string | { _id: string } | null;
 
 interface WorkspaceMember {
     _id: string;
     name: string;
     email: string;
-    role: WorkspaceRole;
+    role: "individual" | "business" | "admin";
     teamId: TeamReference;
 }
 
@@ -69,7 +69,7 @@ function PeopleContent() {
     }, []);
 
     useEffect(() => {
-        if (user?.role !== "admin")
+        if (user?.role !== "business")
             return;
         let active = true;
         Promise.all([getWorkspaceTeams(), getWorkspaceMembers()]).then(([teamResult, memberResult]) => {
@@ -101,7 +101,7 @@ function PeopleContent() {
             link.searchParams.set("email", result.invitation.email);
             setInviteLink(link.toString());
             setEmail("");
-            toast("Invitation created. Share the link with the employee.");
+            toast("Invitation created. Share the link with the Individual.");
         }
         catch (cause) {
             setError(cause instanceof Error ? cause.message : "Could not create invitation.");
@@ -129,17 +129,14 @@ function PeopleContent() {
         }
     };
 
-    const updateMember = async (
-        member: WorkspaceMember,
-        changes: { role?: WorkspaceRole; teamId?: string | null },
-    ) => {
+    const updateMember = async (member: WorkspaceMember, changes: { teamId?: string | null }) => {
         try {
             await updateWorkspaceMember(member._id, changes);
             await refresh();
-            toast("Employee details updated.");
+            toast("Team assignment updated.");
         }
         catch (cause) {
-            setError(cause instanceof Error ? cause.message : "Could not update employee.");
+            setError(cause instanceof Error ? cause.message : "Could not update team assignment.");
         }
     };
 
@@ -164,8 +161,8 @@ function PeopleContent() {
         }
     };
 
-    if (user?.role !== "admin")
-        return <div className="people-page"><div className="app-page-heading"><div><p className="section-label">Workspace</p><h1>Admin access required</h1><p>People and team management is available to workspace administrators.</p></div></div></div>;
+    if (user?.role !== "business")
+        return <div className="people-page"><div className="app-page-heading"><div><p className="section-label">Workspace</p><h1>Business access required</h1><p>People and team management is available to Business accounts.</p></div></div></div>;
 
     return <div className="people-page">
         <div className="app-page-heading">
@@ -174,7 +171,7 @@ function PeopleContent() {
         {error && <p className="field-error" role="alert">{error}</p>}
         <div className="people-grid">
             <section className="data-card people-card">
-                <p className="section-label">Invite employee</p>
+                <p className="section-label">Invite an Individual</p>
                 <h2>Bring your team in</h2>
                 <form onSubmit={invite}>
                     <label>Email address<input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} autoCapitalize="none" spellCheck={false}/></label>
@@ -191,15 +188,15 @@ function PeopleContent() {
             </section>
         </div>
         <section className="data-card people-members">
-            <div className="card-heading"><div><p className="section-label">Workspace roster</p><h2>Employees</h2></div><span className="subtle-label">{members.length} accounts</span></div>
-            {loading ? <p role="status">Loading employees…</p> : members.length ? <div className="table-scroll"><table className="data-table">
-                <thead><tr><th>Employee</th><th>Email</th><th>Role</th><th>Team</th></tr></thead>
+            <div className="card-heading"><div><p className="section-label">Workspace roster</p><h2>People</h2></div><span className="subtle-label">{members.length} accounts</span></div>
+            {loading ? <p role="status">Loading people…</p> : members.length ? <div className="table-scroll"><table className="data-table">
+                <thead><tr><th>Name</th><th>Email</th><th>Account type</th><th>Team</th></tr></thead>
                 <tbody>{members.map((member) => <tr key={member._id}>
                     <td>{member.name}</td><td>{member.email}</td>
-                    <td>{member._id === user?.id ? "Workspace admin" : <select value={member.role} onChange={(event) => void updateMember(member, { role: event.target.value as WorkspaceRole })}><option value="employee">Employee</option><option value="manager">Manager</option></select>}</td>
+                    <td>{roleLabel(member.role)}</td>
                     <td><select value={memberTeamId(member) ?? ""} onChange={(event) => void updateMember(member, { teamId: event.target.value || null })}><option value="">Unassigned</option>{teams.map((team) => <option value={team._id} key={team._id}>{team.name}</option>)}</select></td>
                 </tr>)}</tbody>
-            </table></div> : <p>No employees yet. Create an invitation to add your first employee.</p>}
+            </table></div> : <p>No people yet. Create an invitation to add your first Individual.</p>}
         </section>
     </div>;
 }

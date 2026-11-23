@@ -18,6 +18,8 @@
     "typecheck:api": "npm --prefix backend run typecheck",
     "test": "npm --prefix backend test",
     "seed": "npm --prefix backend run seed",
+    "seed:admin": "npm --prefix backend run seed:admin",
+    "migrate:roles": "npm --prefix backend run migrate:roles",
     "start": "npm --workspace frontend run start",
     "start:api": "npm --prefix backend start"
   },

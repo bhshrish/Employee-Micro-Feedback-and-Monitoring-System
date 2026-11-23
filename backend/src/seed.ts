@@ -1,11 +1,13 @@
 import "dotenv/config";
-import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
 import { getConfig } from "./config/env";
 import { Organization } from "./models/Organization";
 import { Team } from "./models/Team";
 import { User } from "./models/User";
 
+const bcrypt = require("bcryptjs") as {
+    hash(value: string, rounds: number): Promise<string>;
+};
 
 async function seed(): Promise<void> {
     const email = process.env.SEED_EMAIL?.trim();
@@ -39,11 +41,11 @@ async function seed(): Promise<void> {
         name,
         email,
         passwordHash: await bcrypt.hash(password, 12),
-        role: "admin",
+        role: "business",
         subscription: {
             plan: "Team",
             status: "trialing",
-            trialEndsAt: new Date(Date.now() + 7 * 86_400_000),
+            trialEndsAt: new Date(Date.now() + 14 * 86_400_000),
         },
     });
     console.info("Seed owner account created");

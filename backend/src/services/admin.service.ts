@@ -11,6 +11,7 @@ import { PulseResponse } from "../models/PulseResponse";
 import { RefreshToken } from "../models/RefreshToken";
 import { Team } from "../models/Team";
 import { User } from "../models/User";
+import type { UserRole } from "../types/roles";
 import { badRequest, conflict, forbidden, notFound } from "../utils/errors";
 import { weekStart } from "../utils/week";
 
@@ -23,7 +24,7 @@ const MAX_PAGE = 1000;
 /* ------------------------------------------------------------------ */
 
 type Id = string | Types.ObjectId;
-type Role = "admin" | "manager" | "employee";
+type WorkspaceRole = Exclude<UserRole, "admin">;
 
 interface ListQuery {
     page?: number | string;
@@ -62,7 +63,7 @@ interface AuditEntry {
 }
 
 interface UpdateMemberInput {
-    role?: Role;
+    role?: WorkspaceRole;
     isActive?: boolean;
     teamId?: string | null;
 }
@@ -70,7 +71,6 @@ interface UpdateMemberInput {
 interface InviteMemberInput {
     email: string;
     teamId: string;
-    role?: string;
 }
 
 interface IssueInvitationInput {
@@ -78,7 +78,6 @@ interface IssueInvitationInput {
     inviterId: string;
     email: string;
     teamId: string;
-    role?: string;
 }
 
 interface UpdateSettingsInput {
@@ -169,10 +168,10 @@ export async function loadMember(organizationId: string, memberId: string) {
     return member;
 }
 
-export async function activeAdminCount(organizationId: string, excludeId?: Id | null): Promise<number> {
+export async function activeBusinessCount(organizationId: string, excludeId?: Id | null): Promise<number> {
     return User.countDocuments({
         organizationId,
-        role: "admin",
+        role: "business",
         isActive: { $ne: false },
         ...(excludeId ? { _id: { $ne: excludeId } } : {}),
     });
@@ -201,9 +200,8 @@ export async function adminOverview(organizationId: string) {
     const [
         members,
         activeMembers,
-        admins,
-        managers,
-        employees,
+        businesses,
+        individuals,
         teams,
         pendingInvitations,
         openAlerts,
@@ -213,9 +211,8 @@ export async function adminOverview(organizationId: string) {
     ] = await Promise.all([
         User.countDocuments({ organizationId }),
         User.countDocuments({ organizationId, isActive: { $ne: false } }),
-        User.countDocuments({ organizationId, role: "admin", isActive: { $ne: false } }),
-        User.countDocuments({ organizationId, role: "manager", isActive: { $ne: false } }),
-        User.countDocuments({ organizationId, role: "employee", isActive: { $ne: false } }),
+        User.countDocuments({ organizationId, role: "business", isActive: { $ne: false } }),
+        User.countDocuments({ organizationId, role: "individual", isActive: { $ne: false } }),
         Team.countDocuments({ organizationId, archivedAt: null }),
         Invitation.countDocuments({ organizationId, acceptedAt: null, expiresAt: { $gt: new Date() } }),
         Alert.countDocuments({ organizationId, status: "open" }),
@@ -232,9 +229,8 @@ export async function adminOverview(organizationId: string) {
     return {
         members,
         activeMembers,
-        admins,
-        managers,
-        employees,
+        businesses,
+        individuals,
         teams,
         pendingInvitations,
         openAlerts,
@@ -302,10 +298,10 @@ export async function updateMember(
         throw badRequest("Provide a role, team, or account status to update");
     }
 
-    const losesAdmin =
-        member.role === "admin" && ((input.role && input.role !== "admin") || input.isActive === false);
-    if (losesAdmin && !(await activeAdminCount(organizationId, member._id))) {
-        throw badRequest("At least one active business admin is required");
+    const losesBusinessAccess =
+        member.role === "business" && ((input.role && input.role !== "business") || input.isActive === false);
+    if (losesBusinessAccess && !(await activeBusinessCount(organizationId, member._id))) {
+        throw badRequest("At least one active Business account is required");
     }
 
     const wasInactive = member.isActive === false;
@@ -347,7 +343,6 @@ export async function issueInvitation({
     inviterId,
     email,
     teamId,
-    role,
 }: IssueInvitationInput) {
     const normalized = normalizeEmail(email);
     if (!normalized) throw badRequest("A work email is required");
@@ -359,10 +354,6 @@ export async function issueInvitation({
     if (await User.exists({ email: normalized })) {
         throw conflict("An account with this email already exists", "EMAIL_IN_USE");
     }
-    if (role === "admin") {
-        throw badRequest("Invite a manager or employee; promote them to admin afterwards");
-    }
-
     const rawToken = randomBytes(32).toString("base64url");
     const expiresAt = new Date(Date.now() + INVITATION_DAYS * 86_400_000);
 
@@ -376,7 +367,7 @@ export async function issueInvitation({
         teamId: team._id,
         inviterId,
         email: normalized,
-        role: role === "manager" ? "manager" : "employee",
+        role: "individual",
         tokenHash: hashInvitationToken(rawToken),
         expiresAt,
     });
@@ -399,7 +390,6 @@ export async function inviteMember(organizationId: string, actorId: string, inpu
         inviterId: actorId,
         email: input.email,
         teamId: input.teamId,
-        role: input.role ?? "employee",
     });
 
     await recordAudit({
@@ -435,7 +425,6 @@ export async function resendInvitation(organizationId: string, actorId: string, 
         inviterId: actorId,
         email: normalized,
         teamId: String(pending.teamId),
-        role: pending.role ?? "employee",
     });
 
     await recordAudit({
@@ -467,7 +456,7 @@ export async function listInvitations(organizationId: string) {
         return {
             id: invitation._id.toString(),
             email: invitation.email,
-            role: invitation.role ?? "employee",
+            role: "individual",
             teamId: team ? String(team._id) : null,
             teamName: team?.name ?? null,
             expiresAt: invitation.expiresAt,

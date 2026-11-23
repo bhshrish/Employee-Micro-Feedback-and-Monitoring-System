@@ -4,7 +4,7 @@ const invitationSchema = new Schema({
     teamId: { type: Schema.Types.ObjectId, ref: "Team", required: true },
     inviterId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     email: { type: String, required: true, trim: true },
-    role: { type: String, enum: ["employee", "manager"], default: "employee" },
+    role: { type: String, enum: ["individual"], default: "individual" },
     tokenHash: { type: String, required: true, unique: true, select: false },
     expiresAt: { type: Date, required: true, index: { expires: 0 } },
     acceptedAt: { type: Date, default: null },

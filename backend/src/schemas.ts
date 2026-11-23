@@ -1,17 +1,31 @@
 import { z } from "zod";
+import { isBusinessEmail } from "./utils/business-email";
 const email = z.string().trim().email().max(254);
 const password = z.string().min(8).max(128);
 export const signupSchema = z.object({
     name: z.string().trim().min(2).max(100),
     email,
     password,
+    accountType: z.enum(["individual", "business"]).default("individual"),
+}).strict().superRefine((value, context) => {
+    if (value.accountType === "business" && !isBusinessEmail(value.email)) {
+        context.addIssue({
+            code: "custom",
+            path: ["email"],
+            message: "Business accounts must use a business email address. Gmail is accepted; Yahoo, Outlook, Hotmail, and similar providers are not.",
+        });
+    }
+});
+export const signinSchema = z.object({
+    email,
+    password,
+    accountType: z.enum(["individual", "business"]).optional(),
 }).strict();
-export const signinSchema = z.object({ email, password }).strict();
 export const adminPasswordSigninSchema = z.object({ email, password }).strict();
 export const operationsListQuerySchema = z.object({
     page: z.coerce.number().int().min(1).max(1000).default(1),
     q: z.string().trim().max(120).optional(),
-    role: z.enum(["employee", "manager", "admin"]).optional(),
+    role: z.enum(["individual", "business", "admin"]).optional(),
 }).strict();
 export const operationsDateQuerySchema = z.object({
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).default(() => new Date().toISOString().slice(0, 10)),
@@ -46,7 +60,7 @@ export const pulseSchema = z.object({
 }).strict();
 export const createTeamSchema = z.object({ name: z.string().trim().min(2).max(80) }).strict();
 export const updateMemberSchema = z.object({
-    role: z.enum(["admin", "manager", "employee"]).optional(),
+    role: z.enum(["individual", "business"]).optional(),
     teamId: z.string().regex(/^[a-f\d]{24}$/i).nullable().optional(),
 }).strict().refine((value) => Object.keys(value).length > 0, "Provide at least one field");
 export const startActivitySchema = z.object({
@@ -105,7 +119,7 @@ export const reportQuerySchema = z.object({
 }).strict();
 export const reportPreviewQuerySchema = reportQuerySchema;
 export const reportFormatQuerySchema = z.object({ format: z.enum(["csv", "pdf"]) }).strict();
-export const userRoleSchema = z.object({ role: z.enum(["admin", "manager", "employee"]) }).strict();
+export const userRoleSchema = z.object({ role: z.enum(["individual", "business"]) }).strict();
 export const dashboardQuerySchema = z.object({ range: z.enum(["today", "7d", "30d"]).default("today") }).strict();
 export const alertQuerySchema = z.object({ status: z.enum(["open", "acknowledged", "dismissed"]).optional() }).strict();
 export const pulseTeamQuerySchema = z.object({ teamId: z.string().regex(/^[a-f\d]{24}$/i).optional() }).strict();
@@ -124,16 +138,16 @@ const objectId = z.string().regex(/^[a-f\d]{24}$/i);
 export const adminListQuerySchema = z.object({
     page: z.coerce.number().int().min(1).max(1000).default(1),
     q: z.string().trim().max(120).optional(),
-    role: z.enum(["admin", "manager", "employee"]).optional(),
+    role: z.enum(["individual", "business"]).optional(),
     status: z.enum(["active", "inactive"]).optional(),
 }).strict();
 export const adminInviteSchema = z.object({
     email,
     teamId: objectId,
-    role: z.enum(["employee", "manager"]).default("employee"),
+    role: z.literal("individual").default("individual"),
 }).strict();
 export const adminUserUpdateSchema = z.object({
-    role: z.enum(["admin", "manager", "employee"]).optional(),
+    role: z.enum(["individual", "business"]).optional(),
     teamId: objectId.nullable().optional(),
     isActive: z.boolean().optional(),
 }).strict().refine((value) => Object.keys(value).length > 0, "Provide at least one field");

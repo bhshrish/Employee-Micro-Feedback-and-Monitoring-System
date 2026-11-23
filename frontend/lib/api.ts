@@ -4,7 +4,7 @@ export interface AuthUser {
     email: string;
     organizationId: string;
     teamId: string | null;
-    role: "admin" | "manager" | "employee";
+    role: "individual" | "business" | "admin";
     subscription: {
         plan: string;
         status: string;
@@ -317,17 +317,17 @@ export async function verifyOtp(input: { email: string; code: string }): Promise
     localStorage.setItem("calmwork:auth", "true");
     return result.user;
 }
-export async function signup(input: { name: string; email: string; password: string }) {
+export async function signup(input: { name: string; email: string; password: string; accountType: "individual" | "business" }) {
     return request("/auth/signup", { method: "POST", body: JSON.stringify(input) }, false);
 }
-export async function signupWithSession(input: { name: string; email: string; password: string }): Promise<AuthUser> {
+export async function signupWithSession(input: { name: string; email: string; password: string; accountType: "individual" | "business" }): Promise<AuthUser> {
     const result = await requestRequired<AuthResponse>("/auth/signup/session", { method: "POST", body: JSON.stringify(input) }, false);
     if (result.accessToken)
         setAccessToken(result.accessToken);
     localStorage.setItem("calmwork:auth", "true");
     return result.user;
 }
-export async function signInWithPassword(input: { email: string; password: string }): Promise<AuthUser> {
+export async function signInWithPassword(input: { email: string; password: string; accountType: "individual" | "business" }): Promise<AuthUser> {
     const result = await requestRequired<AuthResponse>("/auth/signin", { method: "POST", body: JSON.stringify(input) }, false);
     if (result.accessToken)
         setAccessToken(result.accessToken);
@@ -394,10 +394,12 @@ export async function setOperationsBusinessActive(id: string, isActive: boolean)
         body: JSON.stringify({ isActive }),
     }, false);
 }
-export async function getOperationsUsers(page = 1, q = "") {
+export async function getOperationsUsers(page = 1, q = "", role = "") {
     const query = new URLSearchParams({ page: String(page) });
     if (q)
         query.set("q", q);
+    if (role)
+        query.set("role", role);
     return request(`/operations/users?${query}`, {}, false);
 }
 export async function setOperationsUserActive(id: string, isActive: boolean) {
@@ -822,10 +824,10 @@ export async function getAdminInvitations() {
     const result = await requestRequired("/admin/invitations");
     return result.invitations;
 }
-export async function createAdminInvitation(email: string, teamId: string, role: string) {
+export async function createAdminInvitation(email: string, teamId: string) {
     const result = await requestRequired("/admin/invitations", {
         method: "POST",
-        body: JSON.stringify({ email, teamId, role }),
+        body: JSON.stringify({ email, teamId, role: "individual" }),
     });
     return result.invitation;
 }

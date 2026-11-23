@@ -57,9 +57,9 @@ function AppFrame({ children }: AppFrameProps) {
     }, [toast]);
     const visibleNav = nav.filter((item) => {
         if (item.href === "/reports")
-            return user?.role === "admin" || user?.role === "manager";
+            return user?.role === "business";
         if (item.href === "/monitoring")
-            return user?.role === "admin" || user?.role === "manager";
+            return user?.role === "business";
         return true;
     });
     return <div className="app-layout">

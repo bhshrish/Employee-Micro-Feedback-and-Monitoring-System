@@ -1,7 +1,7 @@
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import type { JwtPayload } from "jsonwebtoken";
 import { Types } from "mongoose";
-import jsonwebtoken_1 from "jsonwebtoken";
+import * as jsonwebtoken_1 from "jsonwebtoken";
 import * as mongoose_1 from "mongoose";
 import * as env_1 from "../config/env";
 import * as User_1 from "../models/User";
@@ -12,7 +12,7 @@ interface AuthContext {
     userId: Types.ObjectId | string;
     organizationId: Types.ObjectId | string;
     teamId: Types.ObjectId | string | null;
-    role: "employee" | "manager" | "admin";
+    role: import("../types/roles").UserRole;
 }
 
 interface AuthenticatedRequest extends Request {
@@ -37,7 +37,7 @@ export async function requireOperationsAdmin(req: AuthenticatedRequest, _res: Re
         const token = req.cookies?.calmwork_operations || (header?.startsWith("Bearer ") ? header.slice(7) : null);
         if (!token)
             throw (0, errors_1.unauthorized)();
-        const payload = jsonwebtoken_1.default.verify(token, (0, env_1.getConfig)().JWT_ADMIN_SECRET, {
+        const payload = jsonwebtoken_1.verify(token, (0, env_1.getConfig)().JWT_ADMIN_SECRET, {
             issuer: "calmwork-operations",
             audience: "calmwork-admin",
         });
@@ -67,7 +67,7 @@ export async function authenticate(req: AuthenticatedRequest, _res: Response, ne
         const token = req.cookies?.calmwork_access || (header?.startsWith("Bearer ") ? header.slice(7) : null);
         if (!token)
             throw (0, errors_1.unauthorized)();
-        const payload = jsonwebtoken_1.default.verify(token, (0, env_1.getConfig)().JWT_ACCESS_SECRET, {
+        const payload = jsonwebtoken_1.verify(token, (0, env_1.getConfig)().JWT_ACCESS_SECRET, {
             issuer: "calmwork-api",
             audience: "calmwork-client",
         });
@@ -97,7 +97,7 @@ export async function authenticate(req: AuthenticatedRequest, _res: Response, ne
         next(error);
     }
 }
-export function requireRole(...roles: Array<"employee" | "manager" | "admin">): RequestHandler {
+export function requireRole(...roles: import("../types/roles").UserRole[]): RequestHandler {
     return (req: AuthenticatedRequest, _res: Response, next: NextFunction): void => {
         if (!req.auth || !roles.includes(req.auth.role)) {
             next((0, errors_1.forbidden)());
