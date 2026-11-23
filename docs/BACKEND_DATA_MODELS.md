@@ -197,10 +197,8 @@ Note on "own trend": to show the employee their own history without linking answ
 ### Reports and billing
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/reports` | creates `awaiting_payment` |
-| POST | `/reports/:id/pay` | creates Razorpay order (₹99 = 9900 paise) |
-| POST | `/webhooks/razorpay` | verify `X-Razorpay-Signature`; the **only** thing that marks paid |
-| GET | `/reports`, `/reports/:id/download` | signed, short-lived |
+| POST | `/reports/generate` | creates a free, aggregated PDF or CSV for an admin or manager |
+| GET | `/reports/:reportId` | downloads the report within the current workspace |
 | GET | `/billing/status` | trial days left, plan |
 
 ### Platform admin
@@ -215,7 +213,7 @@ Note on "own trend": to show the employee their own history without linking answ
 
 **Check-in:** Employee POST `/checkins` → verify no row in `checkin_participation` for this week → write anonymous `checkins` + `checkin_participation` + `my_checkins` → weekly job aggregates into `team_weekly_stats` (applying k-threshold) → alert job evaluates rules → dashboard reads only `team_weekly_stats` and `alerts`.
 
-**Report payment:** POST `/reports` → POST `/reports/:id/pay` (Razorpay order) → client opens checkout → Razorpay webhook → verify signature, mark `paid` (idempotent on `razorpayPaymentId`) → generate file → `ready`.
+**Report generation:** An authenticated admin or manager POSTs `/reports/generate` with the period, metrics, and format. The API stores an aggregated PDF or CSV and returns a download URL; no payment is required.
 
 ## 7. Validation, errors, security
 

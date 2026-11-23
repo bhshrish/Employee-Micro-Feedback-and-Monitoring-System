@@ -48,7 +48,6 @@ export const generate = (0, async_handler_1.asyncHandler)(async (req: Controller
         throw (0, errors_1.unauthorized)();
     const teamId = reportTeamScope(req);
     const { period, metrics, format } = req.body;
-    let report;
     const file = await (0, report_service_1.exportReport)(
         req.auth.organizationId,
         period,
@@ -57,7 +56,7 @@ export const generate = (0, async_handler_1.asyncHandler)(async (req: Controller
         await (0, pulse_service_1.organizationMinGroupSize)(req.auth.organizationId),
         teamId,
     );
-    report = await GeneratedReport_1.GeneratedReport.create({
+    const report = await GeneratedReport_1.GeneratedReport.create({
         organizationId: req.auth.organizationId,
         teamId: teamId ?? null,
         createdBy: req.auth.userId,
@@ -78,7 +77,7 @@ export const generate = (0, async_handler_1.asyncHandler)(async (req: Controller
             filename: report.filename,
             createdAt: report.createdAt,
             expiresAt: report.expiresAt,
-            downloadUrl: `/api/v1/reports/${report._id.toString()}`,
+            downloadUrl: `/reports/${report._id.toString()}`,
         },
     });
 });

@@ -106,13 +106,13 @@ CTAs: **Start free trial** (14 days) and **View demo**.
 - Alerts only fire when the group size meets the minimum (5).
 - Every alert includes a "How to open the conversation" tip and a link to resources.
 
-### 7.9 Reports (paid per report)
-- Choose date range and metrics, then pay ₹99 through Razorpay, then download PDF or CSV.
+### 7.9 Reports (free)
+- Admins and managers choose a date range and metrics, then download an aggregated PDF or CSV at no charge.
 - Reports contain aggregated data only.
 
 ### 7.10 Billing
 - Trial banner with days left. At day 14, the org becomes read-only.
-- Razorpay for per-report payments (and later subscriptions).
+- Razorpay for subscriptions.
 
 ### 7.11 Platform Admin (separate login)
 Org list, trial and payment status, user lookup, suspend/restore, audit log.

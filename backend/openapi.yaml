@@ -5,8 +5,8 @@ info:
   description: |
     Workspace API for password authentication and password recovery,
     platform-administrator access, personal productivity tools, voluntary wellbeing
-    check-ins, aggregated wellbeing insights, employee tools, and reports paid per
-    generation through Razorpay. JSON responses use success, data, and error
+    check-ins, aggregated wellbeing insights, employee tools, and free reports.
+    JSON responses use success, data, and error
     fields; compatibility properties may also appear at the top level.
     Pulse comments are accepted only for compatibility and are discarded; they are never persisted or returned.
 servers:
@@ -716,25 +716,6 @@ paths:
                 format: { type: string, enum: [csv, pdf] }
       responses:
         "200": { description: Thresholded report summary }
-  /reports/orders:
-    post:
-      tags: [Reports]
-      summary: Create a one-time INR 99 report payment order
-      security: [{ bearerAuth: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              properties:
-                period: { type: string, enum: [today, 7d, 30d, quarter], default: 30d }
-                metrics: { type: array, minItems: 1, maxItems: 4, items: { type: string, enum: [Active time, Productivity, Idle time, Burnout risk] } }
-                format: { type: string, enum: [csv, pdf], default: pdf }
-      responses:
-        "201": { description: Razorpay order for one report; amount 9900 INR paise }
-        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /reports/generate:
     post:
       tags: [Reports]
@@ -747,18 +728,12 @@ paths:
             schema:
               type: object
               additionalProperties: false
-              required: [orderId, paymentId, signature]
               properties:
                 period: { type: string, enum: [today, 7d, 30d, quarter] }
                 metrics: { type: array, minItems: 1, maxItems: 4, items: { type: string, enum: [Active time, Productivity, Idle time, Burnout risk] } }
                 format: { type: string, enum: [csv, pdf] }
-                orderId: { type: string }
-                paymentId: { type: string }
-                signature: { type: string, pattern: "^[a-fA-F0-9]{64}$" }
       responses:
-        "201": { description: Generated report ID and download URL after verifying a captured payment }
-        "400": { description: Invalid payment signature or uncaptured payment }
-        "409": { $ref: "#/components/responses/Conflict" }
+        "201": { description: Generated report ID and relative download URL }
   /reports/{reportId}:
     get:
       tags: [Reports]

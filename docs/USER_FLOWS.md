@@ -138,14 +138,12 @@ Notation: `[Screen]` = page, `→` = navigation, `⚠` = edge case. Routes use a
 5. `[Alerts]`: list with severity, rule that fired, suggested conversation prompt. Actions: Acknowledge, Snooze 7 days, Add note.
 6. `[People]`: roster, invite status, per-employee time summary (only employees who accepted the notice).
 
-## 10. Reports and payment
+## 10. Reports
 
 1. `[Reports]` → **New report**: date range, metrics, format (PDF/CSV).
-2. Preview (aggregated) → **Pay ₹99** → Razorpay checkout.
-3. Payment success (verified by webhook, not by the client redirect) → report generated → Download. Reports stay available 30 days.
-4. ⚠ Payment fails/cancelled: report stays "Awaiting payment"; no download.
-5. ⚠ Webhook delayed: show "Confirming payment…" and poll for 60s.
-6. ⚠ Double click on pay: idempotency key per report.
+2. Preview aggregated results, then generate and download a free PDF or CSV.
+3. Reports stay available for download for 30 days.
+4. Report generation and downloads do not require a report payment.
 
 ## 11. Trial lifecycle
 

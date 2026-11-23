@@ -20,7 +20,7 @@ Next.js App Router + TypeScript (strict) + Tailwind + react-hook-form + zod + Re
 4. **Employees can only join with a valid invitation code** (bound to their email, single-use, 7-day expiry). No open employee sign-up.
 5. **Business sign-up requires a business email.** Free providers are blocked.
 6. **No screen surveillance.** No screenshots, keylogging, screen recording, or live view in the MVP.
-7. **14-day free trial, no card.** After trial the org is read-only. Reports cost ₹99 each, marked paid only by the verified Razorpay webhook.
+7. **14-day free trial, no card.** After trial the org is read-only. Aggregated PDF/CSV reports are free for admins and managers.
 8. Never log passwords, OTPs, tokens, invite codes, or check-in text.
 
 ## Code style

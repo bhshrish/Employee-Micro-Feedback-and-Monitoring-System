@@ -27,7 +27,7 @@ The API listens on the configured `PORT` (default `4000`). Use `GET /health` for
 
 The platform operations dashboard is available at `/admin`. It can review and activate/suspend businesses and users, create teams and assign employees, review daily attendance and export CSV, and review activity summaries aggregated by business. It does not expose individual salary estimates or pulse responses.
 
-Workspace monitoring summaries are included during the seven-day free trial. After the trial, an active monthly or yearly plan is required to continue using monitoring. Report exports require an active paid plan.
+Workspace monitoring summaries are included during the seven-day free trial. After the trial, an active monthly or yearly plan is required to continue using monitoring. Admins and managers can generate and download aggregated PDF or CSV reports for free.
 
 Keep the API running, then start the frontend in a second terminal with `npm run dev` (or `npm --workspace frontend run dev`). The login page connects to `http://localhost:4000/api/v1` by default, so login and signup will not work until MongoDB and the API are available. If the API startup log reports another port (for example, `5000`), set `NEXT_PUBLIC_API_URL` to that API URL plus `/api/v1` (for example, `http://localhost:5000/api/v1`) before starting the frontend. `CORS_ORIGINS` must include the frontend's browser origin (for local development, `http://localhost:3000`); comma-separate it from any deployed frontend origin you also need to allow. Configure SMTP to deliver password-reset emails; without SMTP configured in development, an email preview is logged without its content.
 
@@ -96,7 +96,7 @@ Razorpay subscription webhooks are verified against the raw request body and ded
 - Passwords use bcrypt; sensitive user fields are never serialized.
 - Request schemas reject unknown input fields and protect database queries from operator injection.
 - API logs exclude passwords, bearer/cookie tokens, card data, and pulse comments.
-- Reports require an active paid subscription; trial access to report previews is limited.
+- Admins and managers can generate and download aggregated PDF or CSV reports for free, including after a trial expires.
 
 Use the test-only secrets and data in local development. Do not expose debug credentials, MongoDB, or Razorpay test secrets in production.
 

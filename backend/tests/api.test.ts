@@ -15,7 +15,6 @@ import { User } from "../src/models/User";
 import { TeamActivity } from "../src/models/TeamActivity";
 import { Invoice } from "../src/models/Invoice";
 import { GeneratedReport } from "../src/models/GeneratedReport";
-import { ReportPayment } from "../src/models/ReportPayment";
 import { Alert } from "../src/models/Alert";
 import { processRazorpayEvent } from "../src/services/billing.service";
 import { expireTrials } from "../src/jobs/subscriptions";
@@ -72,68 +71,6 @@ async function signupAndSignin(email: string, name = "Test User") {
         body: { user: session.user, accessToken: session.accessToken },
         headers: { "set-cookie": [`calmwork_refresh=${session.refreshToken}`] },
     };
-}
-interface RazorpayMockOptions {
-    orderId?: string;
-    paymentId?: string;
-    status?: string;
-    amount?: number;
-    currency?: string;
-    paymentOrderId?: string;
-}
-
-interface RazorpayMockContext {
-    orderId: string;
-    paymentId: string;
-    keySecret: string;
-}
-
-async function withRazorpayMock<T>(
-    { orderId = "order_report_test", paymentId = "pay_report_test", status = "captured", amount = 9900, currency = "INR", paymentOrderId = orderId }: RazorpayMockOptions = {},
-    run: (context: RazorpayMockContext) => Promise<T>,
-): Promise<T> {
-    const previousFetch = globalThis.fetch;
-    const previousKeyId = process.env.RAZORPAY_KEY_ID;
-    const previousKeySecret = process.env.RAZORPAY_KEY_SECRET;
-    const keySecret = "report_payment_test_secret";
-    process.env.RAZORPAY_KEY_ID = "rzp_test_report";
-    process.env.RAZORPAY_KEY_SECRET = keySecret;
-    globalThis.fetch = async (input: string | URL | Request, init: RequestInit = {}) => {
-        const url = new globalThis.URL(input instanceof Request ? input.url : input.toString());
-        if (url.pathname === "/v1/orders" && init.method === "POST") {
-            return new globalThis.Response(JSON.stringify({ id: orderId, amount: 9900, currency: "INR" }), {
-                status: 200,
-                headers: { "Content-Type": "application/json" },
-            });
-        }
-        if (url.pathname === `/v1/payments/${paymentId}`) {
-            return new globalThis.Response(JSON.stringify({
-                id: paymentId,
-                order_id: paymentOrderId,
-                amount,
-                currency,
-                status,
-            }), { status: 200, headers: { "Content-Type": "application/json" } });
-        }
-        throw new Error(`Unexpected Razorpay request: ${init.method || "GET"} ${url.pathname}`);
-    };
-    try {
-        return await run({ orderId, paymentId, keySecret });
-    }
-    finally {
-        globalThis.fetch = previousFetch;
-        if (previousKeyId === undefined)
-            delete process.env.RAZORPAY_KEY_ID;
-        else
-            process.env.RAZORPAY_KEY_ID = previousKeyId;
-        if (previousKeySecret === undefined)
-            delete process.env.RAZORPAY_KEY_SECRET;
-        else
-            process.env.RAZORPAY_KEY_SECRET = previousKeySecret;
-    }
-}
-function reportSignature(orderId: string, paymentId: string, keySecret: string): string {
-    return createHmac("sha256", keySecret).update(`${orderId}|${paymentId}`).digest("hex");
 }
 interface TestResponseHeaders {
     headers: {
@@ -1040,16 +977,25 @@ describe("PULSE API", () => {
         assert.deepEqual(heatmap.body.teams.map((team) => team.name).sort(), ["General", "Quiet team"]);
         assert.equal(heatmap.body.cells.some((cell) => cell.teamId === String(quietTeam._id)), false);
     });
-    it("allows report previews and requires payment data to generate a report", async () => {
+    it("generates and downloads reports for free, including after a trial expires", async () => {
         const account = await signupAndSignin("report-gates@example.test");
         const auth = { Authorization: `Bearer ${account.body.accessToken}` };
         await request(app).get("/api/v1/reports/preview").set(auth).expect(200);
-        await request(app).post("/api/v1/reports/generate").set(auth)
-            .send({ period: "30d", metrics: ["Active time"], format: "csv" }).expect(400);
+        const created = await request(app).post("/api/v1/reports/generate").set(auth)
+            .send({ period: "30d", metrics: ["Active time"], format: "csv" }).expect(201);
+        assert.equal(created.body.report.downloadUrl, `/reports/${created.body.report.id}`);
+        const report = await GeneratedReport.findById(created.body.report.id).lean();
+        assert.equal(report?.paymentId, null);
+        const download = await request(app).get(`/api/v1${created.body.report.downloadUrl}`).set(auth).expect(200);
+        assert.match(download.headers["content-type"], /text\/csv/);
+        assert.match(download.text, /Metric,Value/);
+
         await User.updateMany({ organizationId: account.body.user.organizationId }, { $set: {
             "subscription.status": "trial_expired",
         } });
         await request(app).get("/api/v1/reports/preview").set(auth).expect(200);
+        await request(app).post("/api/v1/reports/generate").set(auth)
+            .send({ period: "30d", metrics: ["Active time"], format: "pdf" }).expect(201);
     });
     it("includes the current week's wellbeing check-ins in a report preview", async () => {
         const account = await signupAndSignin("report-pulse-today@example.test");
@@ -1073,66 +1019,15 @@ describe("PULSE API", () => {
         assert.equal(preview.body.pulseParticipationResponses, 5);
         assert.equal(preview.body.averageBurnoutScore, 60);
     });
-    it("charges once for a report and scopes payment-backed downloads to the buyer workspace", async () => {
+    it("scopes free report downloads to the buyer workspace", async () => {
         const account = await signupAndSignin("report-download@example.test");
         const secondAccount = await signupAndSignin("report-other@example.test");
         const auth = { Authorization: `Bearer ${account.body.accessToken}` };
         const otherAuth = { Authorization: `Bearer ${secondAccount.body.accessToken}` };
-        await withRazorpayMock({}, async ({ orderId, paymentId, keySecret }) => {
-            const order = await request(app).post("/api/v1/reports/orders").set(auth)
-                .send({ period: "30d", metrics: ["Active time"], format: "csv" }).expect(201);
-            assert.deepEqual(order.body.order, { id: orderId, amount: 9900, currency: "INR" });
-            const storedPayment = await ReportPayment.findOne({ orderId }).lean();
-            assert.equal(storedPayment?.status, "pending");
-            assert.equal(storedPayment?.amount, 9900);
-            assert.equal(storedPayment?.format, "csv");
-
-            const payment = {
-                orderId,
-                paymentId,
-                signature: reportSignature(orderId, paymentId, keySecret),
-            };
-            const created = await request(app).post("/api/v1/reports/generate").set(auth)
-                .send({ ...payment, period: "today", metrics: ["Burnout risk"], format: "pdf" }).expect(201);
-            const reportId = created.body.report.id;
-            const savedReport = await GeneratedReport.findById(reportId).lean();
-            assert.deepEqual(savedReport?.metrics, ["Active time"]);
-            assert.equal(savedReport?.period, "30d");
-            assert.equal(savedReport?.format, "csv");
-
-            const file = await request(app).get(`/api/v1/reports/${reportId}`).set(auth).expect(200);
-            assert.match(file.headers["content-type"], /text\/csv/);
-            assert.match(file.text, /Metric,Value/);
-            await request(app).get(`/api/v1/reports/${reportId}`).set(otherAuth).expect(404);
-            await request(app).post("/api/v1/reports/generate").set(auth)
-                .send({ ...payment, period: "30d", metrics: ["Active time"], format: "csv" })
-                .expect(409)
-                .expect((res) => assert.equal(res.body.error.code, "REPORT_PAYMENT_USED"));
-            assert.ok(await GeneratedReport.exists({ paymentId: storedPayment?._id }));
-            assert.notEqual(account.body.user.organizationId, secondAccount.body.user.organizationId);
-        });
-    });
-    it("rejects forged, foreign, and uncaptured report payments", async () => {
-        const account = await signupAndSignin("report-payment-owner@example.test");
-        const otherAccount = await signupAndSignin("report-payment-other@example.test");
-        const auth = { Authorization: `Bearer ${account.body.accessToken}` };
-        const otherAuth = { Authorization: `Bearer ${otherAccount.body.accessToken}` };
-        await withRazorpayMock({ status: "authorized" }, async ({ orderId, paymentId, keySecret }) => {
-            await request(app).post("/api/v1/reports/orders").set(auth)
-                .send({ period: "30d", metrics: ["Burnout risk"], format: "pdf" }).expect(201);
-            const payment = {
-                orderId,
-                paymentId,
-                signature: reportSignature(orderId, paymentId, keySecret),
-            };
-            await request(app).post("/api/v1/reports/generate").set(auth)
-                .send({ ...payment, signature: "f".repeat(64) }).expect(400);
-            await request(app).post("/api/v1/reports/generate").set(otherAuth)
-                .send(payment).expect(404);
-            await request(app).post("/api/v1/reports/generate").set(auth)
-                .send(payment).expect(400);
-            assert.equal((await ReportPayment.findOne({ orderId }).lean())?.status, "pending");
-        });
+        const created = await request(app).post("/api/v1/reports/generate").set(auth)
+            .send({ period: "30d", metrics: ["Active time"], format: "csv" }).expect(201);
+        await request(app).get(`/api/v1${created.body.report.downloadUrl}`).set(otherAuth).expect(404);
+        assert.notEqual(account.body.user.organizationId, secondAccount.body.user.organizationId);
     });
     it("expires trials and persists invoices from Razorpay webhook events", async () => {
         const account = await signupAndSignin("invoice@example.test");
