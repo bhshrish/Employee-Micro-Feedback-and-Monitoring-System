@@ -318,17 +318,29 @@ export async function verifyOtp(input: { email: string; code: string }): Promise
     return result.user;
 }
 export async function signup(input: { name: string; email: string; password: string; accountType: "individual" | "business" }) {
-    return request("/auth/signup", { method: "POST", body: JSON.stringify(input) }, false);
+    const { accountType, ...credentials } = input;
+    return request("/auth/signup", {
+        method: "POST",
+        body: JSON.stringify(accountType === "business" ? input : credentials),
+    }, false);
 }
 export async function signupWithSession(input: { name: string; email: string; password: string; accountType: "individual" | "business" }): Promise<AuthUser> {
-    const result = await requestRequired<AuthResponse>("/auth/signup/session", { method: "POST", body: JSON.stringify(input) }, false);
+    const { accountType, ...credentials } = input;
+    const result = await requestRequired<AuthResponse>("/auth/signup/session", {
+        method: "POST",
+        body: JSON.stringify(accountType === "business" ? input : credentials),
+    }, false);
     if (result.accessToken)
         setAccessToken(result.accessToken);
     localStorage.setItem("calmwork:auth", "true");
     return result.user;
 }
 export async function signInWithPassword(input: { email: string; password: string; accountType: "individual" | "business" }): Promise<AuthUser> {
-    const result = await requestRequired<AuthResponse>("/auth/signin", { method: "POST", body: JSON.stringify(input) }, false);
+    const { accountType, ...credentials } = input;
+    const result = await requestRequired<AuthResponse>("/auth/signin", {
+        method: "POST",
+        body: JSON.stringify(accountType === "business" ? input : credentials),
+    }, false);
     if (result.accessToken)
         setAccessToken(result.accessToken);
     localStorage.setItem("calmwork:auth", "true");
