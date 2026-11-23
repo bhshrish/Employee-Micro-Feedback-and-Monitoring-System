@@ -457,6 +457,7 @@ label, fieldset { font-size: 17px; }label { display: grid; gap: 8px; font-weight
   --auth-yellow: #FFDD00;
   min-height: 100dvh;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
   padding: 32px 20px;
   background: #F8F8FF;
