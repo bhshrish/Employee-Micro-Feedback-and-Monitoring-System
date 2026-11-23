@@ -53,7 +53,6 @@ async function ensurePurposeAllowed(destination, purpose, payload, channel) {
         const filter = {
             ...(channel === "sms" ? { phone: destination } : { email: emailPattern(destination) }),
             isActive: true,
-            ...(payload.accountType ? { role: payload.accountType } : {}),
         };
         return Boolean(await User.findOne(filter).select("_id"));
     }
@@ -92,7 +91,7 @@ async function requestOtp(input) {
         codeHash: hashCode(destination, purpose, code, channel),
         payload: purpose === "invitation"
             ? { invitationToken: input.invitationToken.trim(), invitationEmail: allowed.email }
-            : input.accountType ? { accountType: input.accountType } : {},
+            : {},
         attempts: 0,
         resendAfter: new Date(now.getTime() + RESEND_COOLDOWN_MS),
         expiresAt: new Date(now.getTime() + OTP_TTL_MS),
