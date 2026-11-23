@@ -18,24 +18,37 @@ async function hasActiveWorkspace(user) {
         }
     }
 
-    const legacyUser = await User_1.User.collection.findOne(
+    const storedUser = await User_1.User.collection.findOne(
         { _id: user._id },
         { projection: { orgId: 1, organizationId: 1 } },
     );
-    const legacyOrganizationId = legacyUser?.orgId;
-    if (!legacyOrganizationId || !await Organization_1.Organization.exists({
-        _id: legacyOrganizationId,
-        isActive: { $ne: false },
-    })) {
+    const legacyOrganization = storedUser?.orgId
+        ? await Organization_1.Organization.findOne({
+            _id: storedUser.orgId,
+            isActive: { $ne: false },
+        }).select("_id")
+        : null;
+    const ownedOrganization = legacyOrganization || user.role !== "business"
+        ? null
+        : await Organization_1.Organization.findOne({
+            ownerId: user._id,
+            isActive: { $ne: false },
+        }).select("_id");
+    const organizationId = legacyOrganization?._id ?? ownedOrganization?._id;
+    if (!storedUser || !organizationId) {
         return false;
     }
 
-    const currentOrganizationFilter = legacyUser.organizationId === undefined
+    const currentOrganizationFilter = storedUser.organizationId === undefined
         ? { organizationId: { $exists: false } }
-        : { organizationId: legacyUser.organizationId };
+        : { organizationId: storedUser.organizationId };
     const repaired = await User_1.User.collection.updateOne(
-        { _id: user._id, orgId: legacyOrganizationId, ...currentOrganizationFilter },
-        { $set: { organizationId: legacyOrganizationId } },
+        {
+            _id: user._id,
+            ...(storedUser.orgId === undefined ? { orgId: { $exists: false } } : { orgId: storedUser.orgId }),
+            ...currentOrganizationFilter,
+        },
+        { $set: { organizationId } },
     );
     if (!repaired.matchedCount) {
         const latestUser = await User_1.User.collection.findOne(
@@ -52,6 +65,6 @@ async function hasActiveWorkspace(user) {
         return true;
     }
 
-    user.organizationId = legacyOrganizationId;
+    user.organizationId = organizationId;
     return true;
 }
