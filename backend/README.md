@@ -22,7 +22,7 @@ MongoDB must be reachable before the server starts. `GET /api/v1/health/live` is
 - `npm run seed:admin` — create the separate platform administrator from `OPS_ADMIN_*`; this is required before platform admin password or OTP login
 - `npm start` — start the API server
 
-Run `npm run migrate:legacy` and `npm run migrate:roles` once when upgrading a database created by a legacy release. Back up the database before either migration. The role migration maps legacy workspace administrators to Business, legacy managers/employees to Individual, and every pending invitation to Individual.
+During database initialization, the backend checks for and migrates legacy workspace and subscription fields. Back up the database before upgrading. Run `npm run migrate:roles` once for databases created by a legacy release; it maps legacy workspace administrators to Business, legacy managers/employees to Individual, and every pending invitation to Individual. `npm run migrate:legacy` remains available to run the workspace migration manually.
 
 From the repository root, `docker compose --env-file backend/.env -f backend/docker-compose.yml up --build` runs the API and MongoDB using the local-only values in `backend/.env`.
 

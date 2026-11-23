@@ -51,6 +51,14 @@ function asDate(value: unknown): Date | null {
 }
 
 export async function migrateLegacyData(): Promise<{ users: number; teams: number }> {
+    const [legacyUser, legacyTeam] = await Promise.all([
+        User.collection.findOne({ organizationId: { $exists: false }, orgId: { $exists: true } }),
+        Team.collection.findOne({ organizationId: { $exists: false }, orgId: { $exists: true } }),
+    ]);
+    if (!legacyUser && !legacyTeam) {
+        return { users: 0, teams: 0 };
+    }
+
     const organizations = await Organization.collection.find({}).toArray() as unknown as LegacyOrganization[];
     const organizationById = new Map<string, LegacyOrganization>(
         organizations.map((organization) => [String(organization._id), organization]),
