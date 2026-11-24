@@ -71,27 +71,36 @@ export function PasswordRecoveryForm({ mode }) {
         }
     };
     return <main className="password-recovery-page">
+        <Logo className="password-recovery-logo" />
         <div className="password-recovery-card">
-            <Logo />
-            <h1>{resetting ? "Choose a new password" : "Reset your password"}</h1>
-            <p>{resetting
-            ? "Create a new password to secure your CalmWork account."
-            : "Enter your work email and we’ll send a link to reset your password."}</p>
+            <Link href="/login" className="password-recovery-back"><Icon name="back" size={18}/>Back to sign in</Link>
+            <h1>
+                {resetting
+                    ? <>Choose a new <strong>Password</strong></>
+                    : <>Reset your <strong>Password</strong></>}
+            </h1>
+            <p className="password-recovery-intro">{resetting
+                ? "Create a new password to secure your CalmWork account."
+                : "Enter your work email and we'll send a link to reset your password."}</p>
             {!message && <form onSubmit={submit} noValidate>
                 {!resetting
-                ? <label>Work email<input type="email" name="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" autoCapitalize="none" required/></label>
+                ? <label>Enter your email
+                    <div className="password-recovery-input">
+                        <input type="email" name="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" autoCapitalize="none" required/>
+                        <button type="submit" disabled={loading} aria-label="Send reset link"><Icon name="arrow" size={22}/></button>
+                    </div>
+                </label>
                 : <>
                         <label>New password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" minLength={8} maxLength={128} required/></label>
                         <label>Confirm new password<input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" minLength={8} maxLength={128} required/></label>
                     </>}
                 <FieldError>{error}</FieldError>
-                <button className="button button-full" disabled={loading}>{loading
-                ? <><span className="spinner"/>Please wait…</>
-                : <>{resetting ? "Reset password" : "Send reset link"}<Icon name="arrow"/></>}</button>
+                {resetting && <button className="button button-full password-recovery-submit" disabled={loading}>{loading
+                    ? <><span className="spinner"/>Please wait…</>
+                    : <>Reset password<Icon name="arrow"/></>}</button>}
             </form>}
             {message && <p className="password-recovery-message" role="status">{message}</p>}
             {error && message && <FieldError>{error}</FieldError>}
-            <p className="auth-text-switch"><Link href="/login">Return to sign in</Link></p>
         </div>
     </main>;
 }
