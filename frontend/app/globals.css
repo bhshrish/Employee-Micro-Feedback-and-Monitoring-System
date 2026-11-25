@@ -21,7 +21,7 @@
   --button-text: var(--p-surface);
   --card-radius: 18px;
   --shadow: 0 18px 55px oklch(0.18 0.012 70 / .08);
-  --font: "Suisse Intl", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font: "Gotham", "gritft-geometric-typeface", "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; scroll-padding-top: 88px; }
