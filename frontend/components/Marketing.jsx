@@ -12,6 +12,7 @@ export function MarketingFooter() {
 }
 const faqs = [
     ["How much does a report cost?", "PDF and CSV reports are free to generate and download."],
+    ["Do you offer a free trial?", "Yes. Organizations get a 14-day free trial with Pro Max limits. No credit card is required."],
     ["Are wellbeing responses private?", "Wellbeing check-ins are voluntary. Reports use aggregated patterns, and small groups are hidden to protect privacy."],
     ["Can I use a personal email address?", "Yes. Any valid email address can be used to create an account or sign in."],
     ["How is payment handled?", "Payments are processed securely by Razorpay. CalmWork does not receive or store card numbers or CVCs."],
