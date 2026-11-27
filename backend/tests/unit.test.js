@@ -103,6 +103,21 @@ describe("validation and date utilities", () => {
             assert.equal(signin.data.email, "ALEX@example.test");
         assert.equal(signupSchema.safeParse({ name: "Alex", email: "alex@example.test", password: "x" }).success, false);
     });
+    it("accepts optional organization details when creating a business account", () => {
+        const credentials = {
+            name: "Alex Morgan",
+            email: "alex@acme.example",
+            password: "strong-pass-123",
+            accountType: "business",
+        };
+        assert.equal(signupSchema.safeParse(credentials).success, true);
+        assert.equal(signupSchema.safeParse({
+            ...credentials,
+            organizationName: "Acme",
+            organizationSize: "11-50",
+            industry: "Technology",
+        }).success, true);
+    });
     it("uses a stable UTC Monday as the pulse week boundary", () => {
         const result = weekStart(new Date("2026-10-29T16:30:00.000Z"));
         assert.equal(result.toISOString(), "2026-10-26T00:00:00.000Z");

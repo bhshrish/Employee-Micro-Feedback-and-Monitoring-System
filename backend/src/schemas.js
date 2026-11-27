@@ -11,6 +11,9 @@ exports.signupSchema = zod_1.z.object({
     email,
     password,
     accountType: zod_1.z.enum(["individual", "business"]).default("individual"),
+    organizationName: zod_1.z.string().trim().min(2).max(120).optional(),
+    organizationSize: zod_1.z.enum(["1-10", "11-50", "51-200", "201-500", "501+"]).optional(),
+    industry: zod_1.z.string().trim().min(2).max(80).optional(),
 }).strict().superRefine((value, context) => {
     if (value.accountType === "business" && !(0, business_email_1.isBusinessEmail)(value.email)) {
         context.addIssue({
