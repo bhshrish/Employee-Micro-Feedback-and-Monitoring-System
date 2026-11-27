@@ -143,6 +143,41 @@ paths:
       responses:
         "200": { $ref: "#/components/responses/AuthSession" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+  /auth/oauth/{provider}:
+    get:
+      tags: [Authentication]
+      summary: Start Google or Apple employee sign-in
+      description: Redirects the browser to the selected identity provider. The backend sets a short-lived state cookie before redirecting.
+      parameters:
+        - in: path
+          name: provider
+          required: true
+          schema: { type: string, enum: [google, apple] }
+      responses:
+        "302": { description: Redirect to the selected identity provider }
+        "303": { description: OAuth setup error; redirects back to the frontend sign-in page }
+  /auth/oauth/{provider}/callback:
+    get:
+      tags: [Authentication]
+      summary: Complete Google or Apple employee sign-in
+      description: Validates the OAuth state, exchanges the authorization code, verifies the provider ID token, sets the session cookies, and redirects to the frontend.
+      parameters:
+        - in: path
+          name: provider
+          required: true
+          schema: { type: string, enum: [google, apple] }
+        - in: query
+          name: state
+          required: true
+          schema: { type: string }
+        - in: query
+          name: code
+          schema: { type: string }
+        - in: query
+          name: error
+          schema: { type: string }
+      responses:
+        "303": { description: Redirect to the frontend sign-in or dashboard handoff }
   /auth/forgot-password:
     post:
       tags: [Authentication]

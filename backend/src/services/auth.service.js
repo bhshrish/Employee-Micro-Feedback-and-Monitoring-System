@@ -9,6 +9,7 @@ exports.createOwnerAccount = createOwnerAccount;
 exports.signup = signup;
 exports.signupSession = signupSession;
 exports.signin = signin;
+exports.signinWithOAuth = signinWithOAuth;
 exports.createInvitedUser = createInvitedUser;
 exports.acceptInvitation = acceptInvitation;
 exports.acceptInvitationSession = acceptInvitationSession;
@@ -37,6 +38,7 @@ const EmailChangeToken_1 = require("../models/EmailChangeToken");
 const OperationsAdmin_1 = require("../models/OperationsAdmin");
 const Team_1 = require("../models/Team");
 const User_1 = require("../models/User");
+const OAuthIdentity_1 = require("../models/OAuthIdentity");
 const email_1 = require("./email.service");
 const operationsAuth = require("./operations-auth.service");
 const errors_1 = require("../utils/errors");
@@ -151,6 +153,36 @@ async function signin(input) {
         throw (0, errors_1.unauthorized)("Email or password is incorrect");
     if (!await hasActiveWorkspace(user))
         throw (0, errors_1.unauthorized)("This workspace is inactive");
+    return createSessionForUser(user);
+}
+async function signinWithOAuth({ provider, subject, email, emailVerified }) {
+    let identity = await OAuthIdentity_1.OAuthIdentity.findOne({ provider, subject });
+    let user = identity ? await User_1.User.findById(identity.userId) : null;
+    if (!identity && email && emailVerified) {
+        user = await User_1.User.findOne({
+            email: new RegExp(`^${escapeEmailForRegex(email.trim())}$`, "i"),
+        });
+    }
+    if (!user || !user.isActive || user.role !== "individual" || !await hasActiveWorkspace(user))
+        throw (0, errors_1.unauthorized)("Unable to sign in with this provider. Use the email linked to an employee account.");
+    if (!identity) {
+        if (!email || !emailVerified)
+            throw (0, errors_1.unauthorized)("The provider did not share a verified email address for this account.");
+        try {
+            identity = await OAuthIdentity_1.OAuthIdentity.create({
+                provider,
+                subject,
+                userId: user._id,
+                email: email.trim().toLowerCase(),
+            });
+        } catch (error) {
+            if (error?.code !== 11000)
+                throw error;
+            identity = await OAuthIdentity_1.OAuthIdentity.findOne({ provider, subject });
+            if (!identity || identity.userId.toString() !== user._id.toString())
+                throw (0, errors_1.unauthorized)("Unable to link this provider to the employee account.");
+        }
+    }
     return createSessionForUser(user);
 }
 async function createInvitedUser(input) {

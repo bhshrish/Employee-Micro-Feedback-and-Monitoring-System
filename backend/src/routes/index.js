@@ -63,6 +63,8 @@ authRoutes.post("/signup", (0, validate_1.validateBody)(schemas_1.signupSchema),
 authRoutes.post("/signup/session", (0, validate_1.validateBody)(schemas_1.signupSchema), authController.signupSession);
 authRoutes.post("/signin", (0, validate_1.validateBody)(schemas_1.signinSchema), authController.signin);
 authRoutes.post("/login", (0, validate_1.validateBody)(schemas_1.signinSchema), authController.signin);
+authRoutes.get("/oauth/:provider", authController.oauthStart);
+authRoutes.get("/oauth/:provider/callback", authController.oauthCallback);
 authRoutes.post("/accept-invitation", (0, validate_1.validateBody)(schemas_1.invitationAcceptSchema), authController.acceptInvitation);
 authRoutes.post("/accept-invitation/session", (0, validate_1.validateBody)(schemas_1.invitationAcceptSchema), authController.acceptInvitationSession);
 authRoutes.post("/forgot-password", (0, validate_1.validateBody)(schemas_1.forgotPasswordSchema), authController.forgotPassword);

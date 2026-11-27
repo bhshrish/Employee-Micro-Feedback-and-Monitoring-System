@@ -6,6 +6,7 @@ import { createApp } from "../src/app";
 import { pulseWeekRange, weekStart } from "../src/utils/week";
 import { pulseSchema, signinSchema, signupSchema } from "../src/schemas";
 import { calculateBurnoutScore, calculateResponseBurnoutScore } from "../src/services/burnout";
+import oauthService from "../src/services/oauth.service";
 const pulseAnswers = {
     mood: 4,
     stress: 2,
@@ -82,8 +83,67 @@ describe("CORS", () => {
             dependencies: { mongodb: "unavailable" },
         });
     });
+    it("rejects OAuth callbacks without a matching browser state cookie", async () => {
+        const response = await request(createApp({
+            ensureDatabaseConnected: async () => {},
+        }))
+            .get("/api/v1/auth/oauth/google/callback")
+            .query({ state: "attacker-controlled-state", code: "authorization-code" })
+            .expect(303);
+        assert.match(response.headers.location, /oauth_error=rejected/);
+        assert.ok(response.headers["set-cookie"].some((cookie) =>
+            cookie.startsWith("calmwork_oauth_state_google=;")));
+    });
 });
 describe("validation and date utilities", () => {
+    it("requires secure OAuth callback URLs registered for the exact provider route", () => {
+        const googleSettings = {
+            NODE_ENV: "development",
+            GOOGLE_OAUTH_CLIENT_ID: "google-client",
+            GOOGLE_OAUTH_CLIENT_SECRET: "google-secret",
+            GOOGLE_OAUTH_REDIRECT_URI: "http://localhost:4000/api/v1/auth/oauth/google/callback",
+        };
+        assert.doesNotThrow(() => oauthService.providerSettings("google", googleSettings));
+        assert.throws(
+            () => oauthService.providerSettings("google", {
+                ...googleSettings,
+                GOOGLE_OAUTH_REDIRECT_URI: "https://attacker.example/callback",
+            }),
+            (error) => error.code === "OAUTH_NOT_CONFIGURED",
+        );
+        assert.throws(
+            () => oauthService.providerSettings("google", {
+                ...googleSettings,
+                NODE_ENV: "production",
+                GOOGLE_OAUTH_REDIRECT_URI: "http://localhost:4000/api/v1/auth/oauth/google/callback",
+            }),
+            (error) => error.code === "OAUTH_NOT_CONFIGURED",
+        );
+    });
+    it("requires Apple callbacks to use a public HTTPS domain", () => {
+        const appleSettings = {
+            NODE_ENV: "development",
+            APPLE_OAUTH_CLIENT_ID: "com.example.calmwork.web",
+            APPLE_OAUTH_TEAM_ID: "TEAM123",
+            APPLE_OAUTH_KEY_ID: "KEY123",
+            APPLE_OAUTH_PRIVATE_KEY: "test-private-key",
+            APPLE_OAUTH_REDIRECT_URI: "https://api.example.com/api/v1/auth/oauth/apple/callback",
+        };
+        assert.doesNotThrow(() => oauthService.providerSettings("apple", appleSettings));
+        for (const invalidUri of [
+            "http://localhost:4000/api/v1/auth/oauth/apple/callback",
+            "https://127.0.0.1/api/v1/auth/oauth/apple/callback",
+            "https://api.example.com/callback",
+        ]) {
+            assert.throws(
+                () => oauthService.providerSettings("apple", {
+                    ...appleSettings,
+                    APPLE_OAUTH_REDIRECT_URI: invalidUri,
+                }),
+                (error) => error.code === "OAUTH_NOT_CONFIGURED",
+            );
+        }
+    });
     it("rejects unknown fields and ratings outside the pulse range", () => {
         assert.equal(pulseSchema.safeParse({ ...pulseAnswers, note: "extra" }).success, false);
         assert.equal(pulseSchema.safeParse({ ...pulseAnswers, mood: 6 }).success, false);

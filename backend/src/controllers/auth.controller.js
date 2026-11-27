@@ -36,9 +36,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.verifyOtp = exports.requestOtp = exports.resetPassword = exports.forgotPassword = exports.verifyEmailChange = exports.updateProfile = exports.me = exports.logoutEverywhere = exports.logout = exports.refresh = exports.acceptInvitationSession = exports.acceptInvitation = exports.signin = exports.signupSession = exports.signup = void 0;
 const env_1 = __importStar(require("../config/env"));
 const auth = __importStar(require("../services/auth.service"));
+const oauth = require("../services/oauth.service");
 const otp = __importStar(require("../services/otp.service"));
 const async_handler_1 = __importStar(require("../utils/async-handler"));
 const errors_1 = __importStar(require("../utils/errors"));
+const logger_1 = require("../utils/logger");
 const cookieName = "calmwork_refresh";
 const accessCookieName = "calmwork_access";
 function cookieOptions(path = "/api/v1/auth") {
@@ -53,16 +55,32 @@ function cookieOptions(path = "/api/v1/auth") {
         maxAge: config.REFRESH_TOKEN_DAYS * 86_400_000,
     };
 }
+function oauthStateCookieName(provider) {
+    return `calmwork_oauth_state_${provider}`;
+}
+function oauthStateCookieOptions(provider, includeMaxAge = true) {
+    const config = (0, env_1.getConfig)();
+    return {
+        httpOnly: true,
+        secure: Boolean(config.COOKIE_SECURE),
+        sameSite: "lax",
+        path: `/api/v1/auth/oauth/${provider}/callback`,
+        ...(includeMaxAge ? { maxAge: 10 * 60 * 1000 } : {}),
+    };
+}
 function setSession(res, result, statusCode = 200, exposeAccessToken = true) {
-    res.cookie(cookieName, result.refreshToken, cookieOptions("/api/v1/auth"));
-    res.cookie(accessCookieName, result.accessToken, {
-        ...cookieOptions("/api/v1"),
-        maxAge: undefined,
-    });
+    setSessionCookies(res, result);
     res.setHeader("Cache-Control", "no-store");
     res.status(statusCode).json({
         user: result.user,
         ...(exposeAccessToken ? { accessToken: result.accessToken, tokenType: "Bearer" } : {}),
+    });
+}
+function setSessionCookies(res, result) {
+    res.cookie(cookieName, result.refreshToken, cookieOptions("/api/v1/auth"));
+    res.cookie(accessCookieName, result.accessToken, {
+        ...cookieOptions("/api/v1"),
+        maxAge: undefined,
     });
 }
 function clearSessionCookies(res) {
@@ -78,6 +96,47 @@ exports.signupSession = (0, async_handler_1.asyncHandler)(async (req, res) => {
 });
 exports.signin = (0, async_handler_1.asyncHandler)(async (req, res) => {
     setSession(res, await auth.signin(req.body));
+});
+exports.oauthStart = (0, async_handler_1.asyncHandler)(async (req, res) => {
+    const provider = req.params.provider;
+    try {
+        const authorization = await oauth.createAuthorizationUrl(provider);
+        res.cookie(oauthStateCookieName(provider), authorization.state, oauthStateCookieOptions(provider));
+        res.redirect(302, authorization.authorizationUrl);
+    } catch (error) {
+        if (!(error instanceof errors_1.AppError))
+            throw error;
+        const code = error.code === "OAUTH_NOT_CONFIGURED" ? "not_configured" : "failed";
+        res.redirect(303, `${(0, env_1.getConfig)().FRONTEND_URL.replace(/\/$/, "")}/login?oauth_provider=${encodeURIComponent(provider)}&oauth_error=${code}`);
+    }
+});
+exports.oauthCallback = (0, async_handler_1.asyncHandler)(async (req, res) => {
+    const provider = req.params.provider;
+    res.clearCookie(oauthStateCookieName(provider), oauthStateCookieOptions(provider, false));
+    try {
+        const state = req.query.state;
+        if (typeof state !== "string" || req.cookies?.[oauthStateCookieName(provider)] !== state)
+            throw new errors_1.AppError(400, "The sign-in request could not be verified. Please try again.", "OAUTH_STATE_INVALID");
+        const result = await oauth.completeAuthorization(provider, {
+            ...req.query,
+            state,
+        });
+        setSessionCookies(res, result);
+        res.setHeader("Cache-Control", "no-store");
+        res.redirect(303, `${(0, env_1.getConfig)().FRONTEND_URL.replace(/\/$/, "")}/login?oauth=success&oauth_provider=${encodeURIComponent(provider)}`);
+    } catch (error) {
+        if (!(error instanceof errors_1.AppError)) {
+            logger_1.logger.error({ provider, errorName: error instanceof Error ? error.name : "UnknownError" }, "OAuth callback failed");
+        }
+        const code = error instanceof errors_1.AppError && error.code === "OAUTH_CANCELLED"
+            ? "cancelled"
+            : error instanceof errors_1.AppError && error.code === "OAUTH_NOT_CONFIGURED"
+                ? "not_configured"
+                : error instanceof errors_1.AppError && error.statusCode < 500
+                    ? "rejected"
+                    : "failed";
+        res.redirect(303, `${(0, env_1.getConfig)().FRONTEND_URL.replace(/\/$/, "")}/login?oauth_provider=${encodeURIComponent(provider)}&oauth_error=${code}`);
+    }
 });
 exports.acceptInvitation = (0, async_handler_1.asyncHandler)(async (req, res) => {
     const user = await auth.acceptInvitation(req.body);

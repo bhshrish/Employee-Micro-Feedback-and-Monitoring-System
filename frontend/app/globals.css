@@ -619,8 +619,67 @@ label, fieldset { font-size: 17px; }label { display: grid; gap: 8px; font-weight
   background: var(--cw-gradient);
   opacity: 1;
 }
-.auth-panel .auth-account-switch {
+.auth-social-login {
+  margin-top: 20px;
+}
+.auth-social-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 18px;
+  color: #858a91;
+  font-size: 14px;
+}
+.auth-social-divider span {
+  flex: 1;
+  height: 1px;
+  background: #cfd3d8;
+}
+.auth-social-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.auth-social-button {
+  min-width: 0;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1.5px solid #aeb2b7;
+  border-radius: 999px;
+  background: transparent;
+  color: #202020;
+  font-size: 16px;
+  font-weight: 500;
+  transition: background-color .18s ease, border-color .18s ease;
+}
+.auth-social-button:hover:not(:disabled) {
+  border-color: #177687;
+  background: rgb(23 118 135 / 5%);
+}
+.auth-social-button:disabled {
+  cursor: wait;
+  opacity: .65;
+}
+.auth-social-button svg {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+}
+.auth-social-button:last-child svg {
+  fill: #000;
+}
+.auth-social-status {
   margin: 12px 0 0;
+  color: #686868;
+  font-size: 13px;
+  text-align: center;
+}
+.auth-panel .auth-account-switch {
+  margin: 14px 0 0;
   color: #858a91;
   font-size: 14px;
 }
@@ -658,8 +717,29 @@ label, fieldset { font-size: 17px; }label { display: grid; gap: 8px; font-weight
   line-height: 1.2;
 }
 
+.auth-split.auth-signin {
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr);
+}
+.auth-split.auth-signin .auth-panel {
+  align-items: start;
+  padding: 16px clamp(32px, 5vw, 84px) 24px;
+}
+.auth-split.auth-signin .auth-panel .auth-form {
+  align-self: start;
+}
+.auth-split.auth-signin .auth-role-toggle {
+  min-height: 44px;
+  margin: 0 auto 26px;
+}
+.auth-split.auth-signin .auth-panel .auth-form h1 {
+  font-size: clamp(38px, 2.8vw, 44px);
+}
+
 @media (max-width: 900px) {
   .auth-split {
+    grid-template-columns: 42% 58%;
+  }
+  .auth-split.auth-signin {
     grid-template-columns: 42% 58%;
   }
   .auth-hero {
@@ -688,6 +768,10 @@ label, fieldset { font-size: 17px; }label { display: grid; gap: 8px; font-weight
   }
   .auth-panel .auth-form {
     width: min(100%, 440px);
+    align-self: center;
+  }
+  .auth-split.auth-signin .auth-panel .auth-form {
+    align-self: center;
   }
   .auth-panel .auth-icon {
     width: 72px;
