@@ -105,7 +105,13 @@ async function createOwnerAccount(input) {
         throw (0, errors_1.conflict)("An account with this email already exists", "EMAIL_IN_USE");
     const ownerId = new mongoose_1.Types.ObjectId();
     const organization = await Organization_1.Organization.create({
-        name: `${input.name.trim()}'s workspace`,
+        name: accountType === "business" && input.organizationName?.trim()
+            ? input.organizationName.trim()
+            : `${input.name.trim()}'s workspace`,
+        ...(accountType === "business" ? {
+            organizationSize: input.organizationSize,
+            industry: input.industry?.trim(),
+        } : {}),
         ownerId,
     });
     const team = await Team_1.Team.create({ organizationId: organization._id, name: "General" });

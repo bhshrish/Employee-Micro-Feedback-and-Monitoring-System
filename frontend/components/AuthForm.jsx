@@ -31,10 +31,14 @@ function AuthShell({ children }) {
 
 export function AuthForm({ initialMode = "signin" }) {
     const [formMode, setFormMode] = useState(initialMode);
+    const [accountRole, setAccountRole] = useState("employee");
     const [firstName, setFirstName] = useState("");
     const [lastName, setLastName] = useState("");
     const [email, setEmail] = useState("");
     const [invitationCode, setInvitationCode] = useState("");
+    const [organizationName, setOrganizationName] = useState("");
+    const [organizationSize, setOrganizationSize] = useState("");
+    const [industry, setIndustry] = useState("");
     const [password, setPassword] = useState("");
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
@@ -57,8 +61,16 @@ export function AuthForm({ initialMode = "signin" }) {
         if (signingUp) {
             if (firstName.trim().length < 1) next.firstName = "Enter your first name.";
             if (lastName.trim().length < 1) next.lastName = "Enter your last name.";
-            if (invitationCode.trim().length < 6) next.invitationCode = "Enter your invitation code.";
-            if (password.length < 8) next.password = "Password must be at least 8 characters.";
+            if (accountRole === "business") {
+                if (organizationName.trim().length < 2) next.organizationName = "Enter your organization name.";
+                if (!/^\S+@\S+\.\S+$/.test(email.trim())) next.email = "Enter a valid business email.";
+                if (!organizationSize) next.organizationSize = "Select your organization size.";
+                if (!industry) next.industry = "Select your industry.";
+                if (password.length < 8) next.password = "Password must be at least 8 characters.";
+            } else {
+                if (invitationCode.trim().length < 6) next.invitationCode = "Enter your invitation code.";
+                if (password.length < 8) next.password = "Password must be at least 8 characters.";
+            }
         } else {
             if (!/^\S+@\S+\.\S+$/.test(email.trim())) next.email = "Enter a valid email address.";
             if (!password) next.password = "Enter your password.";
@@ -74,12 +86,26 @@ export function AuthForm({ initialMode = "signin" }) {
         setErrors({});
         try {
             const user = signingUp
-                ? await signupWithSession({
-                    name: `${firstName.trim()} ${lastName.trim()}`,
-                    invitationCode: invitationCode.trim(),
+                ? accountRole === "business"
+                    ? await signupWithSession({
+                        name: `${firstName.trim()} ${lastName.trim()}`,
+                        email: email.trim(),
+                        password,
+                        accountType: "business",
+                        organizationName: organizationName.trim(),
+                        organizationSize,
+                        industry,
+                    })
+                    : await signupWithSession({
+                        name: `${firstName.trim()} ${lastName.trim()}`,
+                        invitationCode: invitationCode.trim(),
+                        password,
+                    })
+                : await signInWithPassword({
+                    email: email.trim(),
                     password,
-                })
-                : await signInWithPassword({ email: email.trim(), password });
+                    ...(accountRole === "business" ? { accountType: "business" } : {}),
+                });
             signIn(user);
             router.push("/dashboard");
         } catch (error) {
@@ -91,13 +117,35 @@ export function AuthForm({ initialMode = "signin" }) {
 
     return <AuthShell>
         <img src="/Logo=green.png" alt="" className="auth-icon"/>
-        <h1>{signingUp ? "Join your business" : "Welcome back!"}</h1>
+        <h1>{signingUp
+            ? accountRole === "business" ? "Create your business account" : "Join your business"
+            : accountRole === "business" ? "Business sign in" : "Welcome back!"}</h1>
         <p className="auth-intro">{signingUp
-            ? "Accept your business invitation and create your account"
-            : "Sign in with your work email and password."}</p>
+            ? accountRole === "business"
+                ? "Set up your organization and start your 14-day free trial."
+                : "Accept your business invitation and create your account"
+            : accountRole === "business"
+                ? "Sign in to manage your business workspace."
+                : "Sign in with your work email and password."}</p>
+
+        <div className="auth-role-toggle" role="group" aria-label="Account type">
+            <button type="button" className={accountRole === "employee" ? "active" : ""} aria-pressed={accountRole === "employee"} onClick={() => setAccountRole("employee")}>Employee</button>
+            <button type="button" className={accountRole === "business" ? "active" : ""} aria-pressed={accountRole === "business"} onClick={() => setAccountRole("business")}>Business</button>
+        </div>
 
         <form onSubmit={submit} noValidate>
-            {signingUp ? <>
+            {signingUp && accountRole === "business" ? <>
+                <div className="field-row">
+                    <label>First name<input value={firstName} onChange={(e) => setFirstName(e.target.value)} autoComplete="given-name" placeholder="eg. Alex" required/><FieldError>{errors.firstName}</FieldError></label>
+                    <label>Last name<input value={lastName} onChange={(e) => setLastName(e.target.value)} autoComplete="family-name" placeholder="eg. Morgan" required/><FieldError>{errors.lastName}</FieldError></label>
+                </div>
+                <label>Organization name<input value={organizationName} onChange={(e) => setOrganizationName(e.target.value)} autoComplete="organization" placeholder="eg. Acme Inc." required/><FieldError>{errors.organizationName}</FieldError></label>
+                <label>Business email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" autoCapitalize="none" spellCheck={false} placeholder="you@company.com" required/><FieldError>{errors.email}</FieldError></label>
+                <div className="field-row">
+                    <label>Organization size<select value={organizationSize} onChange={(e) => setOrganizationSize(e.target.value)} required><option value="">Select size</option><option value="1-10">1–10 employees</option><option value="11-50">11–50 employees</option><option value="51-200">51–200 employees</option><option value="201-500">201–500 employees</option><option value="501+">501+ employees</option></select><FieldError>{errors.organizationSize}</FieldError></label>
+                    <label>Industry<select value={industry} onChange={(e) => setIndustry(e.target.value)} required><option value="">Select industry</option><option value="Technology">Technology</option><option value="Healthcare">Healthcare</option><option value="Finance">Finance</option><option value="Education">Education</option><option value="Manufacturing">Manufacturing</option><option value="Professional services">Professional services</option><option value="Retail">Retail</option><option value="Other">Other</option></select><FieldError>{errors.industry}</FieldError></label>
+                </div>
+            </> : signingUp ? <>
                 <div className="field-row">
                     <label>First name<input value={firstName} onChange={(e) => setFirstName(e.target.value)} autoComplete="given-name" placeholder="eg. John"/><FieldError>{errors.firstName}</FieldError></label>
                     <label>Last name<input value={lastName} onChange={(e) => setLastName(e.target.value)} autoComplete="family-name" placeholder="eg. Doe"/><FieldError>{errors.lastName}</FieldError></label>
@@ -105,7 +153,7 @@ export function AuthForm({ initialMode = "signin" }) {
                 <label>Invitation code<input value={invitationCode} onChange={(e) => setInvitationCode(e.target.value)} autoComplete="off" autoCapitalize="none" spellCheck={false} placeholder="xxxx1234xx56"/><FieldError>{errors.invitationCode}</FieldError></label>
             </> : <label>Email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" autoCapitalize="none" spellCheck={false} placeholder="name@company.com"/><FieldError>{errors.email}</FieldError></label>}
 
-            <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={signingUp ? "new-password" : "current-password"} maxLength={128} placeholder="Enter your password"/><FieldError>{errors.password}</FieldError></label>
+            <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={signingUp ? "new-password" : "current-password"} maxLength={128} placeholder="Enter your password" required/><FieldError>{errors.password}</FieldError></label>
 
             {!signingUp && <p className="auth-forgot-link"><Link href="/forgot-password">Forgot password?</Link></p>}
 
@@ -113,13 +161,13 @@ export function AuthForm({ initialMode = "signin" }) {
             <button type="submit" className="button button-full auth-submit" disabled={loading}>
                 {loading
                     ? <><span className="spinner"/>{signingUp ? "Creating account…" : "Signing in…"}</>
-                    : signingUp ? "Create account" : "Sign in"}
+                    : signingUp ? accountRole === "business" ? "Create business account" : "Create account" : accountRole === "business" ? "Sign in to business" : "Sign in"}
             </button>
         </form>
 
         <p className="auth-account-switch">
-            {signingUp ? "Already have an account?" : "Have an employee invite?"}
-            <button type="button" onClick={() => switchFormMode(signingUp ? "signin" : "signup")}>{signingUp ? "Sign in" : "Join your business"}</button>
+            {signingUp ? "Already have an account?" : accountRole === "business" ? "New to CalmWork?" : "Have an employee invite?"}
+            <button type="button" onClick={() => switchFormMode(signingUp ? "signin" : "signup")}>{signingUp ? "Sign in" : accountRole === "business" ? "Create business account" : "Join your business"}</button>
         </p>
     </AuthShell>;
 }

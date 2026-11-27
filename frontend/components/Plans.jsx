@@ -4,43 +4,37 @@ import { Icon } from "./Icon";
 export function PricingPlans() {
     return <div className="plans-grid">
         <article className="plan-card">
-            <span className="plan-badge">Small teams</span>
-            <h3>Pro</h3>
-            <p>Essential wellbeing check-ins and simple reporting for small teams.</p>
-            <div className="plan-price"><strong>$4</strong><span>per employee<br />per month</span></div>
+            <h3>Starter</h3>
+            <div className="plan-price"><strong>₹99</strong><span>Pay-as-you-go</span></div>
             <ul>
                 <li><Icon name="check" size={20}/>Up to 25 employees and 3 teams</li>
-                <li><Icon name="check" size={20}/>Weekly anonymous check-ins</li>
-                <li><Icon name="check" size={20}/>Basic wellbeing dashboard</li>
-                <li><Icon name="check" size={20}/>Free PDF and CSV reports</li>
+                <li><Icon name="check" size={20}/>Basic wellbeing check-ins</li>
+                <li><Icon name="check" size={20}/>Basic people management</li>
+                <li><Icon name="check" size={20}/>1 team workspace</li>
             </ul>
-            <Link href="/login?mode=signup" className="button button-outline">Start 14-day trial<Icon name="arrow" size={19}/></Link>
+            <Link href="/login?mode=signup" className="button button-dark">Get Started</Link>
         </article>
         <article className="plan-card featured">
-            <span className="plan-badge">Most popular</span>
-            <h3>Pro Max</h3>
-            <p>Team insights and early alerts for growing companies.</p>
-            <div className="plan-price"><strong>$8</strong><span>per employee<br />per month</span></div>
+            <h3>Team</h3>
+            <div className="plan-price"><strong>₹199</strong><span>Team insights and early<br />alerts for growing companies</span></div>
             <ul>
-                <li><Icon name="check" size={20}/>Up to 150 employees and 15 teams</li>
-                <li><Icon name="check" size={20}/>Team scorecards and 12-week trends</li>
-                <li><Icon name="check" size={20}/>Burnout alerts and workload views</li>
-                <li><Icon name="check" size={20}/>Manager roles and free reports</li>
+                <li><Icon name="check" size={20}/>Unlimited productivity planning</li>
+                <li><Icon name="check" size={20}/>Burnout scales and trend insights</li>
+                <li><Icon name="check" size={20}/>Employee and team management</li>
+                <li><Icon name="check" size={20}/>Advanced dashboards and reports</li>
             </ul>
-            <Link href="/login?mode=signup" className="button">Start 14-day trial<Icon name="arrow" size={19}/></Link>
+            <Link href="/login?mode=signup" className="button button-light">Get Started</Link>
         </article>
         <article className="plan-card">
-            <span className="plan-badge">Organization-wide</span>
-            <h3>Pro Ultra</h3>
-            <p>Advanced controls and dedicated support for larger organizations.</p>
-            <div className="plan-price"><strong>$16</strong><span>per employee<br />per month</span></div>
+            <h3>Business</h3>
+            <div className="plan-price"><strong>₹499</strong><span>Advanced controls and<br />dedicated support for larger organizations</span></div>
             <ul>
                 <li><Icon name="check" size={20}/>Unlimited employees and teams</li>
-                <li><Icon name="check" size={20}/>Custom alert rules and retention</li>
-                <li><Icon name="check" size={20}/>Audit logs and salary checker</li>
-                <li><Icon name="check" size={20}/>Dedicated onboarding and priority support</li>
+                <li><Icon name="check" size={20}/>Basic wellbeing check-ins</li>
+                <li><Icon name="check" size={20}/>Basic wellbeing dashboard</li>
+                <li><Icon name="check" size={20}/>1 team workspace</li>
             </ul>
-            <Link href="/contact" className="button button-outline">Talk to sales<Icon name="arrow" size={19}/></Link>
+            <Link href="/contact" className="button button-dark">Get Started</Link>
         </article>
     </div>;
 }
