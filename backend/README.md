@@ -68,3 +68,14 @@ Vercel functions are not persistent servers, so the in-process scheduled alert, 
 ## Tests
 
 Tests use `mongodb-memory-server` and Supertest; no external MongoDB is required. The in-memory server may need to download the matching MongoDB binary on first run.
+### Google and Apple sign-in
+
+The employee sign-in page supports Google and Apple OAuth. Configure the provider credentials as backend environment variables; never commit secrets.
+
+- **Google:** In Google Cloud Console, select or create a project, configure the OAuth consent screen, and create an OAuth client ID with application type **Web application**. Add the exact API callback URL to Authorized redirect URIs. Copy the client ID and client secret to `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET`; set that same callback URL as `GOOGLE_OAUTH_REDIRECT_URI`. For local development, the callback may be `http://localhost:4000/api/v1/auth/oauth/google/callback`.
+- **Apple:** In Apple Developer > Certificates, Identifiers & Profiles, enable Sign in with Apple for a primary App ID. Create a **Services ID**, enable Sign in with Apple for it, associate the primary App ID, and register the API hostname plus exact return URL. Create a Sign in with Apple private key. Set the Services ID, Team ID, Key ID, and private key in `APPLE_OAUTH_CLIENT_ID`, `APPLE_OAUTH_TEAM_ID`, `APPLE_OAUTH_KEY_ID`, and `APPLE_OAUTH_PRIVATE_KEY`. Apple callback URLs must use a public HTTPS domain; for local development use an HTTPS tunnel and register its hostname and exact return URL.
+- Register the exact callback URLs: `https://<api-host>/api/v1/auth/oauth/google/callback` and `https://<api-host>/api/v1/auth/oauth/apple/callback`. The registered URL must exactly match `GOOGLE_OAUTH_REDIRECT_URI` or `APPLE_OAUTH_REDIRECT_URI`; do not add a trailing slash or query string.
+- On the backend deployment, set `FRONTEND_URL` to the frontend origin and include it in `CORS_ORIGINS`. On the frontend deployment, set `NEXT_PUBLIC_API_URL` to the API origin plus `/api/v1`. Set `COOKIE_SECURE=true` when deployed over HTTPS, then redeploy both projects after changing environment variables. A custom frontend and API domain under the same registrable domain is recommended because browsers may block cookies between separate `*.vercel.app` domains.
+- Keep all client secrets and Apple private keys in backend deployment secrets only. Never put them in `NEXT_PUBLIC_*` variables, frontend config, source control, or chat.
+
+OAuth uses state, PKCE, and nonce validation and signs in existing active employee accounts only. A provider identity is linked after validating the provider's ID token and verified email. Business accounts cannot use these employee OAuth buttons; new employees must still join with an invitation. Verify each provider's registered callback and test-account/review requirements before enabling production sign-in.

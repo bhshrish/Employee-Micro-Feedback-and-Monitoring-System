@@ -1,6 +1,7 @@
 import js from "@eslint/js";
 
 const nodeGlobals = {
+  AbortSignal: "readonly",
   Buffer: "readonly",
   __dirname: "readonly",
   clearInterval: "readonly",
@@ -15,6 +16,8 @@ const nodeGlobals = {
   setImmediate: "readonly",
   setInterval: "readonly",
   setTimeout: "readonly",
+  URL: "readonly",
+  URLSearchParams: "readonly",
 };
 
 export default [

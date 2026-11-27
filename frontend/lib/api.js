@@ -23,6 +23,7 @@ export function setAdminToken(token) {
 }
 function isAuthPath(path) {
     return path.startsWith("/auth/otp/") ||
+        path.startsWith("/auth/oauth/") ||
         ["/auth/refresh", "/auth/signin", "/auth/login", "/auth/signup", "/auth/signup/session", "/auth/accept-invitation", "/auth/accept-invitation/session", "/auth/forgot-password", "/auth/reset-password", "/auth/email-change/verify"].includes(path) ||
         path.startsWith("/operations/auth/otp/");
 }
@@ -160,6 +161,18 @@ export async function signInWithPassword(input) {
         setAccessToken(result.accessToken);
     localStorage.setItem("calmwork:auth", "true");
     return result.user;
+}
+export async function completeOAuthSignIn() {
+    const result = await requestRequired("/auth/refresh", { method: "POST" }, false);
+    if (result.accessToken)
+        setAccessToken(result.accessToken);
+    localStorage.setItem("calmwork:auth", "true");
+    return result.user;
+}
+export function getOAuthUrl(provider) {
+    if (provider !== "google" && provider !== "apple")
+        throw new Error("Unsupported sign-in provider.");
+    return `${API_BASE}/auth/oauth/${provider}`;
 }
 export async function acceptInvitation(input) {
     return request("/auth/accept-invitation", { method: "POST", body: JSON.stringify(input) }, false);
