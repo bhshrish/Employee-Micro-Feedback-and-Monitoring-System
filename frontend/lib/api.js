@@ -170,7 +170,7 @@ export async function completeOAuthSignIn() {
     return result.user;
 }
 export function getOAuthUrl(provider) {
-    if (provider !== "google" && provider !== "apple")
+    if (provider !== "google")
         throw new Error("Unsupported sign-in provider.");
     return `${API_BASE}/auth/oauth/${provider}`;
 }

@@ -146,26 +146,26 @@ paths:
   /auth/oauth/{provider}:
     get:
       tags: [Authentication]
-      summary: Start Google or Apple employee sign-in
+      summary: Start Google employee sign-in
       description: Redirects the browser to the selected identity provider. The backend sets a short-lived state cookie before redirecting.
       parameters:
         - in: path
           name: provider
           required: true
-          schema: { type: string, enum: [google, apple] }
+          schema: { type: string, enum: [google] }
       responses:
         "302": { description: Redirect to the selected identity provider }
         "303": { description: OAuth setup error; redirects back to the frontend sign-in page }
   /auth/oauth/{provider}/callback:
     get:
       tags: [Authentication]
-      summary: Complete Google or Apple employee sign-in
+      summary: Complete Google employee sign-in
       description: Validates the OAuth state, exchanges the authorization code, verifies the provider ID token, sets the session cookies, and redirects to the frontend.
       parameters:
         - in: path
           name: provider
           required: true
-          schema: { type: string, enum: [google, apple] }
+          schema: { type: string, enum: [google] }
         - in: query
           name: state
           required: true

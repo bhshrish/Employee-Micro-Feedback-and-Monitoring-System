@@ -67,7 +67,7 @@ export function AuthForm({ initialMode = "signin" }) {
         oauthHandled.current = true;
         window.history.replaceState({}, "", window.location.pathname);
         if (oauthError) {
-            const providerName = oauthProvider === "apple" ? "Apple" : "Google";
+            const providerName = "Google";
             const messages = {
                 cancelled: "Sign-in was canceled.",
                 not_configured: `${providerName} sign-in is not configured for this deployment. Use email and password instead.`,
@@ -212,15 +212,8 @@ export function AuthForm({ initialMode = "signin" }) {
                     <svg aria-hidden="true" viewBox="0 0 24 24"><path fill="#4285F4" d="M21.6 12.23c0-.72-.06-1.42-.18-2.09H12v3.95h5.38a4.6 4.6 0 0 1-2 3.02v2.56h3.24c1.9-1.75 2.98-4.33 2.98-7.44Z"/><path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.62-2.43l-3.24-2.56c-.9.6-2.03.96-3.38.96-2.6 0-4.8-1.76-5.59-4.13H3.06v2.64A10 10 0 0 0 12 22Z"/><path fill="#FBBC05" d="M6.41 13.84a6 6 0 0 1 0-3.68V7.52H3.06a10 10 0 0 0 0 8.96l3.35-2.64Z"/><path fill="#EA4335" d="M12 6.03c1.47 0 2.79.5 3.83 1.52l2.87-2.87A9.6 9.6 0 0 0 12 2a10 10 0 0 0-8.94 5.52l3.35 2.64C7.2 7.79 9.4 6.03 12 6.03Z"/></svg>
                     Google
                 </button>
-                <button type="button" className="auth-social-button" disabled={loading || Boolean(oauthLoading)} onClick={() => {
-                    setOAuthLoading("apple");
-                    window.location.assign(getOAuthUrl("apple"));
-                }}>
-                    <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M16.37 12.65c.02 2.3 2.02 3.07 2.04 3.08-.02.05-.32 1.1-1.05 2.19-.63.94-1.28 1.87-2.3 1.89-1 .02-1.33-.61-2.48-.61-1.14 0-1.5.59-2.45.63-.99.04-1.74-1.02-2.38-1.95-1.3-1.9-2.3-5.36-.96-7.69a3.68 3.68 0 0 1 3.1-1.88c.97-.02 1.88.66 2.47.66.58 0 1.68-.81 2.83-.69.48.02 1.83.19 2.7 1.46-.07.05-1.62.95-1.6 2.91ZM14.51 6.98a3.4 3.4 0 0 0 .78-2.44 3.46 3.46 0 0 0-2.23 1.17 3.23 3.23 0 0 0-.8 2.36 2.9 2.9 0 0 0 2.25-1.09Z"/></svg>
-                    Apple
-                </button>
             </div>
-            {oauthLoading && <p className="auth-social-status" role="status">Connecting to {oauthLoading === "apple" ? "Apple" : "Google"}…</p>}
+            {oauthLoading && <p className="auth-social-status" role="status">Connecting to Google…</p>}
         </div>}
 
         <p className="auth-account-switch">

@@ -1,6 +1,5 @@
 "use strict";
 const { createHash, createPublicKey, randomBytes, timingSafeEqual } = require("node:crypto");
-const { isIP } = require("node:net");
 const jwt = require("jsonwebtoken");
 const { getConfig } = require("../config/env");
 const { OAuthState } = require("../models/OAuthState");
@@ -14,12 +13,6 @@ const providerConfig = {
         jwksEndpoint: "https://www.googleapis.com/oauth2/v3/certs",
         issuer: ["https://accounts.google.com", "accounts.google.com"],
     },
-    apple: {
-        authorizationEndpoint: "https://appleid.apple.com/auth/authorize",
-        tokenEndpoint: "https://appleid.apple.com/auth/token",
-        jwksEndpoint: "https://appleid.apple.com/auth/keys",
-        issuer: ["https://appleid.apple.com"],
-    },
 };
 const jwksCache = new Map();
 const stateLifetimeMs = 10 * 60 * 1000;
@@ -32,25 +25,16 @@ function providerSettings(provider, config = getConfig()) {
         validateRedirectUri(provider, redirectUri, config.NODE_ENV);
         return { ...providerConfig.google, clientId, clientSecret, redirectUri };
     }
-    if (provider === "apple") {
-        const { APPLE_OAUTH_CLIENT_ID: clientId, APPLE_OAUTH_TEAM_ID: teamId, APPLE_OAUTH_KEY_ID: keyId, APPLE_OAUTH_PRIVATE_KEY: privateKey, APPLE_OAUTH_REDIRECT_URI: redirectUri } = config;
-        if (!clientId || !teamId || !keyId || !privateKey || !redirectUri)
-            throw new AppError(503, "Apple sign-in is not configured.", "OAUTH_NOT_CONFIGURED");
-        validateRedirectUri(provider, redirectUri, config.NODE_ENV);
-        return { ...providerConfig.apple, clientId, teamId, keyId, privateKey, redirectUri };
-    }
     throw new AppError(404, "Sign-in provider not found.", "OAUTH_PROVIDER_NOT_FOUND");
 }
 
 function validateRedirectUri(provider, redirectUri, nodeEnv) {
     const url = new URL(redirectUri);
-    const hostname = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
-    const isLocalHost = hostname === "localhost" || hostname.endsWith(".localhost") || isIP(hostname) !== 0;
-    const usesLocalDevelopmentUrl = nodeEnv !== "production" && provider === "google" &&
+    const hostname = url.hostname.toLowerCase();
+    const usesLocalDevelopmentUrl = nodeEnv !== "production" &&
         url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(hostname);
     if (url.pathname !== `/api/v1/auth/oauth/${provider}/callback` ||
         url.username || url.password || url.search || url.hash ||
-        (provider === "apple" && (url.protocol !== "https:" || isLocalHost)) ||
         (url.protocol !== "https:" && !usesLocalDevelopmentUrl)) {
         throw new AppError(503, `${provider} sign-in callback URL is invalid.`, "OAUTH_NOT_CONFIGURED");
     }
@@ -62,15 +46,6 @@ function sha256(value) {
 
 function hashState(value) {
     return createHash("sha256").update(value).digest("hex");
-}
-
-function appleClientSecret(settings) {
-    const now = Math.floor(Date.now() / 1000);
-    return jwt.sign(
-        { iss: settings.teamId, iat: now, exp: now + 5 * 60, aud: "https://appleid.apple.com", sub: settings.clientId },
-        settings.privateKey.replace(/\\n/g, "\n"),
-        { algorithm: "ES256", keyid: settings.keyId },
-    );
 }
 
 async function createAuthorizationUrl(provider) {
@@ -90,13 +65,11 @@ async function createAuthorizationUrl(provider) {
     url.searchParams.set("client_id", settings.clientId);
     url.searchParams.set("redirect_uri", settings.redirectUri);
     url.searchParams.set("response_type", "code");
-    url.searchParams.set("scope", provider === "google" ? "openid email profile" : "openid email");
+    url.searchParams.set("scope", "openid email profile");
     url.searchParams.set("state", state);
     url.searchParams.set("nonce", nonce);
     url.searchParams.set("code_challenge", sha256(codeVerifier));
     url.searchParams.set("code_challenge_method", "S256");
-    if (provider === "apple")
-        url.searchParams.set("response_mode", "query");
     return { authorizationUrl: url.toString(), state };
 }
 
@@ -178,10 +151,7 @@ async function exchangeCode(provider, settings, code, codeVerifier) {
         client_id: settings.clientId,
         code_verifier: codeVerifier,
     });
-    if (provider === "google")
-        params.set("client_secret", settings.clientSecret);
-    else
-        params.set("client_secret", appleClientSecret(settings));
+    params.set("client_secret", settings.clientSecret);
 
     const tokens = await fetchJson(settings.tokenEndpoint, {
         method: "POST",
