@@ -8,6 +8,7 @@ import { Icon } from "./Icon";
 import { FieldError } from "./UI";
 
 function AuthShell({ children, variant }) {
+    const signingUp = variant === "auth-signup";
     return <main className={`auth-split ${variant}`}>
         <aside className="auth-hero">
             <img src="/Logo=workmark2.png" alt="CalmWork" className="auth-hero-logo"/>
@@ -23,7 +24,12 @@ function AuthShell({ children, variant }) {
             <div className="auth-form">{children}</div>
             <div className="auth-privacy">
                 <Icon name="shield"/>
-                <p>By continuing, you agree to the <Link href="/privacy">privacy policy</Link>. Work activity is summarized without recording screens or typed text.</p>
+                <p>
+                    <strong>{signingUp ? "Your privacy matters." : "Private by design."}</strong>
+                    {signingUp
+                        ? <> By creating an account, you agree to our <Link href="/privacy">Privacy Policy</Link>. Wellbeing check-ins are reported in aggregate, and small groups are suppressed.</>
+                        : <> Read our <Link href="/privacy">Privacy Policy</Link>. CalmWork does not record screens, keystrokes, or typed text.</>}
+                </p>
             </div>
         </section>
     </main>;
@@ -37,8 +43,6 @@ export function AuthForm({ initialMode = "signin" }) {
     const [email, setEmail] = useState("");
     const [invitationCode, setInvitationCode] = useState("");
     const [organizationName, setOrganizationName] = useState("");
-    const [organizationSize, setOrganizationSize] = useState("");
-    const [industry, setIndustry] = useState("");
     const [password, setPassword] = useState("");
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
@@ -104,8 +108,6 @@ export function AuthForm({ initialMode = "signin" }) {
             if (accountRole === "business") {
                 if (organizationName.trim().length < 2) next.organizationName = "Enter your organization name.";
                 if (!/^\S+@\S+\.\S+$/.test(email.trim())) next.email = "Enter a valid business email.";
-                if (!organizationSize) next.organizationSize = "Select your organization size.";
-                if (!industry) next.industry = "Select your industry.";
                 if (password.length < 8) next.password = "Password must be at least 8 characters.";
             } else {
                 if (invitationCode.trim().length < 6) next.invitationCode = "Enter your invitation code.";
@@ -133,8 +135,6 @@ export function AuthForm({ initialMode = "signin" }) {
                         password,
                         accountType: "business",
                         organizationName: organizationName.trim(),
-                        organizationSize,
-                        industry,
                     })
                     : await signupWithSession({
                         name: `${firstName.trim()} ${lastName.trim()}`,
@@ -155,14 +155,14 @@ export function AuthForm({ initialMode = "signin" }) {
         }
     };
 
-    const roleToggle = <div className={`auth-role-toggle${signingUp ? " auth-role-toggle--after-intro" : ""}`} role="group" aria-label="Account type">
+    const roleToggle = <div className="auth-role-toggle" role="group" aria-label="Account type">
         <button type="button" className={accountRole === "employee" ? "active" : ""} aria-pressed={accountRole === "employee"} onClick={() => setAccountRole("employee")}>Employee</button>
         <button type="button" className={accountRole === "business" ? "active" : ""} aria-pressed={accountRole === "business"} onClick={() => setAccountRole("business")}>Business</button>
     </div>;
 
     return <AuthShell variant={signingUp ? "auth-signup" : "auth-signin"}>
+        {roleToggle}
         {signingUp && <img src="/Logo=green.png" alt="" className="auth-icon"/>}
-        {!signingUp && roleToggle}
         <h1>{signingUp
             ? accountRole === "business" ? "Create your business account" : "Join your business"
             : accountRole === "business" ? "Business sign in" : "Welcome back!"}</h1>
@@ -173,7 +173,6 @@ export function AuthForm({ initialMode = "signin" }) {
             : accountRole === "business"
                 ? "Sign in to manage your business workspace."
                 : "Sign in with your work email and password."}</p>
-        {signingUp && roleToggle}
 
         <form onSubmit={submit} noValidate>
             {signingUp && accountRole === "business" ? <>
@@ -183,10 +182,6 @@ export function AuthForm({ initialMode = "signin" }) {
                 </div>
                 <label>Organization name<input value={organizationName} onChange={(e) => setOrganizationName(e.target.value)} autoComplete="organization" placeholder="eg. Acme Inc." required/><FieldError>{errors.organizationName}</FieldError></label>
                 <label>Business email<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" autoCapitalize="none" spellCheck={false} placeholder="you@company.com" required/><FieldError>{errors.email}</FieldError></label>
-                <div className="field-row">
-                    <label>Organization size<select value={organizationSize} onChange={(e) => setOrganizationSize(e.target.value)} required><option value="">Select size</option><option value="1-10">1–10 employees</option><option value="11-50">11–50 employees</option><option value="51-200">51–200 employees</option><option value="201-500">201–500 employees</option><option value="501+">501+ employees</option></select><FieldError>{errors.organizationSize}</FieldError></label>
-                    <label>Industry<select value={industry} onChange={(e) => setIndustry(e.target.value)} required><option value="">Select industry</option><option value="Technology">Technology</option><option value="Healthcare">Healthcare</option><option value="Finance">Finance</option><option value="Education">Education</option><option value="Manufacturing">Manufacturing</option><option value="Professional services">Professional services</option><option value="Retail">Retail</option><option value="Other">Other</option></select><FieldError>{errors.industry}</FieldError></label>
-                </div>
             </> : signingUp ? <>
                 <div className="field-row">
                     <label>First name<input value={firstName} onChange={(e) => setFirstName(e.target.value)} autoComplete="given-name" placeholder="eg. John"/><FieldError>{errors.firstName}</FieldError></label>

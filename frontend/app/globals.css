@@ -1,4 +1,67 @@
 @property --angle { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+@font-face {
+  font-family: "Gotham";
+  src: url("/Gotham-Font/Gotham-Font/GothamLight.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Gotham";
+  src: url("/Gotham-Font/Gotham-Font/GothamBook.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Gotham";
+  src: url("/Gotham-Font/Gotham-Font/GothamMedium.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Gotham";
+  src: url("/Gotham-Font/Gotham-Font/GothamBold.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Grift";
+  src: url("/grift-geometric-typeface/grift-light.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Grift";
+  src: url("/grift-geometric-typeface/grift-regular.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Grift";
+  src: url("/grift-geometric-typeface/grift-medium.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Grift";
+  src: url("/grift-geometric-typeface/grift-semibold.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Grift";
+  src: url("/grift-geometric-typeface/grift-bold.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+}
 :root {
   color-scheme: light;
   --cw-primary: #177687;
@@ -30,7 +93,8 @@
   --button-text: var(--p-surface);
   --card-radius: 18px;
   --shadow: 0 18px 55px oklch(0.18 0.012 70 / .08);
-  --font: "Gotham", "gritft-geometric-typeface", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font: "Gotham", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --display-font: "Grift", "Gotham", "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; scroll-padding-top: 88px; }
@@ -42,7 +106,7 @@ button { color: inherit; }
 button:disabled { cursor: not-allowed; opacity: .48; }
 img, svg { max-width: 100%; }
 h1, h2, h3, p { margin-top: 0; }
-h1, h2, h3 { line-height: 1.04; letter-spacing: -.045em; }
+h1, h2, h3 { font-family: var(--display-font); line-height: 1.04; letter-spacing: -.045em; }
 p { max-width: 70ch; }
 ul { padding: 0; list-style: none; }
 :focus-visible { outline: 3px solid var(--p-blue); outline-offset: 4px; }
@@ -74,7 +138,7 @@ ul { padding: 0; list-style: none; }
 .nav-actions { display: flex; align-items: center; gap: 22px; }.menu-button { display: none; width: 48px; height: 48px; background: transparent; border: 0; align-items: center; justify-content: center; }
 .landing { position: relative; }
 .landing .marketing-nav { position: absolute; top: 0; left: 0; right: 0; background: transparent; color: var(--p-surface); }.landing .marketing-nav .logo-mark i { background: var(--p-surface); }.landing .marketing-nav .button { --button-bg: var(--p-surface); --button-text: var(--p-red); }
-.hero { min-height: 100dvh; position: relative; overflow: hidden; background: var(--cw-gradient); color: var(--p-surface); padding: 156px 48px 80px; display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; align-items: center; }
+.hero { min-height: 100dvh; position: relative; overflow: hidden; background: url("/Hero%20bg.png") center / cover no-repeat; background-color: #072a2f; color: var(--p-surface); padding: 156px 48px 80px; display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; align-items: center; }
 .hero-grid-lines { position: absolute; inset: 0 20px; border-left: 1px solid oklch(1 0 0 / .2); border-right: 1px solid oklch(1 0 0 / .2); background: linear-gradient(90deg, transparent calc(8.333% - 1px), oklch(1 0 0 / .11) 8.333%, transparent calc(8.333% + 1px)); background-size: 8.333% 100%; pointer-events: none; }
 .hero-copy { grid-column: 1 / 8; position: relative; z-index: 1; padding: 20px 3vw 20px 1vw; }
 .hero-kicker { display: flex; align-items: center; gap: 10px; text-transform: uppercase; letter-spacing: .12em; font-size: 14px; font-weight: 600; margin-bottom: 40px; }
@@ -100,9 +164,9 @@ ul { padding: 0; list-style: none; }
 .how { background: var(--p-ink); color: var(--p-surface); max-width: none; padding-left: max(48px,calc((100vw - 1344px)/2)); padding-right: max(48px,calc((100vw - 1344px)/2)); }.how .section-label { color: var(--p-surface); opacity: .7; }.steps { display: grid; grid-template-columns: repeat(3,1fr); gap: 48px; margin-top: 72px; }.steps article > strong { font-size: 16px; letter-spacing: .12em; }.step-line { height: 1px; background: oklch(1 0 0 / .3); margin: 20px 0 32px; }.steps h3 { font-size: 32px; margin-bottom: 20px; }.steps p { color: var(--p-surface); opacity: .75; }
 .plans-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); max-width: 1320px; margin-inline: auto; gap: 20px; }.plan-card { position: relative; border: 1px solid var(--line); border-radius: var(--card-radius); background: var(--surface); padding: 34px; display: flex; flex-direction: column; }.plan-card.featured { border-color: var(--accent); }.plan-badge { position: absolute; right: 22px; top: 22px; font-size: 12px; text-transform: uppercase; letter-spacing: .1em; background: var(--p-soft-red); color: var(--p-red-dark); padding: 5px 10px; border-radius: 999px; }.plan-card h3 { font-size: 34px; margin: 34px 0 12px; }.plan-card > p { color: var(--muted); min-height: 58px; font-size: 17px; }.plan-price { display: flex; gap: 12px; align-items: center; margin: 20px 0; }.plan-price > strong { font-size: 64px; line-height: 1; letter-spacing: -.06em; }.plan-price > span { font-size: 14px; color: var(--muted); line-height: 1.35; }.savings { font-size: 14px; color: var(--p-blue); margin-top: -12px; }.plan-card ul { margin: 22px 0 30px; display: grid; gap: 13px; flex: 1; }.plan-card li { display: flex; gap: 10px; align-items: flex-start; font-size: 17px; }.plan-card li svg { color: var(--accent); flex-shrink: 0; margin-top: 3px; }
 .billing-toggle { display: inline-flex; padding: 4px; background: var(--p-line); border-radius: 999px; margin-bottom: 34px; }.billing-toggle button { border: 0; background: transparent; border-radius: 999px; min-height: 44px; padding: 9px 18px; font-weight: 600; }.billing-toggle button.active { background: var(--surface); box-shadow: 0 2px 8px oklch(0.18 0.012 70 / .08); }.billing-toggle button span { color: var(--accent); font-size: 13px; margin-left: 4px; }
-.pricing-section { background: var(--p-paper); max-width: none; padding-left: max(48px,calc((100vw - 1344px)/2)); padding-right: max(48px,calc((100vw - 1344px)/2)); }.pricing-section .section-heading { margin-bottom: 44px; }.plans-grid { gap: 16px; }.plan-card { min-height: 420px; padding: 30px; }.plan-card.featured { background: var(--cw-gradient); color: var(--p-surface); border-color: transparent; }.plan-card.featured .plan-price > span,.plan-card.featured li,.plan-card.featured h3 { color: var(--p-surface); }.plan-card.featured li svg { color: var(--cw-accent); }.plan-card.featured .button-light { --button-bg: var(--cw-accent); --button-text: var(--p-ink); }.plan-card h3 { margin: 0 0 18px; font-size: 28px; }.plan-card > p { min-height: 0; }.plan-price { margin: 0 0 18px; }.plan-price > strong { font-size: 52px; }.plan-card ul { margin: 16px 0 24px; }.plan-card li { font-size: 14px; }.plan-card .button { min-height: 44px; font-size: 14px; }
+.pricing-section { background: var(--p-paper); max-width: none; padding-left: max(48px,calc((100vw - 1344px)/2)); padding-right: max(48px,calc((100vw - 1344px)/2)); }.pricing-section .section-heading { margin-bottom: 44px; }.plans-grid { gap: 16px; }.plan-card { min-height: 420px; padding: 30px; }.plan-card.featured { background: url("/Price%20card%20bg.png") center / cover no-repeat; background-color: #072a2f; color: var(--p-surface); border-color: transparent; }.plan-card.featured .plan-price > span,.plan-card.featured li,.plan-card.featured h3 { color: var(--p-surface); }.plan-card.featured li svg { color: var(--cw-accent); }.plan-card.featured .button-light { --button-bg: var(--cw-accent); --button-text: var(--p-ink); }.plan-card h3 { margin: 0 0 18px; font-size: 28px; }.plan-card > p { min-height: 0; }.plan-price { margin: 0 0 18px; }.plan-price > strong { font-size: 52px; }.plan-card ul { margin: 16px 0 24px; }.plan-card li { font-size: 14px; }.plan-card .button { min-height: 44px; font-size: 14px; }
 .faq-section { border-top: 1px solid var(--line); }.faq-list { max-width: 1040px; margin-left: auto; }.faq-item { border-top: 1px solid var(--line); }.faq-item:last-child { border-bottom: 1px solid var(--line); }.faq-item > button { width: 100%; border: 0; background: transparent; display: flex; justify-content: space-between; align-items: center; text-align: left; gap: 20px; padding: 26px 0; font-size: 23px; font-weight: 600; }.faq-item > button svg { transition: transform .2s ease-out; }.faq-item.open > button svg { transform: rotate(180deg); }.faq-answer p { color: var(--muted); font-size: 19px; padding-bottom: 26px; margin: 0; }
-.cta-strip { background: var(--cw-gradient); color: var(--p-surface); padding: 70px max(48px,calc((100vw - 1344px)/2)); display: flex; align-items: center; justify-content: space-between; gap: 32px; }.cta-strip p { font-size: 18px; margin-bottom: 10px; }.cta-strip h2 { font-size: clamp(40px,4.5vw,68px); margin: 0; }
+.cta-strip { background: url("/Footwer%20CTA%20bg.png") center / cover no-repeat; background-color: #072a2f; color: var(--p-surface); padding: 70px max(48px,calc((100vw - 1344px)/2)); display: flex; align-items: center; justify-content: space-between; gap: 32px; }.cta-strip p { font-size: 18px; margin-bottom: 10px; }.cta-strip h2 { font-size: clamp(40px,4.5vw,68px); margin: 0; }
 .marketing-footer { background: var(--p-ink); color: var(--p-surface); padding: 70px 48px 28px; }.footer-top,.footer-bottom { max-width: 1344px; margin: 0 auto; }.footer-top { display: flex; justify-content: space-between; gap: 60px; padding-bottom: 70px; }.footer-top > div:first-child p { margin-top: 20px; opacity: .7; }.footer-links { display: flex; gap: 90px; }.footer-links > div { display: flex; flex-direction: column; gap: 10px; }.footer-links strong { margin-bottom: 8px; }.footer-links a { opacity: .72; font-size: 16px; min-height: 44px; display: flex; align-items: center; }.footer-links a:hover { opacity: 1; }.footer-bottom { border-top: 1px solid oklch(1 0 0 / .18); padding-top: 24px; display: flex; justify-content: space-between; gap: 24px; font-size: 14px; opacity: .7; }
 .reveal { opacity: 1; transform: translateY(28px) scale(.98); transition: transform .8s ease-out; }.reveal.is-visible { opacity: 1; transform: translateY(0) scale(1); }
 .page-main { min-height: 70dvh; }.page-hero { padding: 110px 48px 90px; max-width: 1440px; margin: 0 auto; }.page-hero h1 { font-size: clamp(62px,8vw,120px); margin-bottom: 34px; }.page-hero > p:last-child { font-size: 23px; max-width: 58ch; color: var(--muted); }.page-hero.compact h1 { font-size: clamp(56px,6vw,92px); }.pricing-page { padding-top: 30px; }.comparison { margin-top: 110px; }.comparison h2 { font-size: 46px; margin-bottom: 30px; }
@@ -397,19 +461,26 @@ label, fieldset { font-size: 17px; }label { display: grid; gap: 8px; font-weight
 
 /* Authentication layout */
 .auth-split {
+  height: 100dvh;
   min-height: 100dvh;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   background: #f8f8ff;
+  overflow: hidden;
 }
 .auth-hero {
-  min-height: calc(100dvh - 32px);
+  position: sticky;
+  top: 16px;
+  align-self: start;
+  height: calc(100dvh - 32px);
+  min-height: 0;
   margin: 16px 0 16px 16px;
   padding: clamp(32px, 3.2vw, 52px) clamp(28px, 3.2vw, 50px) 38px;
   border-radius: 38px;
   display: flex;
   flex-direction: column;
-  background: var(--cw-gradient);
+  background: url("/Login%20bg.png") center / cover no-repeat;
+  background-color: #072a2f;
   color: #fff;
   overflow: hidden;
 }
@@ -459,13 +530,17 @@ label, fieldset { font-size: 17px; }label { display: grid; gap: 8px; font-weight
 }
 .auth-panel {
   min-width: 0;
+  height: 100dvh;
   min-height: 100dvh;
   display: grid;
-  grid-template-rows: 1fr auto;
+  grid-template-rows: minmax(0, 1fr) auto;
   align-items: center;
   justify-items: center;
   padding: 42px clamp(32px, 5vw, 84px) 32px;
   background: #f8f8ff;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
 }
 .auth-panel .auth-form {
   align-self: center;
@@ -496,14 +571,18 @@ label, fieldset { font-size: 17px; }label { display: grid; gap: 8px; font-weight
   text-align: center;
 }
 .auth-role-toggle {
+  position: sticky;
+  top: 12px;
+  z-index: 5;
   width: fit-content;
   min-height: 48px;
-  margin: -18px auto 24px;
+  margin: 0 auto 26px;
   display: flex;
   padding: 4px;
   border: 1.5px solid #202020;
   border-radius: 999px;
   background: #202020;
+  box-shadow: 0 0 0 10px #f8f8ff;
 }
 .auth-role-toggle button {
   min-width: 116px;
@@ -692,10 +771,17 @@ label, fieldset { font-size: 17px; }label { display: grid; gap: 8px; font-weight
   width: min(100%, 510px);
   justify-self: center;
   align-items: flex-start;
+  gap: 12px;
   margin: 24px 0 0;
-  color: #858a91;
+  padding: 16px 18px;
+  border: 1px solid #dfe4e6;
+  border-radius: 16px;
+  background: #fff;
+  color: #686f75;
+  text-align: left;
 }
 .auth-panel .auth-privacy svg {
+  flex: 0 0 18px;
   width: 18px;
   height: 18px;
   margin-top: 2px;
@@ -703,8 +789,15 @@ label, fieldset { font-size: 17px; }label { display: grid; gap: 8px; font-weight
 }
 .auth-panel .auth-privacy p {
   max-width: none;
+  margin: 0;
   font-size: 12px;
-  line-height: 1.55;
+  line-height: 1.6;
+}
+.auth-panel .auth-privacy strong {
+  display: block;
+  margin-bottom: 3px;
+  color: #202020;
+  font-size: 13px;
 }
 .auth-panel .auth-privacy a {
   color: #177687;
@@ -721,18 +814,29 @@ label, fieldset { font-size: 17px; }label { display: grid; gap: 8px; font-weight
   grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr);
 }
 .auth-split.auth-signin .auth-panel {
-  align-items: start;
-  padding: 16px clamp(32px, 5vw, 84px) 24px;
+  align-items: center;
+  padding: 42px clamp(32px, 5vw, 84px) 32px;
 }
 .auth-split.auth-signin .auth-panel .auth-form {
-  align-self: start;
+  align-self: center;
 }
 .auth-split.auth-signin .auth-role-toggle {
-  min-height: 44px;
+  min-height: 48px;
   margin: 0 auto 26px;
 }
 .auth-split.auth-signin .auth-panel .auth-form h1 {
   font-size: clamp(38px, 2.8vw, 44px);
+}
+.auth-split.auth-signup .auth-panel {
+  display: block;
+  padding: 24px clamp(32px, 5vw, 84px) 28px;
+}
+.auth-split.auth-signup .auth-panel .auth-form {
+  width: min(100%, 440px);
+  margin: 0 auto;
+}
+.auth-split.auth-signup .auth-panel .auth-privacy {
+  margin: 26px auto 8px;
 }
 
 @media (max-width: 900px) {
@@ -756,15 +860,20 @@ label, fieldset { font-size: 17px; }label { display: grid; gap: 8px; font-weight
 @media (max-width: 640px) {
   .auth-split {
     display: block;
+    height: auto;
     min-height: 100dvh;
+    overflow: visible;
   }
   .auth-hero {
     display: none;
   }
   .auth-panel {
+    height: auto;
     min-height: 100dvh;
     align-content: center;
     padding: 32px 20px 24px;
+    overflow: visible;
+    scrollbar-gutter: auto;
   }
   .auth-panel .auth-form {
     width: min(100%, 440px);
@@ -772,6 +881,13 @@ label, fieldset { font-size: 17px; }label { display: grid; gap: 8px; font-weight
   }
   .auth-split.auth-signin .auth-panel .auth-form {
     align-self: center;
+  }
+  .auth-split.auth-signup .auth-panel {
+    display: block;
+    padding-top: 32px;
+  }
+  .auth-split.auth-signup .auth-panel .auth-form {
+    margin-inline: auto;
   }
   .auth-panel .auth-icon {
     width: 72px;
