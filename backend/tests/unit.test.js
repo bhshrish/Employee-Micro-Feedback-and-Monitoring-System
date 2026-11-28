@@ -120,29 +120,11 @@ describe("validation and date utilities", () => {
             (error) => error.code === "OAUTH_NOT_CONFIGURED",
         );
     });
-    it("requires Apple callbacks to use a public HTTPS domain", () => {
-        const appleSettings = {
-            NODE_ENV: "development",
-            APPLE_OAUTH_CLIENT_ID: "com.example.calmwork.web",
-            APPLE_OAUTH_TEAM_ID: "TEAM123",
-            APPLE_OAUTH_KEY_ID: "KEY123",
-            APPLE_OAUTH_PRIVATE_KEY: "test-private-key",
-            APPLE_OAUTH_REDIRECT_URI: "https://api.example.com/api/v1/auth/oauth/apple/callback",
-        };
-        assert.doesNotThrow(() => oauthService.providerSettings("apple", appleSettings));
-        for (const invalidUri of [
-            "http://localhost:4000/api/v1/auth/oauth/apple/callback",
-            "https://127.0.0.1/api/v1/auth/oauth/apple/callback",
-            "https://api.example.com/callback",
-        ]) {
-            assert.throws(
-                () => oauthService.providerSettings("apple", {
-                    ...appleSettings,
-                    APPLE_OAUTH_REDIRECT_URI: invalidUri,
-                }),
-                (error) => error.code === "OAUTH_NOT_CONFIGURED",
-            );
-        }
+    it("does not support Apple OAuth", () => {
+        assert.throws(
+            () => oauthService.providerSettings("apple", {}),
+            (error) => error.code === "OAUTH_PROVIDER_NOT_FOUND",
+        );
     });
     it("rejects unknown fields and ratings outside the pulse range", () => {
         assert.equal(pulseSchema.safeParse({ ...pulseAnswers, note: "extra" }).success, false);

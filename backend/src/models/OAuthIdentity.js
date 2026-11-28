@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.OAuthIdentity = void 0;
 const mongoose_1 = require("mongoose");
 const oauthIdentitySchema = new mongoose_1.Schema({
-    provider: { type: String, enum: ["google", "apple"], required: true },
+    provider: { type: String, enum: ["google"], required: true },
     subject: { type: String, required: true, maxlength: 255 },
     userId: { type: mongoose_1.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     email: { type: String, required: true, trim: true, lowercase: true },
